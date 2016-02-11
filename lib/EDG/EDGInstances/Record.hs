@@ -71,13 +71,6 @@ instance MonadConstrain EDGMonad (Ref Bool) where
 --         on the existence of a field in the state. So that we don't make a
 --         separate function for each monad.
 
--- | Get the equality class from the ref to a value
--- getValEqClassEDG :: Ref Value -> EDGMonad EqClassID
--- getValEqClassEDG a = do
---  meca <- uses @GS valInfo (Map.lookup a)
---  case meca of
---    Nothing -> throw $ "No Equality class found for Value `" ++ show a ++ "`."
---    Just (ValInfo{..}) -> return viEqClass
 
 -- | Get the equality class from the ref to a value
 getValEqClassSBV :: Ref Value -> SBVMonad EqClassID
@@ -87,16 +80,6 @@ getValEqClassSBV a = do
     Nothing -> throw $ "No Equality class found for Value `" ++ show a ++ "`."
     Just (ValInfo{..}) -> return viEqClass
 
--- -- | Get the equality class from the ref to a record
--- getRecEqClassEDG :: Ref Record -> EDGMonad EqClassID
--- getRecEqClassEDG a = do
---   meca <- uses @GS recInfo (Map.lookup a)
---   case meca of
---     Nothing -> do
---       state <- get @GS
---       trace (ppShow state)
---         (error $ "No Equality class found for Record `" ++ show a ++ "`.")
---     Just (RecInfo{..}) -> return riEqClass
 
 -- | Get the equality class from the ref to a record
 getRecEqClassSBV :: Ref Record -> SBVMonad EqClassID
@@ -122,14 +105,6 @@ getRecInfoSBV a = do
     Nothing -> throw $ "No RecInfo found for Record `" ++ show a ++ "`."
     Just v -> return v
 
--- | Get kind from the equality class
--- getEqClKindEDG :: String -> EqClassID -> EDGMonad (Kind' EqClassID)
--- getEqClKindEDG context ec = do
---   mk <- uses @GS classKind (Map.lookup ec)
---   case mk of
---     Just v -> return v
---     Nothing -> throw $ "Could not find kind for eqclass `" ++ show ec
---       ++ "` within context: " ++ context ++ "."
 
 -- | Get kind from the equality class
 getEqClKindSBV :: String -> EqClassID -> SBVMonad (Kind' EqClassID)
@@ -171,9 +146,35 @@ assertValKindEq context a b = do
   ecb <- trace ("vke-b:" ++ show b) $ getValEqClassEDG b
   if | eca == ecb -> return ()
      | otherwise  -> do
-          assertEQCKindEq context ("Value `" ++ show a ++ "`")
-            ("Value `" ++ show b ++ "`") eca ecb
-          return ()
+        ka <- getEqClKindEDG eca
+        kb <- getEqClKindEDG ecb
+        case (ka,kb) of
+          -- If we're merging something with a record, we have to actually
+          -- instantiate the new record.
+          (KVBot (), Record _) ->
+          (Record _, KVBot ()) ->
+          _ -> return ()
+        assertEQCKindEq context ("Value `" ++ show a ++ "`")
+          ("Value `" ++ show b ++ "`") eca ecb
+        return ()
+  where
+    -- | Get the equality class from the ref to a value
+    getValEqClassEDG :: Ref Value -> EDGMonad EqClassID
+    getValEqClassEDG a = do
+     meca <- uses @GS valInfo (Map.lookup a)
+     case meca of
+       Nothing -> throw $ "No Equality class found for Value `" ++ show a ++ "`."
+       Just (ValInfo{..}) -> return viEqClass
+
+    -- | Get kind from the equality class
+    getEqClKindEDG :: String -> EqClassID -> EDGMonad (Kind' EqClassID)
+    getEqClKindEDG context ec = do
+      mk <- uses @GS classKind (Map.lookup ec)
+      case mk of
+        Just v -> return v
+        Nothing -> throw $ "Could not find kind for eqclass `" ++ show ec
+          ++ "` within context: " ++ context ++ "."
+
 -- Mark that the kinds of these two records are equal, unifiying them as
 -- neccesary.
 assertRecKindEq :: String -> Ref Record -> Ref Record -> EDGMonad ()
@@ -186,6 +187,15 @@ assertRecKindEq context a b = do
           assertEQCKindEq context ("Record `" ++ show a ++ "`")
             ("Record `" ++ show b ++ "`") eca ecb
           return ()
+
+  where
+    -- | Get the equality class from the ref to a value
+    getValEqClassEDG :: Ref Value -> EDGMonad EqClassID
+    getValEqClassEDG a = do
+     meca <- uses @GS valInfo (Map.lookup a)
+     case meca of
+       Nothing -> throw $ "No Equality class found for Value `" ++ show a ++ "`."
+       Just (ValInfo{..}) -> return viEqClass
 
 -- | Given two equality classes, assert that they are equal.
 assertEQCKindEq :: String -- Context for this op (error messages)
