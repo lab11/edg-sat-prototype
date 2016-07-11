@@ -1,0 +1,37 @@
+###########
+# Haskell #
+###########
+
+dist
+cabal-dev
+*.o
+*.hi
+*.chi
+*.chs.h
+*.dyn_o
+*.dyn_hi
+.virtualenv
+.hpc
+.hsenv
+.cabal-sandbox/
+cabal.sandbox.config
+*.prof
+*.aux
+*.hp
+.stack-work/
+
+###############
+# OS-specific #
+###############
+.DS_Store
+
+###########
+# Vagrant #
+###########
+
+acceptance_config.yml
+boxes/*
+/.vagrant
+/website/docs/.vagrant
+/website/www/.vagrant
+/vagrant-spec.config.rb

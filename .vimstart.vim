@@ -1,0 +1,9 @@
+:e .vimstart.vim
+:tabnew .gitignore
+:tabnew NOTES.md
+:vsp README.md
+:tabnew Vagrantfile
+:tabnew edg-prototype.cabal
+:tabnew lib/EDG.hs 
+:tabnew lib/EDG/Library.hs
+:tabnew lib/EDG/Library/Element.hs

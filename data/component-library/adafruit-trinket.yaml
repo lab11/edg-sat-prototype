@@ -1,0 +1,138 @@
+... 
+############
+# Metadata #
+############
+
+# Short unique identifier for component at hand
+# short-name :: String
+short-name:  trinket-3v 
+
+# Longer more verbose name for use elsewhere? 
+# long-name :: String
+long-name: Adafruit Trinket 3v
+
+# Reference URL for Component
+# url :: URL
+url: https://www.adafruit.com/product/1500 
+
+# Price of given component at retrieval time
+# price :: Dollars
+price: $6.95
+
+# Class of component to be found? might help organizing component db
+# class :: String
+class: MCU
+
+# Notes for my own use, nothing of huge import 
+# notes :: Text 
+notes: |
+  The trinket is the simplest microcontroller I'm going to be using in the 
+  prototype but it already captures a complicated array of internal
+  relationships and properties. 
+
+##################
+# Type Signature #
+##################
+
+# TODO) General device properties 
+# cpu-architecture : AVR 
+# programmable-memory : 5 kilo bytes
+# clock-speed : 8 MHz (5v can also do 16 MHz) 
+# power draw when running: < 12 milliamps (5v pulls < 14 mA when @ 16 MHz)
+# stack-memory : 512 bytes 
+# non-volatile EEPROM : 512 bytes? 
+# TODO) Charecteristics on reset/brownout? 
+
+# TODO) Restrictions on parent environment 
+
+# TODO) Definition of child environments
+
+# Device resources like pins or internal peripherals. 
+resources:
+  - name: "USB Power/Programing" # TODO) Decide whether this should be a resource 
+    type: Micro USB Port 
+  - name: "USB+" 
+    type: Pin
+  - name: "3v" 
+    type: Pin
+  - name: "Rst" # TODO) Consider ignoring the reset pin completely 
+    type: Pin
+    # Reset low
+  - name: "Gnd" 
+    type: Pin
+  - name: "Bat+" 
+    type: Pin
+  - name: "#0" 
+    type: Pin 
+  - name: "#1" 
+    type: Pin 
+  - name: "#2" 
+    type: Pin 
+  - name: "#3" 
+    type: Pin 
+  - name: "#4" 
+    type: Pin
+
+# The actual ports that the MCU will present to the inside/outside world
+ports: 
+  - name: "GPIO 0" 
+    type: GPIO
+    resources-used:
+      - "#0"
+    # Has optional pull-up resistor 
+    # When driver is pulled down, output can go to 0.6v @ 20 mA 
+    #   (linearly from 0v @ 0 mA)
+    # When driver is pulled up, output can go to 24v @ 20 mA
+    #   (linearly from 3v @ o mA)
+    # Rise and fall in the 1-2 microsecond range? 
+  - name: "Analog In 1" # ADC? 
+    type: Analog I 
+    resources-used:
+      - "#2" # 1 => '#2', 2 => '#4', 3 => '#3' 
+    # 10 bit ADC ~ call it 8 units of error? 
+    # 100 mega ohm input resistance 
+    # range is ground to vref 
+  - name: "I2C" 
+    type: I2C
+    resources-used: 
+      - {SDA:"#0", SCL:"#2"}
+    # TODO) Decide how to work with multiple possible speeds here 
+    # Possible speeds: 10kHz, 100kHz, 400kHz, 1mHz. (probably :V) 
+  - name: "SPI"
+    type: SPI 
+    resources-used: 
+      - {MOSI:"#0", MISO:"#1", SCK:"#2"}
+    # Plus a SS from GPIOs (actually, could use multiple) 
+    # Both clock-polarities & clock phases available in all 4 combinations 
+    # Both MSBFIRST and LSBFIRST
+    # max speed 10 MHz (possibly 8 if clock limited?) 
+    #   TODO) check if SPI lib for this automatically uses corredt clock
+    #         dividers. 
+  - name: "Timer Module" 
+    # The internal timer multiplexer module
+    # I'm just going to assume millisecond resolution even though it can do a
+    # lot better than that :P, 
+  - name: "USB Power Out" 
+    # 500 mA trhough USB+ , 150 mA (additive) from 3.3v + 5mA of ground
+    #   current when full 150mA load exists. When USB is plugged in. 
+  - name: "USB Power in" 
+    # Is the USB port connected? 
+  - name: "Ext Power in" 
+    # must be 4.3v to 16v in + power from 3.3v Out + MCU power draw + buffer? 
+  - name: "3.3v Power" 
+    # Max 150 mA, requires either usb power in or ext power in to work, 
+    # will alwys be on iff 
+    # Can also be 3.3v power in iff well regulated and dioded off
+
+# TODO) Represent shared ground pins somehow 
+# TODO) Neccesary ports for functioning 
+
+####################
+# Reification Data #
+####################
+
+# TODO) All of this, lots of files, instructions on connections and the 
+#       like should be linked. 
+
+---
+

@@ -1,0 +1,341 @@
+...
+############
+# Metadata #
+############
+
+# Short unique identifier for component at hand
+# short-name :: String
+short-name:  MLX-90614BAA
+
+# Longer more verbose name for use elsewhere? 
+# long-name :: String
+long-name: MLX-90614 Infrared Thermometer
+
+# Reference URL for Component
+# url :: URL
+url: https://www.sparkfun.com/products/9570
+
+# List of resources for more information
+# resources :: [(Label => URL)]
+resources: 
+  hookup-guide: https://learn.sparkfun.com/tutorials/mlx90614-ir-thermometer-hookup-guide
+  datasheet: http://www.sparkfun.com/datasheets/Sensors/Temperature/SEN-09570-datasheet-3901090614M005.pdf 
+
+# Price of given component at retrieval time
+# price :: Dollars
+price: $19.95
+
+# Class of component to be found? might help organizing component db
+# class :: String
+class: Infrared Thermometer
+
+# Notes for my own use, nothing of huge import 
+# notes :: Text 
+notes: |
+  Non-contact thermometer that communicates over I2C. Pins are numbered from 
+  the tab, going counter clockwise looking at it from above.
+
+##################
+# Type Signature #
+##################
+
+# TODO) General Device properties 
+# Operating temp range : -40 to 125 C 
+# Storage Temp Range : -40 to 125 c 
+# Field of view : 90 degrees 
+
+resources:
+  - name: "#1 SCL" 
+    type: Pin 
+  - name: "#2 SDA" 
+    type: Pin 
+  - name: "#3 Vdd" 
+    type: Pin 
+  - name: "#4 Vss" 
+    type: Pin
+
+
+# The actual ports that the MCU will present to the inside/outside world
+ports: 
+  - name: "I2C" 
+    type: I2C
+    resources-used: 
+      - {SDA:"#2 SDA", SCL:"#1 SCL"}
+    connected-components:
+      - {address: "0x5A", interface: "MLX-90614 I2C"}
+    # TODO) Decide how to work with multiple possible speeds here 
+    # Possible speeds: 10kHz, 100kHz, 400kHz, 1mHz. (prob
+    # Requires CRC that should be in the driver code
+  - name: "Power" 
+    type: Power
+    supply-range: {min: "2.4v", max: "3.6v", expected: "3v"}
+    power-draw: 4mA 
+
+# TODO) Represent shared ground pins somehow 
+# TODO) Neccesary ports for functioning 
+
+####################
+# Reification Data #
+####################
+---
+...
+############
+# Metadata #
+############
+
+# Short unique identifier for component at hand
+# short-name :: String
+short-name:  MLX-90614 Driver
+
+# Longer more verbose name for use elsewhere? 
+# long-name :: String
+long-name: Infrared Thermometer Driver
+
+# Reference URL for Component
+# url :: URL
+url: https://github.com/sparkfun/SparkFun_MLX90614_Arduino_Library
+
+# List of resources for more information
+# resources :: [(Label => URL)]
+resources: 
+
+# Price of given component at retrieval time
+# price :: Dollars
+price: $19.95
+
+# Class of component to be found? might help organizing component db
+# class :: String
+class: Infrared Thermometer
+
+# Notes for my own use, nothing of huge import 
+# notes :: Text 
+notes: |
+  Non-contact thermometer that communicates over I2C. Pins are numbered from 
+  the tab, going counter clockwise looking at it from above.
+
+##################
+# Type Signature #
+##################
+
+# TODO) General Device properties 
+# Operating temp range : -40 to 125 C 
+# Storage Temp Range : -40 to 125 c 
+# Field of view : 90 degrees 
+
+resources:
+  - name: "#1 SCL" 
+    type: Pin 
+  - name: "#2 SDA" 
+    type: Pin 
+  - name: "#3 Vdd" 
+    type: Pin 
+  - name: "#4 Vss" 
+    type: Pin
+
+# The actual ports that the MCU will present to the inside/outside world
+ports: 
+  - name: "I2C" 
+    type: I2C
+    resources-used: 
+      - {SDA:"#2 SDA", SCL:"#1 SCL"}
+    connected-components:
+      - {address: "0x5A", interface: "MLX-90614 I2C"}
+    # TODO) Decide how to work with multiple possible speeds here 
+    # Possible speeds: 10kHz, 100kHz
+    # Requires CRC that should be in the driver code
+  - name: "Power" 
+    type: Power
+    resources-used: {vcc: "#3 Vdd", gnd: "#4 vss"} 
+    supply-range: {min: "2.4v", max: "3.6v", expected: "3v"}
+    current-draw: 4mA 
+
+# TODO) Neccesary ports for functioning 
+
+####################
+# Reification Data #
+####################
+---
+
+... 
+############
+# Metadata #
+############
+
+# Short unique identifier for component at hand
+# short-name :: String
+short-name:  MLX-90614-Eval-Board
+
+# Longer more verbose name for use elsewhere? 
+# long-name :: String
+long-name: Sparkfun IR Thermometer Evaluation Board  
+
+# Reference URL for Component
+# url :: URL
+url: https://www.sparkfun.com/products/10740
+
+# TODO) Add links to resources like schematia and stuff
+
+# Price of given component at retrieval time
+# price :: Dollars
+price: $49.95
+
+# Class of component to be found? might help organizing component db
+# class :: String
+class: MCU 
+
+
+# Notes for my own use, nothing of huge import 
+# notes :: Text 
+notes: |
+  This board is super interesting, it has both a MCU as well as a built in 
+  thermometer attached to the I2C bus. The thermometer could presumably be 
+  used alone, but it would be super weird. However, device generation should 
+  be able to pull the thing in if it's the only thermometer capable part in
+  the library. 
+
+##################
+# Type Signature #
+##################
+
+# TODO) General device properties 
+# cpu-architecture : AVR 
+# programmable-memory : 32 kilo bytes
+# clock-speed : [4 - 10] MHz 
+# power draw when running: < 22 mA 
+#   processor: 5-8 mA (linear w/ clock, big overestimate, 3-5 mA on datasheet) 
+#   therm: 4 mA (should be 2, but overestimate) 
+#   regulator: 10mA ? (No part number so vastly overshooting) 
+#     It should be able to provide at least 100mA iff suffcient powersource is 
+#     connected. 
+# stack-memory : 2 k bytes 
+# non-volatile EEPROM : 1 k bytes
+#
+# TODO) Charecteristics on reset/brownout? 
+
+# TODO) Restrictions on parent environment 
+
+# TODO) Definition of child environments
+
+# Device resources like pins or internal peripherals. 
+resources:
+  - name: "SPI Header GND 0" 
+    header: Serial Programming Header
+    type: pin
+  - name: "SPI Header GND 1" 
+    header: Serial Programming Header
+    type: pin
+  - name: "SPI Header TX" 
+    header: Serial Programming Header
+    type: pin
+  - name: "SPI Header RX" 
+    header: Serial Programming Header
+    type: pin
+  - name: "SPI Header DTR" 
+    header: Serial Programming Header
+    type: pin
+  - name: "GPIO Header 3.3v" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header GND" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header 0" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header 1" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header 2" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header 3" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header 4" 
+    header: GPIO Header 
+    type: pin
+  - name: "GPIO Header 5" 
+    header: GPIO Header 
+    type: pin
+  - name: "ICSP Header RST" 
+    header: ICSP Header 
+    type: pin
+  - name: "ICSP Header GND" 
+    header: ICSP Header 
+    type: pin
+  - name: "ICSP Header SCK" 
+    header: ICSP Header 
+    type: pin
+  - name: "ICSP Header MOSI" 
+    header: ICSP Header 
+    type: pin
+  - name: "ICSP Header MISO" 
+    header: ICSP Header 
+    type: pin
+  - name: "ICSP Header VCC" 
+    header: ICSP Header 
+    type: pin
+
+
+# The actual ports that the MCU will present to the inside/outside world
+ports:
+# TODO) This bit
+#   - name: "GPIO 0" 
+#     type: GPIO
+#     resources-used:
+#       - "#0"
+#     # Has optional pull-up resistor 
+#     # When driver is pulled down, output can go to 0.6v @ 20 mA 
+#     #   (linearly from 0v @ 0 mA)
+#     # When driver is pulled up, output can go to 24v @ 20 mA
+#     #   (linearly from 3v @ o mA)
+#     # Rise and fall in the 1-2 microsecond range? 
+#   - name: "Analog In 1" # ADC? 
+#     type: Analog I 
+#     resources-used:
+#       - "#2" # 1 => '#2', 2 => '#4', 3 => '#3' 
+#     # 10 bit ADC ~ call it 8 units of error? 
+#     # 100 mega ohm input resistance 
+#     # range is ground to vref 
+#   - name: "I2C" 
+#     type: I2C
+#     resources-used: 
+#       - {SDA:"#0", SCL:"#2"}
+#     # TODO) Decide how to work with multiple possible speeds here 
+#     # Possible speeds: 10kHz, 100kHz, 400kHz, 1mHz. (probably :V) 
+#   - name: "SPI"
+#     type: SPI 
+#     resources-used: 
+#       - {MOSI:"#0", MISO:"#1", SCK:"#2"}
+#     # Plus a SS from GPIOs (actually, could use multiple) 
+#     # Both clock-polarities & clock phases available in all 4 combinations 
+#     # Both MSBFIRST and LSBFIRST
+#     # max speed 10 MHz (possibly 8 if clock limited?) 
+#     #   TODO) check if SPI lib for this automatically uses corredt clock
+#     #         dividers. 
+#   - name: "Timer Module" 
+#     # The internal timer multiplexer module
+#     # I'm just going to assume millisecond resolution even though it can do a
+#     # lot better than that :P, 
+#   - name: "USB Power Out" 
+#     # 500 mA trhough USB+ , 150 mA (additive) from 3.3v + 5mA of ground
+#     #   current when full 150mA load exists. When USB is plugged in. 
+#   - name: "USB Power in" 
+#     # Is the USB port connected? 
+#   - name: "Ext Power in" 
+#     # must be 4.3v to 16v in + power from 3.3v Out + MCU power draw + buffer? 
+#   - name: "3.3v Power" 
+#     # Max 150 mA, requires either usb power in or ext power in to work, 
+#     # will alwys be on iff 
+#     # Can also be 3.3v power in iff well regulated and dioded off
+
+# TODO) Represent shared ground pins somehow 
+# TODO) Neccesary ports for functioning 
+
+####################
+# Reification Data #
+####################
+
+# TODO) All of this, lots of files, instructions on connections and the 
+#       like should be linked. 
+
