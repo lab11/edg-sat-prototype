@@ -28,8 +28,9 @@ library
   -- Modules exported by the library.
   exposed-modules:
     EDG
+    EDG.Algebra
+    EDG.Algebra.GenOrd
     EDG.Library
-    EDG.Library.Element
 
   -- Modules included in this library but not exported.
   other-modules:
@@ -50,6 +51,8 @@ library
     KindSignatures
     ScopedTypeVariables
     ConstraintKinds
+    NamedFieldPuns
+    RecordWildCards
     InstanceSigs
     DataKinds
     LambdaCase
@@ -63,6 +66,8 @@ library
     -- Used for Lens operations 
     lens >= 4.12.3,
     template-haskell >= 2.10,
+    -- Lattice Ordering Types
+    lattices >= 1.5.0,
     -- Basic Containers
     containers,
     -- heaps >= 0.3.2.1,
