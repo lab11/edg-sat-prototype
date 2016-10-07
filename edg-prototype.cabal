@@ -31,6 +31,8 @@ library
     EDG.Algebra
     EDG.Algebra.GenOrd
     EDG.Library
+    EDG.Library.Types
+    EDG.Library.Types.Range
 
   -- Modules included in this library but not exported.
   other-modules:
@@ -42,6 +44,8 @@ library
     FunctionalDependencies
     ExistentialQuantification
     GeneralizedNewtypeDeriving 
+    DuplicateRecordFields
+    OverloadedLabels
     TypeFamilies
     EmptyDataDecls
     TemplateHaskell
@@ -62,12 +66,15 @@ library
 
   -- Other library packages from which modules are imported.
   build-depends:
-    base >=4.8 && <4.9,
+    base >=4.9,
     -- Used for Lens operations 
     lens >= 4.12.3,
     template-haskell >= 2.10,
     -- Lattice Ordering Types
     lattices >= 1.5.0,
+    -- Used to help compose and decompose newtypes, and for the corresponding
+    -- Utility functions. 
+    newtype >= 0.2,
     -- Basic Containers
     containers,
     -- heaps >= 0.3.2.1,
@@ -145,7 +152,9 @@ test-suite edg-prototype-test
     MultiParamTypeClasses 
     FunctionalDependencies
     ExistentialQuantification
-    GeneralizedNewtypeDeriving 
+    GeneralizedNewtypeDeriving
+    DuplicateRecordFields
+    OverloadedLabels
     TypeFamilies
     EmptyDataDecls
     TemplateHaskell
