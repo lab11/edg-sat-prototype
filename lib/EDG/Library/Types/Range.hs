@@ -5,11 +5,9 @@ import Algebra.PartialOrd
 import Algebra.Lattice
 import EDG.Algebra.GenOrd
 
-import Control.Newtype
-
 import Data.Maybe (fromMaybe)
 
--- TODO: Modify to cover inclusive and exclusive range ending tyvm
+-- TODO: Modify to cover inclusive and exclusive ranges
 
 -- | A Range with a partial order for intersection, as well as corresponding
 --   meets and joins. Where a < b if b is a subset of a

@@ -5,6 +5,11 @@ module EDG.Library.Types where
 
 
 
+-- data LibType = ...
+
+
+
+
 -- TODO:
 --  - IDs
 --  - Integers

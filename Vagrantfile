@@ -36,7 +36,12 @@ Vagrant.configure(2) do |config|
     sudo apt-get install wget curl fish htop git subversion -y
     sudo apt-get install software-properties-common tree -y 
   SHELL
-  
+
+  # Install Z3 theorem prover
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo apt-get install z3 -y
+  SHELL
+
   # Install Stack, Cabal, and Haskell
   config.vm.provision "shell", inline: <<-SHELL
     sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 575159689BEFB442
