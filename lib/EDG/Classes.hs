@@ -3,8 +3,15 @@ module EDG.Classes where
 
 import Data.Maybe (fromMaybe)
 
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+
 import Algebra.PartialOrd
 import Algebra.Lattice
+
+
+import Data.SBV
 
 -- | Class for elements that can be represented as either a concrete value or
 --   a set of constraints on the concrete value.
@@ -115,8 +122,74 @@ instance (Eq t) => JoinSemiLattice (Ambiguous t) where
 instance (Eq t, Constrainable t) => BoundedJoinSemiLattice (Ambiguous t) where
   bottom = Abstract bottom
 
+-- ## Typeclasses for various common constraints ##
+
+type IsInclusive = Bool
+
+class OneOfConstraint t where
+  oneOf :: (Constrainable t) => [t] -> Constraints t
+  is    :: (Constrainable t) =>  t  -> Constraints t
+
+class NoneOfConstraint t where
+  noneOf :: (Constrainable t) => [t] -> Constraints t
+  isNot  :: (Constrainable t) =>  t  -> Constraints t
+
+
+class GTConstraint t where
+  greaterThan   :: (Constrainable t) => t -> Constraints t
+  greaterThanEq :: (Constrainable t) => t -> Constraints t
+
+class LTConstraint t where
+  lessThan   :: (Constrainable t) => t -> Constraints t
+  lessThanEq :: (Constrainable t) => t -> Constraints t
+
+
+data IntConstraints = IntConstraints {
+    icOneOf       :: [Int]
+  , icNoneOf      :: [Int]
+  , icLessThan    :: Maybe (Int, IsInclusive)
+  , icGreaterThan :: Maybe (Int, IsInclusive)
+  }
+
+data AlgRealConstraints = ARConstraints {
+    arcOneOf :: [AlgReal]
+  , arcNoneOf :: [AlgReal]
+  , arcLessThan :: Maybe (AlgReal, IsInclusive)
+  , arcGreaterThan :: Maybe (AlgReal, IsInclusive)
+  }
+
+data StrConstraints = SConstraints {
+    scOneOf :: [String]
+  , scNoneOF :: [String]
+  }
+
+
+data UID = UID
+
+data UIDConstraints = UIDConstraints
+
+type FieldName = String
+
+data Field
+  = StrField String
+  | IntField Int
+  | AlgRealField AlgReal
+  | UIDField UID
+  | RField (Record Field)
+
+data FieldConstraints
+  = SFConstraints StrConstraints
+  | IFConstraints IntConstraints
+  | ARFConstraints AlgRealConstraints
+  | UFConstraints UIDConstraints
+  | RFConstraints (RecordConstraints Field)
+
+data Record f = Record (Map FieldName f)
+
+data RecordConstraints f = RecContraints {
+    rcFieldConstraints :: Map FieldName (Ambiguous f)
+  }
 
 -- Int
 -- String
--- Range
 -- Field
