@@ -29,10 +29,9 @@ library
   exposed-modules:
     EDG
     EDG.Algebra
-    EDG.Algebra.GenOrd
+    EDG.Classes
     EDG.Library
     EDG.Library.Types
-    EDG.Library.Types.Range
 
   -- Modules included in this library but not exported.
   other-modules:
@@ -43,7 +42,8 @@ library
     MultiParamTypeClasses 
     FunctionalDependencies
     ExistentialQuantification
-    GeneralizedNewtypeDeriving 
+    GeneralizedNewtypeDeriving
+    GADTs
     DuplicateRecordFields
     OverloadedLabels
     TypeFamilies
@@ -61,7 +61,7 @@ library
     DataKinds
     LambdaCase
     OverloadedStrings
-    -- OverloadedLists
+    OverloadedLists
     TupleSections
 
   -- Other library packages from which modules are imported.
