@@ -8,9 +8,9 @@ import Algebra.Lattice
 
 -- | Class for elements that can be represented as either a concrete value or
 --   a set of constraints on the concrete value.
-class ( BoundedJoinSemiLattice (Constraints t)
-      , PartialOrd (Constraints t)
-      ) => Constrainable t where
+class ( BoundedJoinSemiLattice t
+      , PartialOrd t
+      ) => Constraint t where
 
   -- | The type of the constraints that can be placed on t, should be a
   --   bounded join semilattice such that:
@@ -31,30 +31,30 @@ class ( BoundedJoinSemiLattice (Constraints t)
   --
   -- TODO :: Add quickcheck(/SBV?) test generator for constraint properties.
   --
-  data Constraints t :: *
+  data Constraining t :: *
 
   -- | Given a set of constraints on a value, and a value, return whether the
   --   value matches the set of constraints.
-  validate :: Constraints t -> t -> Bool
+  validate :: t -> Constraining t -> Bool
 
   -- | Given a set of constraints, check whether the constraints are realizable
   --   and there might exist a concrete element of that type.
   --
   --   This gets called often as part of the normalization procedure of an
   --   ambiguous value and any implementation should be fast.
-  consistent :: Constraints t -> Bool
+  consistent :: t -> Bool
 
   -- | If a set of constraints can be reduced to a single value return Just
   --   that value. Otherwise return Nothing.
   --
   --   This gets called often as part of the normalization procedure of an
   --   ambiguous value and any implementation should be fast.
-  collapse :: Constraints t -> Maybe t
+  collapse :: t -> Maybe (Constraining t)
 
 
 -- | Check whether a set of constraints are non-realizable and that there
 --   exist no values that can satisfy them.
-inconsistent :: (Constrainable t) => Constraints t -> Bool
+inconsistent :: (Constraint t) => t -> Bool
 inconsistent = not . consistent
 
 -- | Can a set of constraints be collapsed into a value that's equal to
@@ -63,17 +63,17 @@ inconsistent = not . consistent
 --   TODO :: Make sure this isn't exported from the module it's found in, it's
 --           primarily a helper function for the various bollean realtions we
 --           have to define.
-collapseEq :: (Constrainable t, Eq t) => Constraints t -> t -> Bool
+collapseEq :: (Constraint t, Eq t) => t -> Constraining t -> Bool
 collapseEq c t = fromMaybe False $ (t ==) <$> collapse c
 
 -- | A value that can capture a space of possible values of type t.
 data Ambiguous t where
   -- | A single concrete value of type t.
   --   "I am <value> of type t"
-  Concrete   ::  t -> Ambiguous t
+  Concrete   :: (Constraint t) => Constraining t -> Ambiguous t
   -- | An abstract set of constraints over elements of type t
   --   "There is a range of values of type t that I could be"
-  Abstract   :: (Constrainable t) => (Constraints t) -> Ambiguous t
+  Abstract   :: t-> Ambiguous t
   -- | An overconstrained value, such that there is not real value that it
   --   could represent.
   --   "I cannot exist"
