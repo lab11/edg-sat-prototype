@@ -63,6 +63,7 @@ library
     OverloadedStrings
     OverloadedLists
     TupleSections
+    StandaloneDeriving
 
   -- Other library packages from which modules are imported.
   build-depends:

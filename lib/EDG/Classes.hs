@@ -1,16 +1,27 @@
+{-# LANGUAGE UndecidableInstances #-}
 
 module EDG.Classes where
 
 import Data.Maybe (fromMaybe)
 
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+import Data.Set (Set)
+import qualified Data.Set as Set
+
 import Algebra.PartialOrd
 import Algebra.Lattice
+
+import Text.ParserCombinators.ReadP
+
+import Data.SBV
 
 -- | Class for elements that can be represented as either a concrete value or
 --   a set of constraints on the concrete value.
 class ( BoundedJoinSemiLattice c
       , PartialOrd c
-      ) => Constrainable t c | c -> t where
+      ) => Constrainable t c | c -> t, t -> c where
 
   -- | The type of the constraints that can be placed on t, should be a
   --   bounded join semilattice such that:
@@ -66,19 +77,34 @@ collapseEq :: (Constrainable t c, Eq t) => c -> t -> Bool
 collapseEq c t = fromMaybe False $ (t ==) <$> collapse c
 
 -- | A value that can capture a space of possible values of type t.
-data Ambiguous t where
+data Ambiguous t c where
   -- | A single concrete value of type t.
   --   "I am <value> of type t"
-  Concrete   ::  t -> Ambiguous t
+  Concrete   :: (Constrainable t c) => t -> Ambiguous t c
   -- | An abstract set of constraints over elements of type t
   --   "There is a range of values of type t that I could be"
-  Abstract   :: (Constrainable t c) => c -> Ambiguous t
+  Abstract   :: (Constrainable t c) => c -> Ambiguous t c
   -- | An overconstrained value, such that there is not real value that it
   --   could represent.
   --   "I cannot exist"
-  Impossible :: Ambiguous t
+  Impossible :: Ambiguous t c
 
-instance (Eq t) => Eq (Ambiguous t) where
+instance (Constrainable t c, Show t, Show c) => Show (Ambiguous t c) where
+  showsPrec d (Concrete t)
+    = showParen (d > app_prec) $ showString "Concrete " . showsPrec (app_prec + 1) t
+      where app_prec = 10
+  showsPrec d (Abstract c)
+    = showParen (d > app_prec) $ showString "Abstract " . showsPrec (app_prec + 1) c
+      where app_prec = 10
+  showsPrec d (Impossible)
+    = showParen (d > app_prec) $ showString "Impossible"
+      where app_prec = 10
+
+instance (Constrainable t c, Read t, Read c) => Read (Ambiguous t c) where
+  readsPrec = undefined
+
+
+instance (Eq t) => Eq (Ambiguous t c) where
   (==) (Concrete t) (Concrete t') = t == t'
   (==) (Concrete t) (Abstract c') = collapseEq c' t
   (==) (Concrete _) (Impossible ) = False
@@ -89,7 +115,7 @@ instance (Eq t) => Eq (Ambiguous t) where
   (==) (Impossible) (Abstract c') = inconsistent c'
   (==) (Impossible) (Impossible ) = True
 
-instance (Eq t) => PartialOrd (Ambiguous t) where
+instance (Eq t) => PartialOrd (Ambiguous t c) where
   leq (Concrete t) (Concrete t') = t == t'
   leq (Concrete t) (Abstract c') = collapseEq c' t
   leq (Concrete t) (Impossible ) = True
@@ -100,7 +126,7 @@ instance (Eq t) => PartialOrd (Ambiguous t) where
   leq (Impossible) (Abstract c') = inconsistent c'
   leq (Impossible) (Impossible ) = True
 
-instance (Eq t) => JoinSemiLattice (Ambiguous t) where
+instance (Eq t) => JoinSemiLattice (Ambiguous t c) where
   (\/)   (Impossible)    _             = Impossible
   (\/)   _               (Impossible ) = Impossible
   (\/) a@(Concrete t)    (Concrete t') = if t == t'        then a  else Impossible
@@ -111,11 +137,98 @@ instance (Eq t) => JoinSemiLattice (Ambiguous t) where
     | otherwise        = fromMaybe (Abstract c'') (Concrete <$> collapse c'')
     where c'' = c \/ c'
 
-instance (Eq t, Constrainable t c) => BoundedJoinSemiLattice (Ambiguous t) where
+instance (Eq t, Constrainable t c) => BoundedJoinSemiLattice (Ambiguous t c) where
   bottom = Abstract bottom
 
+-- ## Typeclasses for various common constraints ##
 
--- Int
+type IsInclusive = Bool
+
+class OneOfConstraint t where
+  oneOf :: (Constrainable t c) => [t] -> c
+  is    :: (Constrainable t c) =>  t  -> c
+
+class NoneOfConstraint t where
+  noneOf :: (Constrainable t c) => [t] -> c
+  isNot  :: (Constrainable t c) =>  t  -> c
+
+class GTConstraint t where
+  greaterThan   :: (Constrainable t c) => t -> c
+  greaterThanEq :: (Constrainable t c) => t -> c
+
+class LTConstraint t where
+  lessThan   :: (Constrainable t c) => t -> c
+  lessThanEq :: (Constrainable t c) => t -> c
+
+class UniqConstraint t where
+  unique :: (Constrainable t c) => c
+
+data IntConstraints = IntConstraints {
+    icOneOf       :: Maybe (Set Int)
+  , icNoneOf      :: Maybe (Set Int)
+  , icLessThan    :: Maybe (Int, IsInclusive)
+  , icGreaterThan :: Maybe (Int, IsInclusive)
+  } deriving (Show, Read, Eq)
+
+data FloatConstraints = FloatConstraints {
+    fcOneOf       :: Maybe (Set Float)
+  , fcNoneOf      :: Maybe (Set Float)
+  , fcLessThan    :: Maybe (Float, IsInclusive)
+  , fcGreaterThan :: Maybe (Float, IsInclusive)
+  } deriving (Show, Read, Eq)
+
+data StrConstraints = SConstraints {
+    scOneOf  :: Maybe (Set String)
+  , scNoneOF :: Maybe (Set String)
+  } deriving (Show, Read, Eq)
+
+data UID = UID Int
+  deriving (Show, Read, Eq)
+
+data UIDConstraints = UIDConstraints {
+    ucIsNew :: Bool
+  } deriving (Show, Read, Eq)
+
+type FieldName = String
+
+data Record f = Record (Map FieldName f)
+  deriving (Show, Read, Eq)
+
+data RecordConstraints f c= RecContraints {
+    rcFieldConstraints :: Map FieldName (Ambiguous f c)
+  } deriving (Show, Read, Eq)
+
+data TypeVal
+  = StrVal String
+  | IntVal Int
+  | FltVal Float
+  | UIDVal UID
+  | RecVal (Record TypeVal)
+  deriving (Show, Read, Eq)
+
+data TypeValConstraints
+  = SVConstraints StrConstraints
+  | IVConstraints IntConstraints
+  | FVConstraints FloatConstraints
+  | UVConstraints UIDConstraints
+  | RVConstraints (RecordConstraints TypeVal TypeValConstraints)
+  | Inconsistent
+  deriving (Show, Read, Eq)
+
+instance PartialOrd TypeValConstraints where
+  leq = undefined
+
+instance JoinSemiLattice TypeValConstraints where
+  (\/) = undefined
+
+instance BoundedJoinSemiLattice TypeValConstraints where
+  bottom = undefined
+
+instance Constrainable TypeVal TypeValConstraints where
+  validate = undefined
+  consistent = undefined
+  collapse = undefined
+-- Inte
 -- String
 -- Range t = PartialOrd t =>
 --
