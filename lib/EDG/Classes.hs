@@ -6,10 +6,13 @@ import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Algebra.PartialOrd
 import Algebra.Lattice
 
+import Text.ParserCombinators.ReadP
 
 import Data.SBV
 
@@ -17,6 +20,8 @@ import Data.SBV
 --   a set of constraints on the concrete value.
 class ( BoundedJoinSemiLattice (Constraints t)
       , PartialOrd (Constraints t)
+      , Show (Constraints t)
+      , Read (Constraints t)
       ) => Constrainable t where
 
   -- | The type of the constraints that can be placed on t, should be a
@@ -38,7 +43,7 @@ class ( BoundedJoinSemiLattice (Constraints t)
   --
   -- TODO :: Add quickcheck(/SBV?) test generator for constraint properties.
   --
-  data Constraints t :: *
+  type Constraints t
 
   -- | Given a set of constraints on a value, and a value, return whether the
   --   value matches the set of constraints.
@@ -49,7 +54,9 @@ class ( BoundedJoinSemiLattice (Constraints t)
   --
   --   This gets called often as part of the normalization procedure of an
   --   ambiguous value and any implementation should be fast.
-  consistent :: Constraints t -> Bool
+  --
+  --   The first parameter should be
+  consistent :: t -> Constraints t -> Bool
 
   -- | If a set of constraints can be reduced to a single value return Just
   --   that value. Otherwise return Nothing.
@@ -61,8 +68,8 @@ class ( BoundedJoinSemiLattice (Constraints t)
 
 -- | Check whether a set of constraints are non-realizable and that there
 --   exist no values that can satisfy them.
-inconsistent :: (Constrainable t) => Constraints t -> Bool
-inconsistent = not . consistent
+inconsistent :: (Constrainable t) => t -> Constraints t -> Bool
+inconsistent t = not . consistent t
 
 -- | Can a set of constraints be collapsed into a value that's equal to
 --   another value that we happen to have on hand?
@@ -86,15 +93,30 @@ data Ambiguous t where
   --   "I cannot exist"
   Impossible :: Ambiguous t
 
+instance (Constrainable t, Show t) => Show (Ambiguous t) where
+  showsPrec d (Concrete t)
+    = showParen (d > app_prec) $ showString "Concrete " . showsPrec (app_prec + 1) t
+      where app_prec = 10
+  showsPrec d (Abstract c)
+    = showParen (d > app_prec) $ showString "Abstract " . showsPrec (app_prec + 1) c
+      where app_prec = 10
+  showsPrec d (Impossible)
+    = showParen (d > app_prec) $ showString "Impossible"
+      where app_prec = 10
+
+instance (Constrainable t, Read t) => Read (Ambiguous t) where
+  readsPrec = undefined
+
+
 instance (Eq t) => Eq (Ambiguous t) where
   (==) (Concrete t) (Concrete t') = t == t'
   (==) (Concrete t) (Abstract c') = collapseEq c' t
   (==) (Concrete _) (Impossible ) = False
   (==) (Abstract c) (Concrete t') = collapseEq c  t'
   (==) (Abstract c) (Abstract c') = c == c'
-  (==) (Abstract c) (Impossible ) = inconsistent c
+  (==) (Abstract c) (Impossible ) = inconsistent (undefined :: t) c
   (==) (Impossible) (Concrete _ ) = False
-  (==) (Impossible) (Abstract c') = inconsistent c'
+  (==) (Impossible) (Abstract c') = inconsistent (undefined :: t) c'
   (==) (Impossible) (Impossible ) = True
 
 instance (Eq t) => PartialOrd (Ambiguous t) where
@@ -105,7 +127,7 @@ instance (Eq t) => PartialOrd (Ambiguous t) where
   leq (Abstract c) (Abstract c') = c `leq` c'
   leq (Abstract c) (Impossible ) = True
   leq (Impossible) (Concrete _ ) = False
-  leq (Impossible) (Abstract c') = inconsistent c'
+  leq (Impossible) (Abstract c') = inconsistent (undefined :: t) c'
   leq (Impossible) (Impossible ) = True
 
 instance (Eq t) => JoinSemiLattice (Ambiguous t) where
@@ -115,7 +137,7 @@ instance (Eq t) => JoinSemiLattice (Ambiguous t) where
   (\/) a@(Concrete t)    (Abstract c') = if validate c' t  then a  else Impossible
   (\/)   (Abstract c) a'@(Concrete t') = if validate c  t' then a' else Impossible
   (\/)   (Abstract c)    (Abstract c')
-    | inconsistent c'' = Impossible
+    | inconsistent (undefined :: t) c'' = Impossible
     | otherwise        = fromMaybe (Abstract c'') (Concrete <$> collapse c'')
     where c'' = c \/ c'
 
@@ -134,7 +156,6 @@ class NoneOfConstraint t where
   noneOf :: (Constrainable t) => [t] -> Constraints t
   isNot  :: (Constrainable t) =>  t  -> Constraints t
 
-
 class GTConstraint t where
   greaterThan   :: (Constrainable t) => t -> Constraints t
   greaterThanEq :: (Constrainable t) => t -> Constraints t
@@ -143,53 +164,78 @@ class LTConstraint t where
   lessThan   :: (Constrainable t) => t -> Constraints t
   lessThanEq :: (Constrainable t) => t -> Constraints t
 
+class UniqConstraint t where
+
+  unique :: (Constrainable t) => t -> Constraints t
 
 data IntConstraints = IntConstraints {
-    icOneOf       :: [Int]
-  , icNoneOf      :: [Int]
+    icOneOf       :: Maybe (Set Int)
+  , icNoneOf      :: Maybe (Set Int)
   , icLessThan    :: Maybe (Int, IsInclusive)
   , icGreaterThan :: Maybe (Int, IsInclusive)
-  }
+  } deriving (Show, Read, Eq)
 
-data AlgRealConstraints = ARConstraints {
-    arcOneOf :: [AlgReal]
-  , arcNoneOf :: [AlgReal]
-  , arcLessThan :: Maybe (AlgReal, IsInclusive)
-  , arcGreaterThan :: Maybe (AlgReal, IsInclusive)
-  }
+data FloatConstraints = FloatConstraints {
+    fcOneOf       :: Maybe (Set Float)
+  , fcNoneOf      :: Maybe (Set Float)
+  , fcLessThan    :: Maybe (Float, IsInclusive)
+  , fcGreaterThan :: Maybe (Float, IsInclusive)
+  } deriving (Show, Read, Eq)
 
 data StrConstraints = SConstraints {
-    scOneOf :: [String]
-  , scNoneOF :: [String]
-  }
+    scOneOf  :: Maybe (Set String)
+  , scNoneOF :: Maybe (Set String)
+  } deriving (Show, Read, Eq)
 
+data UID = UID Int
+  deriving (Show, Read, Eq)
 
-data UID = UID
-
-data UIDConstraints = UIDConstraints
+data UIDConstraints = UIDConstraints {
+    ucIsNew :: Bool
+  } deriving (Show, Read, Eq)
 
 type FieldName = String
 
-data Field
-  = StrField String
-  | IntField Int
-  | AlgRealField AlgReal
-  | UIDField UID
-  | RField (Record Field)
-
-data FieldConstraints
-  = SFConstraints StrConstraints
-  | IFConstraints IntConstraints
-  | ARFConstraints AlgRealConstraints
-  | UFConstraints UIDConstraints
-  | RFConstraints (RecordConstraints Field)
-
 data Record f = Record (Map FieldName f)
+  deriving (Show, Read, Eq)
 
 data RecordConstraints f = RecContraints {
     rcFieldConstraints :: Map FieldName (Ambiguous f)
-  }
+  } deriving (Show, Read, Eq)
 
--- Int
+
+
+data TypeVal
+  = StrVal String
+  | IntVal Int
+  | FltVal Float
+  | UIDVal UID
+  | RecVal (Record TypeVal)
+  deriving (Show, Read, Eq)
+
+data TypeValConstraints
+  = SVConstraints StrConstraints
+  | IVConstraints IntConstraints
+  | FVConstraints FloatConstraints
+  | UVConstraints UIDConstraints
+  | RVConstraints (RecordConstraints TypeVal)
+  | Inconsistent
+  deriving (Show, Read, Eq)
+
+instance PartialOrd TypeValConstraints where
+  leq = undefined
+
+instance JoinSemiLattice TypeValConstraints where
+  (\/) = undefined
+
+instance BoundedJoinSemiLattice TypeValConstraints where
+  bottom = undefined
+
+instance Constrainable TypeVal where
+  type Constraints TypeVal = TypeValConstraints
+  validate = undefined
+  consistent = undefined
+  collapse = undefined
+-- Inte
 -- String
 -- Field
