@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 
 module EDG.Classes where
 
@@ -21,7 +20,7 @@ import Data.SBV
 --   a set of constraints on the concrete value.
 class ( BoundedJoinSemiLattice c
       , PartialOrd c
-      ) => Constrainable t c | c -> t, t -> c where
+      ) => Constrainable t c | c -> t where
 
   -- | The type of the constraints that can be placed on t, should be a
   --   bounded join semilattice such that:
@@ -80,7 +79,7 @@ collapseEq c t = fromMaybe False $ (t ==) <$> collapse c
 data Ambiguous t c where
   -- | A single concrete value of type t.
   --   "I am <value> of type t"
-  Concrete   :: (Constrainable t c) => t -> Ambiguous t c
+  Concrete   :: t -> Ambiguous t c
   -- | An abstract set of constraints over elements of type t
   --   "There is a range of values of type t that I could be"
   Abstract   :: (Constrainable t c) => c -> Ambiguous t c
