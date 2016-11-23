@@ -8,6 +8,14 @@ import Algebra.Constrainable
 import EDG.Classes.Constraints
 import Data.Maybe
 
+import Algebra.Lattice
+import Algebra.PartialOrd
+
+import Control.Newtype
+import Control.Newtype.Util
+
+import GHC.Exts
+
 data FloatConstraints = FloatConstraints {
     fcOneOf :: Maybe (Set Float)
   , fcGreaterThan :: Maybe (Float,IsInclusive)
@@ -131,7 +139,7 @@ instance Newtype (Constraints Float) FloatConstraints where
 instance Eq (Constraints Float) where
   (==) = under2 (\ a b -> normalize a == normalize b)
 
-instance PartialOrd IntConstraints where
+instance PartialOrd FloatConstraints where
   leq a b = undefined
 --   -- | a `leq` b if each of their internal constraints are induvidually
 --   --   less than or equal.
@@ -158,79 +166,68 @@ instance PartialOrd IntConstraints where
 --
 --       leqLTEq :: Integer -> Integer -> Bool
 --       leqLTEq = (>=)
---
---       -- | Lift the lower order checks into a higher order one, since `Nothing`
---       --   is bottom for this constraint set.
---       leqMaybe :: (a -> a -> Bool) -> Maybe a -> Maybe a -> Bool
---       leqMaybe _ Nothing  _         = True
---       leqMaybe _ _        Nothing   = False
---       leqMaybe f (Just a) (Just b ) = f a b
 
-instance PartialOrd (Constraints Integer) where
+
+instance PartialOrd (Constraints Float) where
   leq = under2 leq
 
-instance JoinSemiLattice IntConstraints where
-  (\/) a b = normalize IntConstraints {
-       icOneOf         = joinMaybe joinOneOf  (icOneOf         a) (icOneOf         b)
-      ,icNoneOf        = joinMaybe joinNoneOf (icNoneOf        a) (icNoneOf        b)
-      ,icGreaterThanEq = joinMaybe joinGTEq   (icGreaterThanEq a) (icGreaterThanEq b)
-      ,icLessThanEq    = joinMaybe joinLTEq   (icLessThanEq    a) (icLessThanEq    b)}
+instance JoinSemiLattice FloatConstraints where
+  (\/) a b = undefined
+--   (\/) a b = normalize IntConstraints {
+--        icOneOf         = joinMaybe joinOneOf  (icOneOf         a) (icOneOf         b)
+--       ,icNoneOf        = joinMaybe joinNoneOf (icNoneOf        a) (icNoneOf        b)
+--       ,icGreaterThanEq = joinMaybe joinGTEq   (icGreaterThanEq a) (icGreaterThanEq b)
+--       ,icLessThanEq    = joinMaybe joinLTEq   (icLessThanEq    a) (icLessThanEq    b)}
+--
+--    where
+--
+--       joinOneOf :: Set Integer -> Set Integer -> Set Integer
+--       joinOneOf = Set.intersection
+--
+--       joinNoneOf :: Set Integer -> Set Integer -> Set Integer
+--       joinNoneOf = Set.union
+--
+--       joinGTEq :: Integer -> Integer -> Integer
+--       joinGTEq = max
+--
+--       joinLTEq :: Integer -> Integer -> Integer
+--       joinLTEq = min
+--
 
-   where
-
-      joinOneOf :: Set Integer -> Set Integer -> Set Integer
-      joinOneOf = Set.intersection
-
-      joinNoneOf :: Set Integer -> Set Integer -> Set Integer
-      joinNoneOf = Set.union
-
-      joinGTEq :: Integer -> Integer -> Integer
-      joinGTEq = max
-
-      joinLTEq :: Integer -> Integer -> Integer
-      joinLTEq = min
-
-      joinMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
-      joinMaybe f (Just a) (Just b) = Just $ f a b
-      joinMaybe _ a b = a <|> b
-
-instance JoinSemiLattice (Constraints Integer) where
+instance JoinSemiLattice (Constraints Float) where
   (\/) a b = pack $ under2 (\/) a b
 
-instance BoundedJoinSemiLattice IntConstraints where
-  bottom = IntConstraints Nothing Nothing Nothing Nothing
+instance BoundedJoinSemiLattice FloatConstraints where
+  bottom = FloatConstraints Nothing Nothing Nothing
 
-instance BoundedJoinSemiLattice (Constraints Integer) where
+instance BoundedJoinSemiLattice (Constraints Float) where
   bottom = pack $ bottom
 
 -- TODO :: The instance of meet over a set of integer constraints. This is
 --         used as a generalize operation, to fund supersets where possible.
 
-instance MeetSemiLattice IntConstraints where
+instance MeetSemiLattice FloatConstraints where
   (/\) a b = undefined
 
-instance MeetSemiLattice (Constraints Integer) where
+instance MeetSemiLattice (Constraints Float) where
   (/\) a b = pack $ under2 (/\) a b
 
-instance BoundedMeetSemiLattice IntConstraints where
-  top = bottom {icOneOf = Just Set.empty}
+instance BoundedMeetSemiLattice FloatConstraints where
+  top = bottom {fcOneOf = Just Set.empty}
 
-instance BoundedMeetSemiLattice (Constraints Integer) where
+instance BoundedMeetSemiLattice (Constraints Float) where
   top = pack $ top
 
-instance OneOfConstraint Integer where
-  oneOf i = pack $ bottom {icOneOf = Just $ Set.fromList i}
+instance OneOfConstraint Float where
+  oneOf f = pack $ bottom {fcOneOf = Just $ Set.fromList f}
 
-instance NoneOfConstraint Integer where
-  noneOf i = pack $ bottom {icNoneOf = Just $ Set.fromList i}
+instance GTConstraint Float where
+  greaterThan   i = pack $ bottom {fcGreaterThan = Just (i,False)}
+  greaterThanEq i = pack $ bottom {fcGreaterThan = Just (i,True)}
 
-instance GTConstraint Integer where
-  greaterThan   i = pack $ bottom {icGreaterThanEq = Just $ i + 1}
-  greaterThanEq i = pack $ bottom {icGreaterThanEq = Just i}
-
-instance LTConstraint Integer where
-  lessThan   i = pack $ bottom {icLessThanEq = Just $ i - 1}
-  lessThanEq i = pack $ bottom {icLessThanEq = Just i}
+instance LTConstraint Float where
+  lessThan   i = pack $ bottom {fcLessThan = Just (i,False)}
+  lessThanEq i = pack $ bottom {fcLessThan = Just (i,True)}
 
 -- | Used along with the above contraint classes to allow for defining an
 --   constraints as a list of things. As in the following example.
@@ -238,14 +235,14 @@ instance LTConstraint Integer where
 --   > test :: Constraints Integer
 --   > test = [oneOf [2,3,4], noneOf [2,3], greaterThan 4]
 --
-instance IsList (Constraints Integer) where
-  type Item (Constraints Integer) = Constraints Integer
+instance IsList (Constraints Float) where
+  type Item (Constraints Float) = Constraints Float
   fromList = foldr (\/) bottom
   toList t = [t]
 
 -- TODO :: Whenever you get around to it, rewrite the show and read instances
 --         so that they use the above list syntax.
 
-deriving instance Show (Constraints Integer)
-deriving instance Read (Constraints Integer)
+deriving instance Show (Constraints Float)
+deriving instance Read (Constraints Float)
 

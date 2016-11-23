@@ -36,6 +36,7 @@ library
     EDG.Library
     EDG.Library.Types
     EDG.Library.Types.Integer
+    EDG.Library.Types.Float
 
   -- Modules included in this library but not exported.
   other-modules:

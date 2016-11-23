@@ -221,13 +221,6 @@ instance PartialOrd IntConstraints where
       leqLTEq :: Integer -> Integer -> Bool
       leqLTEq = (>=)
 
-      -- | Lift the lower order checks into a higher order one, since `Nothing`
-      --   is bottom for this constraint set.
-      leqMaybe :: (a -> a -> Bool) -> Maybe a -> Maybe a -> Bool
-      leqMaybe _ Nothing  _         = True
-      leqMaybe _ _        Nothing   = False
-      leqMaybe f (Just a) (Just b ) = f a b
-
 instance PartialOrd (Constraints Integer) where
   leq = under2 leq
 
@@ -251,10 +244,6 @@ instance JoinSemiLattice IntConstraints where
 
       joinLTEq :: Integer -> Integer -> Integer
       joinLTEq = min
-
-      joinMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
-      joinMaybe f (Just a) (Just b) = Just $ f a b
-      joinMaybe _ a b = a <|> b
 
 instance JoinSemiLattice (Constraints Integer) where
   (\/) a b = pack $ under2 (\/) a b
