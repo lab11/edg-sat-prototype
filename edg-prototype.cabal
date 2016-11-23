@@ -27,14 +27,19 @@ source-repository head
 library
   -- Modules exported by the library.
   exposed-modules:
-    EDG
-    EDG.Algebra
-    EDG.Classes
+    Algebra
+    Algebra.GenOrd
+    Algebra.Constrainable
+    --EDG.Classes
+    EDG.Classes.Constraints
+    EDG.Classes.Fields
     EDG.Library
     EDG.Library.Types
+    EDG.Library.Types.Integer
 
   -- Modules included in this library but not exported.
   other-modules:
+    Control.Newtype.Util
     -- Control.Lens.MakePolyFields
 
   -- LANGUAGE extensions used by modules in this package.

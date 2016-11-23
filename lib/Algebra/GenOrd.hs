@@ -2,7 +2,7 @@
 -- | This defined a class, functions and a set of isntances for an element with
 --   a "generality order" this is a lattice ordering where all values will
 --   will grow as a design is added to.
-module EDG.Algebra.GenOrd where
+module Algebra.GenOrd where
 
 import Algebra.PartialOrd
 import Algebra.Lattice
@@ -18,16 +18,16 @@ class (Eq a,PartialOrd a, BoundedLattice a) => LatticeTest a where
 --   `join` means "unify" , and `meet` means "generalize"
 class (LatticeTest a) => GenOrd a where
 
-any :: GenOrd a => a
+any :: BoundedJoinSemiLattice a => a
 any = bottom
 
-fail :: GenOrd a => a
+fail :: BoundedMeetSemiLattice a => a
 fail = top
 
-unify :: GenOrd a => a -> a -> a
+unify :: JoinSemiLattice a => a -> a -> a
 unify = (\/)
 
-generalize :: GenOrd a => a -> a -> a
+generalize :: MeetSemiLattice a => a -> a -> a
 generalize = (/\)
 
 -- | Wrapper for a datatype with equality that places a top and bottom on
