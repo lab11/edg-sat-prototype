@@ -37,9 +37,9 @@ resolver: lts-7.9
 # will not be run. This is useful for tweaking upstream packages.
 packages:
   - location: '.'
-  - location:
-      git: git@github.com:rohit507/sbv.git
-      commit: 13d3544b83c20e9b5ed6770b729f5c07ab3b23df
+# - location:
+#     git: git@github.com:rohit507/sbv.git
+#     commit: 13d3544b83c20e9b5ed6770b729f5c07ab3b23df
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
