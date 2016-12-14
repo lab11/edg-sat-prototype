@@ -1,5 +1,5 @@
 
-module EDG.Library.Types.Integer () where
+module EDG.Library.Types.Integer where
 
 -- TODO :: Convert this to use Data.IntSet from containers, so that it's a
 --         more efficient representation? Mind we're currently using infinite
@@ -65,10 +65,10 @@ instance Constrainable Integer where
       vGreaterThanEq c i = i >= c
 
   consistent :: Constraints Integer -> Bool
-  consistent = under' $ (== top) . normalize
+  consistent = under' $ (/= top) . normalize
 
   collapse :: Constraints Integer -> Maybe Integer
-  collapse = under' (\ c -> cBounds c <|> cOneOf c <|> cNoneOf c)
+  collapse = under' $ (\ c -> cBounds c <|> cOneOf c <|> cNoneOf c) . normalize
 
     where
 
@@ -172,8 +172,8 @@ normalize = nmTop . nmNoneOfGT . nmNoneOfLT . nmOneOfNone . nmOneOfGT .  nmOneOf
     -- | If the greater than and less than constraints overlap then
     --   this is consistent.
     icRange :: IntConstraints -> Bool
-    icRange IntConstraints{icGreaterThanEq=Just lb,icLessThanEq=Just up}
-      = lb > up
+    icRange IntConstraints{icGreaterThanEq=Just lb,icLessThanEq=Just ub}
+      = lb <= ub
     icRange _ = True
 
     -- | If both range bounds exist, and we're allowed to be at least of the

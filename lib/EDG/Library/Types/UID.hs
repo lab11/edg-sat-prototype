@@ -1,0 +1,3 @@
+-- UIDs are integers when reified, but otherwise are either "any" or new UIDs
+-- to be generated as they're needed in the system. Conversion happens on
+-- transformation not insertion.

@@ -1,0 +1,1 @@
+-- Bools can either be true, false, or either

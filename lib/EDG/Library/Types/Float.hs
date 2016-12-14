@@ -1,5 +1,5 @@
 
-module EDG.Library.Types.Float () where
+module EDG.Library.Types.Float where
 
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -13,6 +13,8 @@ import Algebra.PartialOrd
 
 import Control.Newtype
 import Control.Newtype.Util
+
+import Control.Applicative
 
 import GHC.Exts
 
@@ -28,7 +30,33 @@ instance Constrainable Float where
   -- | Given a set of constraints on a value, and a value, return whether the
   --   value matches the set of constraints.
   validate :: Constraints Float -> Float -> Bool
-  validate = undefined
+  validate (FltCnstr FloatConstraints{..}) i
+    =  all ($ i) . catMaybes $ vList
+
+    where
+
+      -- | The list of all the checks for validity in a form that easy to
+      --   evaluate in one fell swoop
+      vList :: [Maybe (Float -> Bool)]
+      vList
+        = [vOneOf <$> fcOneOf
+          ,vLessThan <$> fcLessThan
+          ,vGreaterThan <$> fcGreaterThan]
+
+      -- | If there's an oneOf constraint, is it being met?
+      vOneOf :: Set Float -> Float ->  Bool
+      vOneOf = flip Set.member
+
+      -- | Check whether the number is <= what we need
+      vLessThan :: (Float,IsInclusive) -> Float -> Bool
+      vLessThan (c,True)  i = i <= c
+      vLessThan (c,False) i = i <  c
+
+      -- | Check that we're >= to what we need
+      vGreaterThan :: (Float,IsInclusive) -> Float -> Bool
+      vGreaterThan (c,True)  i = i >= c
+      vGreaterThan (c,False) i = i >  c
+
 
   -- | Given a set of constraints, check whether the constraints are realizable
   --   and there might exist a concrete element of that type.
@@ -36,21 +64,41 @@ instance Constrainable Float where
   --   This gets called often as part of the normalization procedure of an
   --   ambiguous value and any implementation should be fast.
   consistent :: Constraints Float -> Bool
-  consistent = undefined
+  consistent = under' $ (/= top) . normalize
 
   -- | If a set of constraints can be reduced to a single value return Just
   --   that value. Otherwise return Nothing.
   --
   --   This gets called often as part of the normalization procedure of an
   --   ambiguous value and any implementation should be fast.
+  --
+  --   The only case we really have to deal with is the instance where there's
+  --   a single element in the OneOf set after normalization.
   collapse :: Constraints Float -> Maybe Float
-  collapse = undefined
+  collapse = under' $ (\c -> cOneOf c <|> cRange c) . normalize
+
+    where
+
+      -- | If there's only a single element in the OneOf list after
+      --   normalization then that's the value we want to returnEq.
+      cOneOf :: FloatConstraints -> Maybe Float
+      cOneOf FloatConstraints{fcOneOf = Just s}
+        | Set.size s == 1 = Just $ Set.findMin s
+        | otherwise = Nothing
+      cOneOf _ = Nothing
+
+      -- | If the  bounds on the range are strictly equal then there's only
+      --   one valid outcome.
+      cRange FloatConstraints{fcGreaterThan=Just (lb,True),fcLessThan=Just (ub,True)}
+        | lb == ub = Just lb
+        | otherwise = Nothing
+      cRange _ = Nothing
 
   -- | Attempt to lift a concrete value into a constraint that covers it. This
   --   is used to allow us to more easily define the MeetSemiLattice instances
   --   for an Ambiguous t
   makeConstraint :: Float -> Constraints Float
-  makeConstraint = undefined
+  makeConstraint = is
 
 -- | Map value of FloatConstraints into a subset of that type. The codomain is
 --   a portion of the type where structural and value equality are identical,
@@ -60,77 +108,51 @@ instance Constrainable Float where
 --           validation set of the set of constraints.
 --
 normalize :: FloatConstraints -> FloatConstraints
-normalize = undefined
--- normalize = nmTop . nmNoneOfGT . nmNoneOfLT . nmOneOfNone . nmOneOfGT .  nmOneOfLT
---
---   where
---
---     -- | Remove all elements from the OneOf set that break the LT bound
---     nmOneOfLT :: IntConstraints -> IntConstraints
---     nmOneOfLT c@IntConstraints{icOneOf = Just s,icLessThanEq = Just ub}
---       = c {icOneOf = Just $ Set.filter (<= ub) s}
---     nmOneOfLT c = c
---
---     -- | Remove all elements from the OneOf set that break the GT bound
---     nmOneOfGT :: IntConstraints -> IntConstraints
---     nmOneOfGT c@IntConstraints{icOneOf = Just s,icGreaterThanEq = Just lb}
---       = c {icOneOf = Just $ Set.filter (>= lb) s}
---     nmOneOfGT c = c
---
---     -- | Remove all elements from the OneOf set that break the noneOf bound
---     --   then remove the NoneOf set, since all the information is already
---     --   in the oneOf set.
---     nmOneOfNone :: IntConstraints -> IntConstraints
---     nmOneOfNone c@IntConstraints{icOneOf = Just s,icNoneOf = Just ns}
---       = c {icOneOf = Just $ s `Set.difference` ns,icNoneOf = Nothing}
---     nmOneOfNone c = c
---
---     -- | Remove all elements from the NoneOf set that break the LT bound
---     nmNoneOfLT :: IntConstraints -> IntConstraints
---     nmNoneOfLT c@IntConstraints{icNoneOf = Just s,icLessThanEq = Just ub}
---       = c {icNoneOf = Just $ Set.filter (<= ub) s}
---     nmNoneOfLT c = c
---
---     -- | Remove all elements from the NoneOf set that break the LT bound
---     nmNoneOfGT :: IntConstraints -> IntConstraints
---     nmNoneOfGT c@IntConstraints{icNoneOf = Just s,icGreaterThanEq = Just lb}
---       = c {icNoneOf = Just $ Set.filter (>= lb) s}
---     nmNoneOfGT c = c
---
---     -- | Check whether the elements are consistent so far, and if not replace
---     --   with the unique top element.
---     nmTop :: IntConstraints -> IntConstraints
---     nmTop c
---       | icConsistent c = c
---       | otherwise      = top
---
---     -- | Combines all the individual checks to produce a global consistency
---     --   check for the integer constraint element.
---     icConsistent :: IntConstraints -> Bool
---     icConsistent c = all ($ c) $ list [icEmpty,icRange,icNoneOf]
---
---     -- | If there's no empty one of set, then this is consistent.
---     icEmpty :: IntConstraints -> Bool
---     icEmpty IntConstraints{icOneOf = Just s} = not $ Set.null s
---     icEmpty _ = True
---
---     -- | If the greater than and less than constraints overlap then
---     --   this is consistent.
---     icRange :: IntConstraints -> Bool
---     icRange IntConstraints{icGreaterThanEq=Just lb,icLessThanEq=Just up}
---       = lb > up
---     icRange _ = True
---
---     -- | If both range bounds exist, and we're allowed to be at least of the
---     --   integers in between, then this is inconsistent.
---     --
---     --   We just make sure that, after filtering, there aren't enough unique
---     --   elements to bridge the gap between the bounds.
---     icNoneOf :: IntConstraints -> Bool
---     icNoneOf IntConstraints{icGreaterThanEq=Just lb,icLessThanEq=Just up,icNoneOf=Just ns}
---       = fromIntegral (up - lb + 1) <= Set.size ns
---     icNoneOf _ = True
+normalize = nmTop . nmOneOfGT . nmOneOfLT
 
+  where
+
+    -- | Remove all elements from the OneOf set that break the LT bound
+    nmOneOfLT :: FloatConstraints -> FloatConstraints
+    nmOneOfLT c@FloatConstraints{fcOneOf = Just s,fcLessThan = Just (ub,True)}
+      = c {fcOneOf = Just $ Set.filter (<= ub) s}
+    nmOneOfLT c@FloatConstraints{fcOneOf = Just s,fcLessThan = Just (ub,False)}
+      = c {fcOneOf = Just $ Set.filter (<  ub) s}
+    nmOneOfLT c = c
+
+    -- | Remove all elements from the OneOf set that break the GT bound
+    nmOneOfGT :: FloatConstraints -> FloatConstraints
+    nmOneOfGT c@FloatConstraints{fcOneOf = Just s,fcGreaterThan = Just (lb,True)}
+      = c {fcOneOf = Just $ Set.filter (>= lb) s}
+    nmOneOfGT c@FloatConstraints{fcOneOf = Just s,fcGreaterThan = Just (lb,False)}
+      = c {fcOneOf = Just $ Set.filter (>  lb) s}
+    nmOneOfGT c = c
+
+    -- | Check whether the elements are consistent so far, and if not replace
+    --   with the unique top element.
+    nmTop :: FloatConstraints -> FloatConstraints
+    nmTop c
+      | fcConsistent c = c
+      | otherwise      = top
+
+    -- | Combines all the individual checks to produce a global consistency
+    --   check for the integer constraint element.
+    fcConsistent :: FloatConstraints -> Bool
+    fcConsistent c = all ($ c) $ list [fcEmpty,fcRange]
+
+    -- | If there's no empty one of set, then this is consistent.
+    fcEmpty :: FloatConstraints -> Bool
+    fcEmpty FloatConstraints{fcOneOf = Just s} = not $ Set.null s
+    fcEmpty _ = True
+
+    -- | If the greater than and less than constraints overlap then
+    --   this is consistent.
+    fcRange :: FloatConstraints -> Bool
+    fcRange FloatConstraints{fcGreaterThan=Just (lb,True),fcLessThan=Just (ub,True)}
+      = lb <= ub
+    fcRange FloatConstraints{fcGreaterThan=Just (lb,_),fcLessThan=Just (ub,_)}
+      = lb < ub
+    fcRange _ = True
 
 instance Newtype (Constraints Float) FloatConstraints where
   pack = FltCnstr
@@ -140,59 +162,56 @@ instance Eq (Constraints Float) where
   (==) = under2 (\ a b -> normalize a == normalize b)
 
 instance PartialOrd FloatConstraints where
-  leq a b = undefined
---   -- | a `leq` b if each of their internal constraints are induvidually
---   --   less than or equal.
---   leq a b
---       =  leqMaybe leqOneOf  (icOneOf         a') (icOneOf         b')
---       && leqMaybe leqNoneOf (icNoneOf        a') (icNoneOf        b')
---       && leqMaybe leqGTEq   (icGreaterThanEq a') (icGreaterThanEq b')
---       && leqMaybe leqLTEq   (icLessThanEq    a') (icLessThanEq    b')
---
---     where
---
---       -- Normalize the two inputs because there's too many edge cases otherwise
---       a' = normalize a
---       b' = normalize b
---
---       leqOneOf :: Set Integer -> Set Integer -> Bool
---       leqOneOf a b = not $ Set.isProperSubsetOf a b
---
---       leqNoneOf :: Set Integer -> Set Integer -> Bool
---       leqNoneOf = Set.isSubsetOf
---
---       leqGTEq :: Integer -> Integer -> Bool
---       leqGTEq = (<=)
---
---       leqLTEq :: Integer -> Integer -> Bool
---       leqLTEq = (>=)
+  -- | a `leq` b if each of their internal constraints are induvidually
+  --   less than or equal.
+  leq a b
+      =  leqMaybe leqOneOf (fcOneOf       a') (fcOneOf       b')
+      && leqMaybe leqGT    (fcGreaterThan a') (fcGreaterThan b')
+      && leqMaybe leqLT    (fcLessThan    a') (fcLessThan    b')
+
+    where
+
+      -- Normalize the two inputs because there's too many edge cases otherwise
+      a' = normalize a
+      b' = normalize b
+
+      leqOneOf :: Set Float -> Set Float -> Bool
+      leqOneOf a b = not $ Set.isProperSubsetOf a b
+
+      leqGT :: (Float,IsInclusive) -> (Float,IsInclusive) -> Bool
+      leqGT (a,False) (b,True ) = a <  b
+      leqGT (a,_    ) (b,_    ) = a <= b
+
+      leqLT :: (Float,IsInclusive) -> (Float,IsInclusive) -> Bool
+      leqLT (a,False) (b,True ) = a >  b
+      leqLT (a,_    ) (b,_    ) = a >= b
 
 
 instance PartialOrd (Constraints Float) where
   leq = under2 leq
 
 instance JoinSemiLattice FloatConstraints where
-  (\/) a b = undefined
---   (\/) a b = normalize IntConstraints {
---        icOneOf         = joinMaybe joinOneOf  (icOneOf         a) (icOneOf         b)
---       ,icNoneOf        = joinMaybe joinNoneOf (icNoneOf        a) (icNoneOf        b)
---       ,icGreaterThanEq = joinMaybe joinGTEq   (icGreaterThanEq a) (icGreaterThanEq b)
---       ,icLessThanEq    = joinMaybe joinLTEq   (icLessThanEq    a) (icLessThanEq    b)}
---
---    where
---
---       joinOneOf :: Set Integer -> Set Integer -> Set Integer
---       joinOneOf = Set.intersection
---
---       joinNoneOf :: Set Integer -> Set Integer -> Set Integer
---       joinNoneOf = Set.union
---
---       joinGTEq :: Integer -> Integer -> Integer
---       joinGTEq = max
---
---       joinLTEq :: Integer -> Integer -> Integer
---       joinLTEq = min
---
+  (\/) a b = normalize FloatConstraints {
+       fcOneOf       = joinMaybe joinOneOf (fcOneOf       a) (fcOneOf       b)
+      ,fcGreaterThan = joinMaybe joinGT    (fcGreaterThan a) (fcGreaterThan b)
+      ,fcLessThan    = joinMaybe joinLT    (fcLessThan    a) (fcLessThan    b)}
+
+   where
+
+      joinOneOf :: Set Float -> Set Float -> Set Float
+      joinOneOf = Set.intersection
+
+      joinGT :: (Float,IsInclusive) -> (Float,IsInclusive) -> (Float,IsInclusive)
+      joinGT (a,ai) (b,bi)
+        | a == b    = (a,ai && bi)
+        | a <  b    = (b,bi)
+        | otherwise = (a,ai)
+
+      joinLT :: (Float,IsInclusive) -> (Float,IsInclusive) -> (Float,IsInclusive)
+      joinLT (a,ai) (b,bi)
+        | a == b    = (a,ai && bi)
+        | a >  b    = (b,bi)
+        | otherwise = (a,ai)
 
 instance JoinSemiLattice (Constraints Float) where
   (\/) a b = pack $ under2 (\/) a b
@@ -203,7 +222,7 @@ instance BoundedJoinSemiLattice FloatConstraints where
 instance BoundedJoinSemiLattice (Constraints Float) where
   bottom = pack $ bottom
 
--- TODO :: The instance of meet over a set of integer constraints. This is
+-- TODO :: The instance of meet over a set of float constraints. This is
 --         used as a generalize operation, to fund supersets where possible.
 
 instance MeetSemiLattice FloatConstraints where
@@ -232,13 +251,14 @@ instance LTConstraint Float where
 -- | Used along with the above contraint classes to allow for defining an
 --   constraints as a list of things. As in the following example.
 --
---   > test :: Constraints Integer
---   > test = [oneOf [2,3,4], noneOf [2,3], greaterThan 4]
+--   > test :: Constraints Float
+--   > test = [oneOf [2,3,4], greaterThan 4,lessThanEq 12]
 --
 instance IsList (Constraints Float) where
   type Item (Constraints Float) = Constraints Float
   fromList = foldr (\/) bottom
   toList t = [t]
+
 
 -- TODO :: Whenever you get around to it, rewrite the show and read instances
 --         so that they use the above list syntax.

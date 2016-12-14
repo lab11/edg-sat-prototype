@@ -16,13 +16,61 @@ source-repository head
   type:     git
   location: https://github.com/githubuser/edg-prototype
 
--- executable edg-prototype-exe
---   hs-source-dirs:      app
---   main-is:             Main.hs
---   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
---   build-depends:       base
---                      , edg-prototype
---   default-language:    Haskell2010
+executable edg-prototype
+
+  hs-source-dirs:      
+    app
+
+  main-is:
+    Main.hs
+  
+  -- LANGUAGE extensions used by modules in this package.
+  default-extensions: 
+    MultiParamTypeClasses 
+    FunctionalDependencies
+    ExistentialQuantification
+    GADTs
+    DuplicateRecordFields
+    OverloadedLabels
+    TypeFamilies
+    EmptyDataDecls
+    TemplateHaskell
+    RankNTypes
+    FlexibleContexts
+    FlexibleInstances
+    KindSignatures
+    ScopedTypeVariables
+    ConstraintKinds
+    NamedFieldPuns
+    RecordWildCards
+    InstanceSigs
+    DataKinds
+    LambdaCase
+    OverloadedStrings
+    OverloadedLists
+    TupleSections
+    StandaloneDeriving
+    DefaultSignatures
+    DeriveDataTypeable
+    DeriveAnyClass
+    RecursiveDo
+
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  
+  build-depends:       
+    base >= 4.9, 
+    -- Used to build bindings to z3 and other theorem provers as needed
+    sbv >= 5.12,
+    -- Monad Transformers we can wrap around symbolic 
+    mtl >= 2.2.1,
+    -- Datastructures and containers
+    containers >= 0.5.7,
+    -- Scrap your boilerplate, used for SBV's extra deriving classes
+    syb >= 0.6,
+    -- The library we are developing
+    edg-prototype
+
+  default-language:    Haskell2010
 
 library
   -- Modules exported by the library.
@@ -37,6 +85,7 @@ library
     EDG.Library.Types
     EDG.Library.Types.Integer
     EDG.Library.Types.Float
+    EDG.Library.Types.String
 
   -- Modules included in this library but not exported.
   other-modules:
@@ -70,6 +119,8 @@ library
     OverloadedLists
     TupleSections
     StandaloneDeriving
+    DefaultSignatures
+    RecursiveDo
 
   -- Other library packages from which modules are imported.
   build-depends:
@@ -177,6 +228,7 @@ test-suite edg-prototype-test
     LambdaCase
     ScopedTypeVariables
     OverloadedStrings
+    DefaultSignatures
     -- OverloadedLists
     TupleSections
 
