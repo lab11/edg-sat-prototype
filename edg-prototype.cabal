@@ -26,33 +26,37 @@ executable edg-prototype
   
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
-    MultiParamTypeClasses 
-    FunctionalDependencies
-    ExistentialQuantification
-    GeneralizedNewtypeDeriving
-    GADTs
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
     DuplicateRecordFields
-    OverloadedLabels
-    TypeFamilies
     EmptyDataDecls
-    TemplateHaskell
-    RankNTypes
+    ExistentialQuantification
     FlexibleContexts
     FlexibleInstances
-    KindSignatures
-    ScopedTypeVariables
-    ConstraintKinds
-    NamedFieldPuns
-    RecordWildCards
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
     InstanceSigs
-    DataKinds
+    KindSignatures
     LambdaCase
-    OverloadedStrings
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedLabels
     OverloadedLists
-    TupleSections
-    StandaloneDeriving
-    DefaultSignatures
+    OverloadedStrings
+    PatternSynonyms
+    RankNTypes
+    RecordWildCards
     RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeFamilies
+    TypeFamilyDependencies
 
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   
@@ -80,15 +84,16 @@ library
     --EDG.Classes
     EDG.Classes.Constraints
     EDG.Classes.Fields
-    EDG.Library
-    EDG.Library.Types
-    EDG.Library.Types.Integer
-    EDG.Library.Types.Float
-    EDG.Library.Types.String
+    -- EDG.Library
+    -- EDG.Library.Types
+    -- EDG.Library.Types.Integer
+    -- EDG.Library.Types.Float
+    -- EDG.Library.Types.String
 
   -- Modules included in this library but not exported.
   other-modules:
     Control.Newtype.Util
+    Control.Lens.TupleLens
     -- Control.Lens.MakePolyFields
 
   -- LANGUAGE extensions used by modules in this package.
@@ -123,6 +128,7 @@ library
     TemplateHaskell
     TupleSections
     TypeFamilies
+    TypeFamilyDependencies
 
   -- Other library packages from which modules are imported.
   build-depends:
@@ -241,3 +247,4 @@ test-suite edg-prototype-test
     TemplateHaskell
     TupleSections
     TypeFamilies
+    TypeFamilyDependencies
