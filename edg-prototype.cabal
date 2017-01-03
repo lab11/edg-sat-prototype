@@ -57,6 +57,7 @@ executable edg-prototype
     TupleSections
     TypeFamilies
     TypeFamilyDependencies
+    TypeOperators
 
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   
@@ -81,6 +82,10 @@ library
     Algebra
     Algebra.GenOrd
     Algebra.Constrainable
+    Algebra.AsPredicate
+    --EDG.Predicates 
+    EDG.Predicates.Predicate
+    EDG.Predicates.Tuple
     --EDG.Classes
     EDG.Classes.Constraints
     EDG.Classes.Fields
@@ -129,6 +134,7 @@ library
     TupleSections
     TypeFamilies
     TypeFamilyDependencies
+    TypeOperators
 
   -- Other library packages from which modules are imported.
   build-depends:
@@ -248,3 +254,4 @@ test-suite edg-prototype-test
     TupleSections
     TypeFamilies
     TypeFamilyDependencies
+    TypeOperators
