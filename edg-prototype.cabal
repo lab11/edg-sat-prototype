@@ -29,6 +29,7 @@ executable edg-prototype
     MultiParamTypeClasses 
     FunctionalDependencies
     ExistentialQuantification
+    GeneralizedNewtypeDeriving
     GADTs
     DuplicateRecordFields
     OverloadedLabels
@@ -51,8 +52,6 @@ executable edg-prototype
     TupleSections
     StandaloneDeriving
     DefaultSignatures
-    DeriveDataTypeable
-    DeriveAnyClass
     RecursiveDo
 
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -94,33 +93,36 @@ library
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
-    MultiParamTypeClasses 
-    FunctionalDependencies
-    ExistentialQuantification
-    GeneralizedNewtypeDeriving
-    GADTs
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
     DuplicateRecordFields
-    OverloadedLabels
-    TypeFamilies
     EmptyDataDecls
-    TemplateHaskell
-    RankNTypes
+    ExistentialQuantification
     FlexibleContexts
     FlexibleInstances
-    KindSignatures
-    ScopedTypeVariables
-    ConstraintKinds
-    NamedFieldPuns
-    RecordWildCards
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
     InstanceSigs
-    DataKinds
+    KindSignatures
     LambdaCase
-    OverloadedStrings
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedLabels
     OverloadedLists
-    TupleSections
-    StandaloneDeriving
-    DefaultSignatures
+    OverloadedStrings
+    PatternSynonyms
+    RankNTypes
+    RecordWildCards
     RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeFamilies
 
   -- Other library packages from which modules are imported.
   build-depends:
@@ -209,26 +211,33 @@ test-suite edg-prototype-test
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
-    MultiParamTypeClasses 
-    FunctionalDependencies
-    ExistentialQuantification
-    GeneralizedNewtypeDeriving
-    DuplicateRecordFields
-    OverloadedLabels
-    TypeFamilies
-    EmptyDataDecls
-    TemplateHaskell
-    RankNTypes
-    FlexibleContexts
-    FlexibleInstances
-    KindSignatures
-    InstanceSigs
     ConstraintKinds
     DataKinds
-    LambdaCase
-    ScopedTypeVariables
-    OverloadedStrings
     DefaultSignatures
-    -- OverloadedLists
+    DeriveAnyClass
+    DeriveDataTypeable
+    DuplicateRecordFields
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedLabels
+    OverloadedLists
+    OverloadedStrings
+    PatternSynonyms
+    RankNTypes
+    RecordWildCards
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
     TupleSections
-
+    TypeFamilies
