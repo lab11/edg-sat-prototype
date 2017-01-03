@@ -86,6 +86,7 @@ library
     --EDG.Predicates 
     EDG.Predicates.Predicate
     EDG.Predicates.Tuple
+    EDG.Predicates.OneOf
     --EDG.Classes
     EDG.Classes.Constraints
     EDG.Classes.Fields

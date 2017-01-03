@@ -13,6 +13,10 @@ import Control.Newtype.Util
 -- like how join occour may involve interactions between multiple elements of
 -- the tuple, and should be determined on a case by case basis so that
 -- instances of Eq and the like are satisfied.
+--
+-- All of these instances are identical, all elements of the tuple must be
+-- preicates over the same domain, and the entire tuple's predicate is the
+-- join over each induvidual predicate.
 
 instance (AsPredicate a, AsPredicate b
          ,PredDom a ~ PredDom b)
