@@ -77,7 +77,7 @@ class Constrainable t where
   --
   -- TODO :: Add quickcheck(/SBV?) test generator for constraint properties.
   --
-  data Constraints t :: *
+  type Constraints t = r | r -> t
 
   -- | Given a set of constraints on a value, and a value, return whether the
   --   value matches the set of constraints.
