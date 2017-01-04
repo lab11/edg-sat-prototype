@@ -2,6 +2,7 @@
 module EDG.Predicates.OneOf where
 
 import Algebra.Lattice
+import Algebra.PartialOrd
 import Algebra.AsPredicate
 
 import Data.Set (Set)
@@ -12,6 +13,7 @@ import Control.Newtype.Util
 
 -- | The set of elements our target has to be a member of
 newtype OneOf a = OneOf (Set a)
+  deriving (Show, Read, Eq)
 
 instance Newtype (OneOf a) (Set a) where
   pack = OneOf
@@ -29,6 +31,9 @@ instance (Ord a) => CollapseablePredicate (OneOf a) where
     | Set.size s == 1 = Just $ Set.findMin s
     | otherwise       = Nothing
 
+instance (Ord a) => PartialOrd (OneOf a) where
+  leq (OneOf a) (OneOf b) = b `Set.isSubsetOf` a
+
 instance (Ord a) => JoinSemiLattice (OneOf a) where
   (\/) (OneOf a) (OneOf b) = OneOf $ Set.intersection a b
 
@@ -38,4 +43,5 @@ instance (Ord a) => MeetSemiLattice (OneOf a) where
 instance (Ord a) => BoundedMeetSemiLattice (OneOf a) where
   top = OneOf Set.empty
 
-
+filterOneOf :: (PredDom a ~ e, AsPredicate a) => a -> OneOf e -> OneOf e
+filterOneOf p (OneOf s) = OneOf $ Set.filter (asPredicate p) s

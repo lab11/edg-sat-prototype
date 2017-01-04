@@ -2,6 +2,7 @@
 module EDG.Predicates.NoneOf where
 
 import Algebra.Lattice
+import Algebra.PartialOrd
 import Algebra.AsPredicate
 
 import Data.Set (Set)
@@ -12,6 +13,7 @@ import Control.Newtype.Util
 
 -- | The set of elements our target has to be a member of
 newtype NoneOf a = NoneOf (Set a)
+  deriving (Show, Read, Eq)
 
 instance Newtype (NoneOf a) (Set a) where
   pack = NoneOf
@@ -28,6 +30,9 @@ instance (Ord a) => AsPredicate (NoneOf a) where
 --
 -- Those are probably defined in EDG.Predicates since that's where we keep all
 -- the stuff that requires more than one predicate.
+
+instance (Ord a) => PartialOrd (NoneOf a) where
+  leq (NoneOf a) (NoneOf b) = a `Set.isSubsetOf` b
 
 instance (Ord a) => JoinSemiLattice (NoneOf a) where
   (\/) (NoneOf a) (NoneOf b) = NoneOf $ Set.union a b
