@@ -42,5 +42,3 @@ instance (Ord a) => MeetSemiLattice (NoneOf a) where
 
 instance (Ord a) => BoundedJoinSemiLattice (NoneOf a) where
   bottom = NoneOf Set.empty
-
-

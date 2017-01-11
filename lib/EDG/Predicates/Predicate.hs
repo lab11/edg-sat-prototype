@@ -20,6 +20,13 @@ instance AsPredicate (Predicate a) where
   type PredicateDomain (Predicate a) = a
   asPredicate = unpack
 
+instance (Eq a) => LiftablePredicate (Predicate a) where
+  liftPredicate a = pack (\ v -> v == a)
+
+-- | Make a `Predicate` out of something that can be used AsPredicate
+makePredicate :: AsPredicate a => a -> Predicate (PredDom a)
+makePredicate = pack . asPredicate
+
 -- We can't actually define instances of Eq, PartialOrd, SATAblePredicate, or
 -- CollapseablePredicate for this type but they would work the expected way.
 -- We just can't introspect into the function enough and the domain may not

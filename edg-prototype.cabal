@@ -54,6 +54,7 @@ executable edg-prototype
     StandaloneDeriving
     TemplateHaskell
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeFamilyDependencies
     TypeOperators
@@ -88,6 +89,7 @@ library
     EDG.Predicates.OneOf
     EDG.Predicates.NoneOf
     EDG.Predicates.Bounds
+    EDG.Predicates.Range
     EDG.Predicates.Maybe
     --EDG.Classes
     EDG.Classes.Constraints
@@ -134,6 +136,7 @@ library
     StandaloneDeriving
     TemplateHaskell
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeFamilyDependencies
     TypeOperators
@@ -253,6 +256,7 @@ test-suite edg-prototype-test
     StandaloneDeriving
     TemplateHaskell
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeFamilyDependencies
     TypeOperators

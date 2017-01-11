@@ -1,8 +1,12 @@
 
 module Algebra.AsPredicate where
 
--- | Synonym to minimize typing
-type PredDom a = PredicateDomain a
+-- | Synonyms to minimize typing
+type PredDom a  = PredicateDomain a
+type AsPred a   = AsPredicate a
+type SATPred a  = SATAblePredicate a
+type ColPred a  = CollapseablePredicate a
+type LiftPred a = LiftablePredicate a
 
 -- | Treat a value of some type as a predicate over values of another type.
 --   it's pretty convinient.
@@ -26,4 +30,7 @@ class AsPredicate a => CollapseablePredicate a where
   --   it? if so return Just that element, otherwise return Nothing.
   collapse :: a -> Maybe (PredDom a)
 
-
+class AsPredicate a => LiftablePredicate a where
+  -- | Given a single value of type `a` return a perdicate that is true for
+  --   only that value.
+  liftPredicate :: PredDom a -> a

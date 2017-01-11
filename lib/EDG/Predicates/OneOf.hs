@@ -24,12 +24,15 @@ instance (Ord a) => AsPredicate (OneOf a) where
   asPredicate (OneOf s) e = Set.member e s
 
 instance (Ord a) => SATAblePredicate (OneOf a) where
-  isSAT = under' (not . Set.null)
+  isSAT = under' $ not . Set.null
 
 instance (Ord a) => CollapseablePredicate (OneOf a) where
   collapse (OneOf s)
     | Set.size s == 1 = Just $ Set.findMin s
     | otherwise       = Nothing
+
+instance (Ord a) => LiftablePredicate (OneOf a) where
+  liftPredicate a = OneOf $ Set.singleton a
 
 instance (Ord a) => PartialOrd (OneOf a) where
   leq (OneOf a) (OneOf b) = b `Set.isSubsetOf` a
