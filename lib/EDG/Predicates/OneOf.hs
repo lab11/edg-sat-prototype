@@ -11,7 +11,7 @@ import qualified Data.Set as Set
 import Control.Newtype
 import Control.Newtype.Util
 
--- | The set of elements our target has to be a member of
+-- | The set of elements our target has to be a member of.
 newtype OneOf a = OneOf (Set a)
   deriving (Show, Read, Eq)
 
@@ -46,8 +46,10 @@ instance (Ord a) => MeetSemiLattice (OneOf a) where
 instance (Ord a) => BoundedMeetSemiLattice (OneOf a) where
   top = OneOf Set.empty
 
-filterOneOf :: (PredDom a ~ e, AsPredicate a) => a -> OneOf e -> OneOf e
-filterOneOf p (OneOf s) = OneOf $ Set.filter (asPredicate p) s
+-- | The join of a OneOf and any other predicate is the OneOf filtered of all
+--   elements that don't meet the other predicate.
+joinOneOf :: (PredDom a ~ e, AsPredicate a) => a -> OneOf e -> OneOf e
+joinOneOf p (OneOf s) = OneOf $ Set.filter (asPredicate p) s
 
 class (AsPredicate t) => OneOfConstraint t where
   oneOf :: [PredDom t] -> t

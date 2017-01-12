@@ -91,14 +91,16 @@ library
     EDG.Predicates.Bounds
     EDG.Predicates.Range
     EDG.Predicates.Maybe
+    EDG.PhantomTypes 
     --EDG.Classes
     EDG.Classes.Fields
     -- EDG.Library
     -- EDG.Library.Types
     EDG.Library.Types.Bool
+    EDG.Library.Types.String
+    EDG.Library.Types.UID
     -- EDG.Library.Types.Integer
     -- EDG.Library.Types.Float
-    -- EDG.Library.Types.String
 
   -- Modules included in this library but not exported.
   other-modules:

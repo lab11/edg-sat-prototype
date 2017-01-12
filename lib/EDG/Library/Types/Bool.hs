@@ -20,9 +20,11 @@ import qualified Data.Set as Set
 
 import GHC.Exts
 
--- |  Just a wrapper type for the constraint over booleans, pretty much every
---    type that is a finite discrete enumerable should look like this
---    implementation.
+-- | This is the canonical type of constraints over boolean variables.
+--
+--   TODO :: Move to a more efficient representation of this, that doesn't
+--           constantly pack and unpack sets.
+--
 newtype BoolCons = BoolCons (OneOf Bool)
   deriving (Show, Read, Eq)
 

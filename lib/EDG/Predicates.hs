@@ -7,6 +7,8 @@ module EDG.Predicates
   , module EDG.Predicates.Predicate
   , module EDG.Predicates.Range
   , module EDG.Predicates.Tuple
+  , leqOneNone
+  , leqNoneOne
 ) where
 
 import Algebra.Lattice
@@ -21,14 +23,26 @@ import EDG.Predicates.Predicate
 import EDG.Predicates.Range
 import EDG.Predicates.Tuple
 
--- This module is meant to contain all the cross predicate interactions as well
--- as re-exporting each induvidual predicate we happen to be using,
+import Data.Set (Set)
+import qualified Data.Set as Set
 
--- TODO: No Idea what to do with this right now
--- class UniqConstraint t where
---   unique :: (Constrainable t) => t -> Constraints t
+-- | Partial order relation between a NoneOf and OneOf over the same type that
+--   fulfills the laws for partial ordering of predicates.
 --
--- Do we need a (Unique) instance for AsPredicate? How would that work?
+--   Basically, if the NoneOf doesn't forbid any of the values in the OneOf
+--   then the NoneOf allows for a larger range of valid values.
+leqNoneOne :: (Ord t) => NoneOf t -> OneOf t -> Bool
+leqNoneOne (NoneOf n) (OneOf o) = Set.null $ Set.intersection n o
+
+-- | Same role as `leqNoneOne` but with the arguments flipped.
 --
+--   Should follow all the usual laws.
+--
+--   This one is a bit iffier, since there's a number of cases (other ranges,etc..)
+--   limiting the set of elements, and those could actually cause a case where
+--   a OneOf is actually less or equal to than a NoneOf. but this is correct
+--   for infinite sets.
+leqOneNone :: (Ord t) => OneOf t -> NoneOf t -> Bool
+leqOneNone (OneOf o) (NoneOf n) = False
 
 
