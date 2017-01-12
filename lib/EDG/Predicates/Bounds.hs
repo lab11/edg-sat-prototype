@@ -1,4 +1,8 @@
 
+-- Bah, I hate using this, but best I can tell there's no more elegant way to
+-- allow people to grow the set of valid types that can be used as ranges
+-- without the one use of superclassing. This is kinda galling however.
+{-# LANGUAGE UndecidableInstances #-}
 module EDG.Predicates.Bounds where
 
 import Algebra.Lattice
@@ -27,26 +31,38 @@ data UpperBound a = UpperBound IsInclusive a
   deriving (Show, Read)
 
 instance Eq (LowerBound Integer) where
-  (==) lb ub = (l == u)
+  (==) lb lb' = (l == l')
     where
-      (LowerBound lInc l) = normalizeEnumLB lb
-      (UpperBound uInc u) = normalizeEnumUB ub
+      (LowerBound _ l)  = normalizeEnumLB lb
+      (LowerBound _ l') = normalizeEnumLB lb'
 
 instance Eq (LowerBound Float) where
-  (==) lb ub = (l == u) && (lb == ub)
+  (==) lb lb' = (l == l') && (lInc == lInc')
     where
-      (LowerBound lInc l) = lb
-      (UpperBound uInc u) = ub
+      (LowerBound lInc  l ) = lb
+      (LowerBound lInc' l') = lb'
+
+instance Eq (UpperBound Integer) where
+  (==) ub ub' = (u == u')
+    where
+      (UpperBound _ u)  = normalizeEnumUB ub
+      (UpperBound _ u') = normalizeEnumUB ub'
+
+instance Eq (UpperBound Float) where
+  (==) ub ub' = (u == u') && (uInc == uInc')
+    where
+      (UpperBound uInc  u ) = ub
+      (UpperBound uInc' u') = ub'
 
 instance (Ord a) => AsPredicate (LowerBound a) where
   type PredicateDomain (LowerBound a) = a
-  asPredicate (LowerBound Inclusive a)    b = b >= a
-  asPredicate (LowerBound NonInclusive a) b = b >  a
+  asPredicate (LowerBound Inclusive a)    = (\ b -> b >= a)
+  asPredicate (LowerBound NonInclusive a) = (\ b -> b >  a)
 
 instance (Ord a) => AsPredicate (UpperBound a) where
   type PredicateDomain (UpperBound a) = a
-  asPredicate (UpperBound Inclusive a)    b = b <= a
-  asPredicate (UpperBound NonInclusive a) b = b <  a
+  asPredicate (UpperBound Inclusive a)    = (\b -> b <= a)
+  asPredicate (UpperBound NonInclusive a) = (\b -> b <  a)
 
 boundedIsSATLP :: (Eq a,Bounded a) => LowerBound a -> Bool
 boundedIsSATLP (LowerBound inc a)
@@ -57,7 +73,6 @@ boundedIsSATUP :: (Eq a,Bounded a) => UpperBound a -> Bool
 boundedIsSATUP (UpperBound inc a)
   | a == minBound = inc
   | otherwise     = True
-
 
 -- We have to declare induvidual isntances of this as needed, it's a pain
 instance SATAblePredicate (LowerBound Integer) where
@@ -82,13 +97,21 @@ instance (Ord a,Bounded a) => CollapseablePredicate (UpperBound a) where
     | (a == minBound) && inc = Just a
     | otherwise              = Nothing
 
-instance (Ord a) => PartialOrd (LowerBound a) where
+-- The `Eq (LowerBound a)` constraint is a sideeffect of the `Eq a` constraint
+-- on `PartialOd a`. Because we can't define Eq instances for all a (since
+-- discrete numbers work differently from non-discrete values) we have to
+-- have the explicit contraint.
+--
+-- This should be fine, since the chain of implication will alwys terminate
+-- at the relevant `Eq (LowerBound a)` constraint.
+instance (Ord a,Eq (LowerBound a)) => PartialOrd (LowerBound a) where
   leq (LowerBound ai a) (LowerBound bi b)
     | a < b = True
     | (a == b) && (bi `implies` ai) = True
     | otherwise = False
 
-instance (Ord a) => PartialOrd (UpperBound a) where
+-- As for `LowerBound a`
+instance (Ord a,Eq (UpperBound a)) => PartialOrd (UpperBound a) where
   leq (UpperBound ai a) (UpperBound bi b)
     | a > b = True
     | (a == b) && (bi `implies` ai) = True
@@ -130,3 +153,21 @@ normalizeEnumLM a = a
 normalizeEnumUB :: (Enum a) => UpperBound a -> UpperBound a
 normalizeEnumUB (UpperBound NonInclusive a) = UpperBound Inclusive (pred a)
 normalizeEnumUM a = a
+
+
+class (AsPredicate t) => GTConstraint t where
+  greaterThan   :: PredDom t -> t
+  greaterThanEq :: PredDom t -> t
+
+class (AsPredicate t) => LTConstraint t where
+  lessThan   :: PredDom t -> t
+  lessThanEq :: PredDom t -> t
+
+instance (Ord t) => GTConstraint (LowerBound t) where
+  greaterThan   v = LowerBound NonInclusive v
+  greaterThanEq v = LowerBound Inclusive v
+
+instance (Ord t) => LTConstraint (UpperBound t) where
+  lessThan   v = UpperBound NonInclusive v
+  lessThanEq v = UpperBound Inclusive v
+

@@ -34,3 +34,5 @@ class AsPredicate a => LiftablePredicate a where
   -- | Given a single value of type `a` return a perdicate that is true for
   --   only that value.
   liftPredicate :: PredDom a -> a
+
+

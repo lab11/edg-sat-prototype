@@ -48,3 +48,12 @@ instance (Ord a) => BoundedMeetSemiLattice (OneOf a) where
 
 filterOneOf :: (PredDom a ~ e, AsPredicate a) => a -> OneOf e -> OneOf e
 filterOneOf p (OneOf s) = OneOf $ Set.filter (asPredicate p) s
+
+class (AsPredicate t) => OneOfConstraint t where
+  oneOf :: [PredDom t] -> t
+
+is :: (AsPredicate t,OneOfConstraint t) =>  PredDom t -> t
+is t = oneOf [t]
+
+instance (Ord t) => OneOfConstraint (OneOf t) where
+  oneOf l = OneOf $ Set.fromList l

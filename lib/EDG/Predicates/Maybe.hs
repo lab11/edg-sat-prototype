@@ -5,6 +5,10 @@ import Algebra.PartialOrd
 import Algebra.Lattice
 import Algebra.AsPredicate
 
+import EDG.Predicates.Bounds
+import EDG.Predicates.OneOf
+import EDG.Predicates.NoneOf
+
 -- | A predicate with a maybe wrapped around it, where Just is just the
 --   predicate and Nothing is bottom.
 instance (AsPredicate a) => AsPredicate (Maybe a) where
@@ -43,3 +47,18 @@ instance (AsPredicate a, BoundedMeetSemiLattice a) => BoundedMeetSemiLattice (Ma
 
 instance (AsPredicate a,JoinSemiLattice a) => BoundedJoinSemiLattice (Maybe a) where
   bottom = Nothing
+
+instance (OneOfConstraint t) => OneOfConstraint (Maybe t) where
+  oneOf l = Just $ oneOf l
+
+instance (NoneOfConstraint t) => NoneOfConstraint (Maybe t) where
+  noneOf l = Just $ noneOf l
+
+instance (GTConstraint t) => GTConstraint (Maybe t) where
+  greaterThan   v = Just $ greaterThan v
+  greaterThanEq v = Just $ greaterThanEq v
+
+instance (LTConstraint t) => LTConstraint (Maybe t) where
+  lessThan   v = Just $ lessThan v
+  lessThanEq v = Just $ lessThanEq v
+

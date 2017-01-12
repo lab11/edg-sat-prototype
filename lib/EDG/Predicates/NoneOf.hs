@@ -42,3 +42,13 @@ instance (Ord a) => MeetSemiLattice (NoneOf a) where
 
 instance (Ord a) => BoundedJoinSemiLattice (NoneOf a) where
   bottom = NoneOf Set.empty
+
+class (AsPredicate t) => NoneOfConstraint t where
+  noneOf :: [PredDom t] -> t
+
+isNot :: (AsPredicate t,NoneOfConstraint t) =>  PredDom t  -> t
+isNot t = noneOf [t]
+
+instance (Ord t) => NoneOfConstraint (NoneOf t) where
+  noneOf = undefined -- TODO :: Make this just invert bottom
+
