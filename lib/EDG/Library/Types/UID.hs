@@ -9,8 +9,6 @@ import Algebra.PartialOrd
 import Algebra.AsPredicate
 import Algebra.Constrainable
 
-import EDG.PhantomTypes
-
 import Control.Newtype
 import Control.Newtype.Util
 
@@ -114,5 +112,5 @@ instance Eq a => Constrainable (UID a) where
 -- | Ask for a unique value to be used as this UID upon insertion into the
 --   system.
 unique :: UIDCons a
-unique = UIDNew
+unique = UCNew
 

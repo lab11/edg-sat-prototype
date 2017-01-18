@@ -28,6 +28,8 @@ unSAT = not . isSAT
 class AsPredicate a => CollapseablePredicate a where
   -- | Given some predicate `a` is there one and only one `e` which will satify
   --   it? if so return Just that element, otherwise return Nothing.
+  --
+  --   basically does this predicate cover top?
   collapse :: a -> Maybe (PredDom a)
 
 class AsPredicate a => LiftablePredicate a where
@@ -35,4 +37,6 @@ class AsPredicate a => LiftablePredicate a where
   --   only that value.
   liftPredicate :: PredDom a -> a
 
-
+class AsPredicate a => BottomPredicate a where
+  -- | Is the predicate true for all inputs? is is bottom?
+  isBottom :: a -> Bool

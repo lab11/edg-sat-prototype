@@ -27,6 +27,10 @@ instance (AsPredicate a,CollapseablePredicate a) => CollapseablePredicate (Maybe
 instance (AsPredicate a,LiftablePredicate a) => LiftablePredicate (Maybe a) where
   liftPredicate a = Just $ liftPredicate a
 
+instance (AsPredicate a, BottomPredicate a) => BottomPredicate (Maybe a) where
+  isBottom (Just a) = isBottom a
+  isBottom Nothing = True
+
 instance (AsPredicate a,PartialOrd a) => PartialOrd (Maybe a) where
   leq Nothing _ = True
   leq _ Nothing = False

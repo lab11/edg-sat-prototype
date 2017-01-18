@@ -34,6 +34,9 @@ instance (Ord a) => CollapseablePredicate (OneOf a) where
 instance (Ord a) => LiftablePredicate (OneOf a) where
   liftPredicate a = OneOf $ Set.singleton a
 
+instance (Ord a) => BottomPredicate (OneOf a) where
+  isBottom _ = False
+
 instance (Ord a) => PartialOrd (OneOf a) where
   leq (OneOf a) (OneOf b) = b `Set.isSubsetOf` a
 

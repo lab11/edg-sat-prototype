@@ -50,7 +50,7 @@ isNot :: (AsPredicate t,NoneOfConstraint t) =>  PredDom t  -> t
 isNot t = noneOf [t]
 
 instance (Ord t) => NoneOfConstraint (NoneOf t) where
-  noneOf = undefined -- TODO :: Make this just invert bottom
+  noneOf = NoneOf . Set.fromList
 
 -- | The meet of any predicate and a NoneOf is the NoneOf filtered of any
 --   elements that match the predicate

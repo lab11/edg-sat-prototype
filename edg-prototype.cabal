@@ -58,6 +58,7 @@ executable edg-prototype
     TypeFamilies
     TypeFamilyDependencies
     TypeOperators
+    ViewPatterns
 
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   
@@ -94,12 +95,13 @@ library
     EDG.PhantomTypes 
     --EDG.Classes
     EDG.Classes.Fields
+    EDG.Classes.Normalizable
     -- EDG.Library
     -- EDG.Library.Types
     EDG.Library.Types.Bool
     EDG.Library.Types.String
     EDG.Library.Types.UID
-    -- EDG.Library.Types.Integer
+    EDG.Library.Types.Integer
     -- EDG.Library.Types.Float
 
   -- Modules included in this library but not exported.
@@ -142,6 +144,8 @@ library
     TypeFamilies
     TypeFamilyDependencies
     TypeOperators
+    ViewPatterns
+
 
   -- Other library packages from which modules are imported.
   build-depends:
@@ -262,3 +266,5 @@ test-suite edg-prototype-test
     TypeFamilies
     TypeFamilyDependencies
     TypeOperators
+    ViewPatterns
+
