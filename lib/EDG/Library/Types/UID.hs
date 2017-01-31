@@ -1,7 +1,9 @@
 -- UIDs are integers when reified, but otherwise are either "any" or new UIDs
 -- to be generated as they're needed in the system. Conversion happens on
 -- transformation not insertion
--- .
+--
+-- TODO :: Make sure you're hiding the constructors that users aren't allowed
+-- to use. It should at least be a basic check on them doing silly shit.
 module EDG.Library.Types.UID where
 
 import Algebra.Lattice
@@ -50,6 +52,12 @@ instance Eq a => AsPredicate (UIDCons a) where
   asPredicate UCTop     = const False
   asPredicate UCBottom  = const True
   asPredicate (UCVal v) = (== v)
+  -- I'm generally not a fan of having partial functions anywhere in this
+  -- sort of hierarchy, but I can't think of any way to do this except with
+  -- phantom types, and that gets really kludgy really fast.
+  --
+  -- TODO :: Find a non-partial way to spli the type here between different
+  --         domains.
   asPredicate UCNew     = error "Can't perform ops on a UCNew"
 
 instance Eq a => SATAblePredicate (UIDCons a) where
@@ -64,6 +72,10 @@ instance Eq a => CollapseablePredicate (UIDCons a) where
 
 instance Eq a => LiftablePredicate (UIDCons a) where
   liftPredicate = UCVal
+
+instance Eq a => BottomPredicate (UIDCons a) where
+  isBottom UCBottom = True
+  isBottom _ = False
 
 instance Eq a => PartialOrd (UIDCons a) where
   leq UCNew _ = error "Can't perform ops on a UCNew"

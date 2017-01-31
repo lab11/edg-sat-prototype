@@ -25,7 +25,7 @@ import GHC.Exts
 --   TODO :: Move to a more efficient representation of this, that doesn't
 --           constantly pack and unpack sets.
 --
-newtype BoolCons = BoolCons (OneOf Bool)
+newtype BoolCons = BoolCons {bcOneOf :: OneOf Bool}
   deriving (Show, Read, Eq)
 
 -- TODO :: Better Show, Read instances that mimic the style of the isList
@@ -47,6 +47,9 @@ instance CollapseablePredicate BoolCons where
 
 instance LiftablePredicate BoolCons where
   liftPredicate = pack . liftPredicate
+
+instance BottomPredicate BoolCons where
+  isBottom = (==) bottom
 
 instance PartialOrd BoolCons where
   leq = under2 leq

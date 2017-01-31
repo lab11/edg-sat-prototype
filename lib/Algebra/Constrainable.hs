@@ -33,6 +33,7 @@ class (AsPredicate           (Constraints t)
       ,SATAblePredicate      (Constraints t)
       ,CollapseablePredicate (Constraints t)
       ,LiftablePredicate     (Constraints t)
+      ,BottomPredicate       (Constraints t)
       ,PredDom (Constraints t) ~ t
       ) => Constrainable t where
 
@@ -75,6 +76,9 @@ collapseEq :: (Constrainable t, Eq t) => Constraints t -> t -> Bool
 collapseEq c t = fromMaybe False $ (t ==) <$> collapse c
 
 -- | A value that can capture a space of possible values of type t.
+--
+--   TODO :: We might need a separate value for bottom in here, but this should
+--           let us wrap all our ambiguity in a single type now.
 data Ambiguous t where
   -- | A single concrete value of type t.
   --   "I am <value> of type t"
@@ -168,6 +172,12 @@ instance (Eq t, Constrainable t) => CollapseablePredicate (Ambiguous t) where
   collapse (Impossible) = Nothing
   collapse (Concrete t) = Just t
   collapse (Abstract c) = collapse c
+
+instance (Eq t, Constrainable t) => BottomPredicate (Ambiguous t) where
+  isBottom Impossible   = False
+  isBottom (Concrete _) = False
+  isBottom (Abstract c) = isBottom c
+
 
 -- TODO :: Add instances for `MeetSemiLattice (Ambiguous t)` and
 --         `BoundedMeetSemiLattice (Ambiguous t)`.

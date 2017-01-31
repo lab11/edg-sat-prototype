@@ -67,7 +67,8 @@ instance PartialOrd IntCons where
       --         just a placeholder that shouldn't mess things up too much in
       --         this part of the project.
       nleq (ICOther _ _ _) (ICOneOf _) = False
-      -- This one should be fine though.
+      -- TODO :: This should only compare na and nb within the overlap of
+      --         (la,ua) and (lb,ub), fix this too at some point.
       nleq (ICOther na la ua) (ICOther nb lb ub) = (na `leq` nb) && (la `leq` lb) && (ua `leq` ub)
 
 instance JoinSemiLattice IntCons where

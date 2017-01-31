@@ -19,6 +19,7 @@ import Control.Newtype.Util
 
 -- | A range is composed of an upper and lower bound, and can be worked with
 data Range a = Range (Maybe (LowerBound a)) (Maybe (UpperBound a))
+  deriving (Show, Read)
 
 instance Newtype (Range a) (Maybe (LowerBound a),Maybe (UpperBound a)) where
   pack (l,u) = Range l u

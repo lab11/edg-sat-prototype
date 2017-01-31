@@ -85,6 +85,7 @@ library
     Algebra.Constrainable
     Algebra.AsPredicate
     --EDG.Predicates 
+    EDG.Predicates
     EDG.Predicates.Predicate
     EDG.Predicates.Tuple
     EDG.Predicates.OneOf
@@ -100,9 +101,11 @@ library
     -- EDG.Library.Types
     EDG.Library.Types.Bool
     EDG.Library.Types.String
+    EDG.Library.Types.Float
     EDG.Library.Types.UID
     EDG.Library.Types.Integer
-    -- EDG.Library.Types.Float
+    EDG.Library.Types.Record 
+    EDG.Library.Types.TypeVal 
 
   -- Modules included in this library but not exported.
   other-modules:

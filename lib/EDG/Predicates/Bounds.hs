@@ -37,7 +37,7 @@ instance Eq (LowerBound Integer) where
       (LowerBound _ l') = normalizeEnumLB lb'
 
 instance Eq (LowerBound Float) where
-  (==) lb lb' = (l == l') && (lInc == lInc')
+  (==) lb lb' = (abs (l - l') <= (1e-5)) && (lInc == lInc')
     where
       (LowerBound lInc  l ) = lb
       (LowerBound lInc' l') = lb'
@@ -49,7 +49,7 @@ instance Eq (UpperBound Integer) where
       (UpperBound _ u') = normalizeEnumUB ub'
 
 instance Eq (UpperBound Float) where
-  (==) ub ub' = (u == u') && (uInc == uInc')
+  (==) ub ub' = (abs (u - u') <= 1e-5) && (uInc == uInc')
     where
       (UpperBound uInc  u ) = ub
       (UpperBound uInc' u') = ub'
