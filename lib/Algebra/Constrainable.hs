@@ -173,6 +173,12 @@ instance (Eq t, Constrainable t) => CollapseablePredicate (Ambiguous t) where
   collapse (Concrete t) = Just t
   collapse (Abstract c) = collapse c
 
+instance (Eq t,Constrainable t) => LiftablePredicate (Ambiguous t) where
+  -- | Given a single value of type `a` return a perdicate that is true for
+  --   only that value.
+  liftPredicate = Concrete
+
+
 instance (Eq t, Constrainable t) => BottomPredicate (Ambiguous t) where
   isBottom Impossible   = False
   isBottom (Concrete _) = False

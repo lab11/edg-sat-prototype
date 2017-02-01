@@ -37,6 +37,12 @@ class AsPredicate a => LiftablePredicate a where
   --   only that value.
   liftPredicate :: PredDom a -> a
 
+-- | If you either a predicate or a value in the predicate's domain, turn it
+--   into a predicate as needed.
+liftEither :: (LiftablePredicate a) => Either a (PredDom a) -> a
+liftEither (Left  a) = a
+liftEither (Right v) = liftPredicate v
+
 class AsPredicate a => BottomPredicate a where
   -- | Is the predicate true for all inputs? is is bottom?
   isBottom :: a -> Bool

@@ -95,3 +95,21 @@ instance Ord t => MeetSemiLattice (MaybeBoundNoneOf t) where
   (/\) (Nothing,la,ua) (ns,lb,ub) = (ns,la /\ lb,ua /\ ub)
   (/\) (ns,la,ua) (Nothing,lb,ub) = (ns,la /\ lb,ua /\ ub)
 
+-- TODO :: The way we've been defining predicates and compositiona heirarchies
+--         is sub-optimal at best. Consider changing the hierachry so that
+--         things are embedded in some `data Lat a = LTop | LVal a | LBottom`
+--         where a can be parameterized over, and where the combinations can
+--         be parameterized over.
+--
+--         This would let us define `Lattice (Lat a)` and `Lattice (Lat b)`
+--         and automatically get: `Lattice (Lat (Either a b))`
+--
+--         This gets more useful for complex instances where we can have
+--         something like the following for nearly free:
+--         `Lattice (Lat (Either (OneOf Integer) (NoneOf Integer,Range Integer)))`
+--
+--         Would require *generous* use of type and pattern aliases though, not
+--         that that's a horrible cost for high type directed code.
+--
+--         Ahh, the type I'm looking for is Algebra.Lattice.Levitated. That's
+--         going to need an alias :P but it's a start.

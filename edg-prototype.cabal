@@ -165,6 +165,8 @@ library
     sbv >= 5.12,
     -- Basic Containers
     containers,
+    -- Fixed point type
+    data-fix >= 0.0.3,
     -- heaps >= 0.3.2.1,
     -- vector >= 0.10, 
     -- -- Monad Transformers
