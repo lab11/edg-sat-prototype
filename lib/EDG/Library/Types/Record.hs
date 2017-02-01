@@ -8,6 +8,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+
 import Algebra.Lattice
 import Algebra.PartialOrd
 import Algebra.AsPredicate
@@ -31,7 +32,7 @@ import GHC.Exts
 --   K/V pairs, where the keys are strings and values are whatever
 --
 --   This is the parameterized version, the full version will be defined in
---   EDG.Library.Types. We keep the parameterized partial version
+--   EDG.Library.Types.TypeVal. We keep the parameterized partial version
 --   here so that the modules are more organized.
 newtype Record' v = Record' {rMap :: Map String v}
   deriving (Eq,Show,Read)

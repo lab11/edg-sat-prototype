@@ -13,6 +13,8 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import Data.Fix -- newtype Fix f = Fix {unFix :: f (Fix f)}
+
 import Algebra.Lattice
 import Algebra.PartialOrd
 import Algebra.AsPredicate
@@ -40,22 +42,20 @@ import EDG.Library.Types.String
 import EDG.Library.Types.UID
 import EDG.Library.Types.Record
 
+type Record = Record' TypeVal
+
 -- | This is the basic TypeVal', which disambiguates between each of the types
 --   we have handy, each constructor can also act as a value level witness if
 --   we need one.
---
---   Like the record, this is parameterized so that we can get the fixed point
---   in EDG.Library.Types where all the neccesary information is lying around
---   in one place.
---
-data TypeVal' a where
-  TVBool   :: Bool        -> TypeVal' a
-  TVFloat  :: Float       -> TypeVal' a
-  TVInt    :: Integer     -> TypeVal' a
-  TVString :: String      -> TypeVal' a
-  TVUID    :: UID Integer -> TypeVal' a
-  TVRecord :: Record' a   -> TypeVal' a
+data TypeVal where
+  TVBool   :: Bool        -> TypeVal
+  TVFloat  :: Float       -> TypeVal
+  TVInt    :: Integer     -> TypeVal
+  TVString :: String      -> TypeVal
+  TVUID    :: UID Integer -> TypeVal
+  TVRecord :: Record      -> TypeVal
   deriving (Show,Read,Eq)
+
 
 -- | And this is the corresponding type for the constraints over a TypedValue.
 --   Same deal with the parameterization.
@@ -64,27 +64,30 @@ data TypeVal' a where
 --   it prevents user error if we change the type of some constraint.
 --
 --   TODO :: Feh, I'm seriously hating having to put all these explicit bottoms
---           and tops in all of our constraint dataTypes, they
-data TypeCons' a where
-  TCBool   :: (Constraints Bool         ) -> TypeCons' a
-  TCFloat  :: (Constraints Float        ) -> TypeCons' a
-  TCInt    :: (Constraints Integer      ) -> TypeCons' a
-  TCString :: (Constraints String       ) -> TypeCons' a
-  TCUID    :: (Constraints (UID Integer)) -> TypeCons' a
-  TCRecord :: (Constraints (Record' a)  ) -> TypeCons' a
-  TCBottom :: TypeCons' a
-  TCTop    :: TypeCons' a
+--           and tops in all of our constraint dataTypes, they clutter up
+--           namespaces, look ugly and invite boilerplate. Refactor them out
+--           eventually.
+data TypeCons where
+  TCBool   :: (Constraints Bool         ) -> TypeCons
+  TCFloat  :: (Constraints Float        ) -> TypeCons
+  TCInt    :: (Constraints Integer      ) -> TypeCons
+  TCString :: (Constraints String       ) -> TypeCons
+  TCUID    :: (Constraints (UID Integer)) -> TypeCons
+  TCRecord :: (Constraints Record       ) -> TypeCons
+  TCBottom :: TypeCons
+  TCTop    :: TypeCons
+  deriving (Show,Read,Eq)
 
 -- Again, this is where we need UndecidableInstances, because the
 -- `Constraints t` is no smaller than `TypeCons' t`, but the cycle will
 -- terminate once you hit the instance for the fixed point operator, since
 -- that won't introduce any additional constraints.
-deriving instance (      Constrainable t, Eq   t,Eq   (Constraints t)) => Eq   (TypeCons' t)
-deriving instance (Eq t, Constrainable t, Show t,Show (Constraints t)) => Show (TypeCons' t)
-deriving instance (Eq t, Constrainable t, Read t,Read (Constraints t)) => Read (TypeCons' t)
+-- deriving instance (      Constrainable t, Eq   t,Eq   (Constraints t)) => Eq   (TypeCons' t)
+-- deriving instance (Eq t, Constrainable t, Show t,Show (Constraints t)) => Show (TypeCons' t)
+-- deriving instance (Eq t, Constrainable t, Read t,Read (Constraints t)) => Read (TypeCons' t)
 
-instance AsPredicate (TypeCons' a) where
-  type PredicateDomain (TypeCons' a) = TypeVal' a
+instance AsPredicate TypeCons where
+  type PredicateDomain TypeCons = TypeVal
 
   asPredicate (TCBool   c) (TVBool   b) = asPredicate c b
   asPredicate (TCFloat  c) (TVFloat  b) = asPredicate c b
@@ -95,7 +98,7 @@ instance AsPredicate (TypeCons' a) where
   asPredicate (TCBottom  ) _            = True
   asPredicate _            _            = False
 
-instance SATAblePredicate (TypeCons' a) where
+instance SATAblePredicate TypeCons where
   isSAT (TCBool   c) = isSAT c
   isSAT (TCFloat  c) = isSAT c
   isSAT (TCInt    c) = isSAT c
@@ -105,7 +108,7 @@ instance SATAblePredicate (TypeCons' a) where
   isSAT TCBottom = True
   isSAT TCTop = False
 
-instance BottomPredicate (TypeCons' a) where
+instance BottomPredicate TypeCons where
   isBottom (TCBool   c) = isBottom c
   isBottom (TCFloat  c) = isBottom c
   isBottom (TCInt    c) = isBottom c
@@ -115,7 +118,7 @@ instance BottomPredicate (TypeCons' a) where
   isBottom TCBottom = True
   isBottom TCTop = False
 
-instance CollapseablePredicate (TypeCons' a) where
+instance CollapseablePredicate TypeCons where
   collapse (TCBool   c) = TVBool   <$> collapse c
   collapse (TCFloat  c) = TVFloat  <$> collapse c
   collapse (TCInt    c) = TVInt    <$> collapse c
@@ -124,7 +127,7 @@ instance CollapseablePredicate (TypeCons' a) where
   collapse (TCRecord c) = TVRecord <$> collapse c
   collapse _ = Nothing
 
-instance (Eq a,Constrainable a) =>  LiftablePredicate (TypeCons' a) where
+instance LiftablePredicate TypeCons where
   liftPredicate (TVBool   b) = TCBool   $ liftPredicate b
   liftPredicate (TVFloat  b) = TCFloat  $ liftPredicate b
   liftPredicate (TVInt    b) = TCInt    $ liftPredicate b
@@ -132,10 +135,10 @@ instance (Eq a,Constrainable a) =>  LiftablePredicate (TypeCons' a) where
   liftPredicate (TVUID    b) = TCUID    $ liftPredicate b
   liftPredicate (TVRecord b) = TCRecord $ liftPredicate b
 
-instance (Eq a,Constrainable a) => Constrainable (TypeVal' a) where
-  type Constraints (TypeVal' a) = TypeCons' a
+instance Constrainable (TypeVal) where
+  type Constraints (TypeVal) = TypeCons
 
-instance (Eq a,Constrainable a, PartialOrd (Constraints a)) => PartialOrd (TypeCons' a) where
+instance  PartialOrd TypeCons where
   leq TCBottom _ = True
   leq _ TCBottom = False
   leq _ TCTop = True
@@ -148,7 +151,7 @@ instance (Eq a,Constrainable a, PartialOrd (Constraints a)) => PartialOrd (TypeC
   leq (TCRecord c) (TCRecord c') = c `leq` c'
   leq _ _ = False
 
-instance (Eq a,Constrainable a, JoinSemiLattice (Ambiguous a)) => JoinSemiLattice (TypeCons' a) where
+instance JoinSemiLattice TypeCons where
   (\/) TCTop _ = TCTop
   (\/) _ TCTop = TCTop
   (\/) TCBottom a = a
@@ -161,7 +164,7 @@ instance (Eq a,Constrainable a, JoinSemiLattice (Ambiguous a)) => JoinSemiLattic
   (\/) (TCRecord c) (TCRecord c') = TCRecord $ c \/ c'
   (\/) _ _ = TCTop
 
-instance (Eq a,Constrainable a, MeetSemiLattice (Ambiguous a)) => MeetSemiLattice (TypeCons' a) where
+instance (MeetSemiLattice (Ambiguous TypeVal)) => MeetSemiLattice TypeCons where
   (/\) TCBottom _ = TCBottom
   (/\) _ TCBottom = TCBottom
   (/\) a TCTop = a
@@ -174,20 +177,31 @@ instance (Eq a,Constrainable a, MeetSemiLattice (Ambiguous a)) => MeetSemiLattic
   (/\) (TCRecord c) (TCRecord c') = TCRecord $ c /\ c'
   (/\) _ _ = TCBottom
 
-instance (Eq a,Constrainable a,JoinSemiLattice (Ambiguous a)) => BoundedJoinSemiLattice (TypeCons' a) where
+instance BoundedJoinSemiLattice TypeCons where
   bottom = TCBottom
 
-instance (Eq a,Constrainable a,MeetSemiLattice (Ambiguous a)) => BoundedMeetSemiLattice (TypeCons' a) where
+-- TODO :: Remove this constraint when you actually have an Meet instance for
+--         Ambiguous.
+instance (MeetSemiLattice (Ambiguous TypeVal)) => BoundedMeetSemiLattice TypeCons where
   top = TCTop
 
--- | Same Deal with kinds, we can    tie the knot externally, and get something
---   more useful than just this s   imple witness for the kinds of the first
---   set of types.
-data KindVal' a where
-  KVBool   :: KindVal' a
-  KVFloat  :: KindVal' a
-  KVInt    :: KindVal' a
-  KVString :: KindVal' a
-  KVUID    :: KindVal' a
-  KVRecord :: Map String a -> KindVal' a
+-- TODO :: Write up the IsList instance for Record, along with that whole
+--         pile of typeclass shenanigans that allows us to write up ambiguous
+--         types more easily.
+
+
+-- | This is the closed form instance for Kind information, it's fine for
+--   what it does, but there's another version that's needed in order to allow
+--   us to gather and segregate information about types as we work in the
+--   SAT problem space. We'll just write that one later I suppose :/
+data KindVal where
+  KVBool   :: KindVal
+  KVFloat  :: KindVal
+  KVInt    :: KindVal
+  KVString :: KindVal
+  KVUID    :: KindVal
+  KVRecord :: Map String KindVal -> KindVal
+  KVBottom :: KindVal
+  KVTop :: KindVal
   deriving (Show,Read,Eq)
+

@@ -3,7 +3,6 @@
 --   their instances of GenOrd
 module EDG.Library.Types where
 
-import Data.Fix -- newtype Fix f = Fix {unFix :: f (Fix f)}
 
 -- data LibType = ...
 
