@@ -263,71 +263,73 @@ instance IsList (RecordCons TypeVal) where
   fromList = RCAmbig . Map.fromList
   toList = error "Don't use list syntax in a pattern match"
 
--- TODO :: Also create the IsList instance for a normal Record which should
---         just unwrap all the internal values to get a concrete record.
-
--- | This typeclass allows various other types to be turned into nice record
---   field tuples without all that much effort.
+-- -- TODO :: Also create the IsList instance for a normal Record which should
+-- --         just unwrap all the internal values to get a concrete record.
 --
---   We need a class here, because it allows us to specify which TypeVal or
---   TypeCons constructor we use at any given point
---   .
-class (Constrainable t) => ToRecordField t where
-  -- | Write a single concrete value into a record field as follows
-  --
-  --   > "foo" <: @Integer 4
-  --
-  -- TODO :: *sigh* This doesn't work as intended because TypeApplication
-  --         doesn't play nice with infix operators. Find a nicer syntax
-  --         that's actually doable.
-  newCField :: String -> t -> (String,Ambiguous TypeVal)
-  -- | Write an abstract value into a record field as follows
-  --
-  --   > "Foo" <~ @Integer [lessThan 3, greaterThanEq -4, oneOf [1,3,4]]
-  --
-  -- TODO :: *sigh* This doesn't work as intended because TypeApplication
-  --         doesn't play nice with infix operators. Find a nicer syntax
-  --         that's actually doable.
-  newAField :: String -> Constraints t -> (String,Ambiguous TypeVal)
+-- -- | This typeclass allows various other types to be turned into nice record
+-- --   field tuples without all that much effort.
+-- --
+-- --   We need a class here, because it allows us to specify which TypeVal or
+-- --   TypeCons constructor we use at any given point
+-- --   .
+-- class (Constrainable t) => ToRecordField t where
+--   -- | Write a single concrete value into a record field as follows
+--   --
+--   --   > "foo" <: @Integer 4
+--   --
+--   -- TODO :: *sigh* This doesn't work as intended because TypeApplication
+--   --         doesn't play nice with infix operators. Find a nicer syntax
+--   --         that's actually doable.
+--   newCField :: String -> t -> (String,Ambiguous TypeVal)
+--   -- | Write an abstract value into a record field as follows
+--   --
+--   --   > "Foo" <~ @Integer [lessThan 3, greaterThanEq -4, oneOf [1,3,4]]
+--   --
+--   -- TODO :: *sigh* This doesn't work as intended because TypeApplication
+--   --         doesn't play nice with infix operators. Find a nicer syntax
+--   --         that's actually doable.
+--   newAField :: String -> Constraints t -> (String,Ambiguous TypeVal)
+--
+-- instance ToRecordField Bool where
+--   newCField s v = (s,Concrete . Fix      . TVBool $ v)
+--   newAField s c = (s,Abstract . TypeCons . TCBool $ c)
+--
+-- instance ToRecordField Float where
+--   newCField s v = (s,Concrete . Fix      . TVFloat $ v)
+--   newAField s c = (s,Abstract . TypeCons . TCFloat $ c)
+--
+-- instance ToRecordField Integer where
+--   newCField s v = (s,Concrete . Fix      . TVInt $ v)
+--   newAField s c = (s,Abstract . TypeCons . TCInt $ c)
+--
+-- instance ToRecordField String where
+--   newCField s v = (s,Concrete . Fix      . TVString $ v)
+--   newAField s c = (s,Abstract . TypeCons . TCString $ c)
+--
+-- instance ToRecordField (UID Integer) where
+--   newCField s v = (s,Concrete . Fix      . TVUID $ v)
+--   newAField s c = (s,Abstract . TypeCons . TCUID $ c)
+--
+-- instance ToRecordField Record where
+--   newCField s v = (s,Concrete . Fix      . TVRecord $ v)
+--   newAField s c = (s,Abstract . TypeCons . TCRecord $ c)
 
-instance ToRecordField Bool where
-  newCField s v = (s,Concrete . Fix      . TVBool $ v)
-  newAField s c = (s,Abstract . TypeCons . TCBool $ c)
 
-instance ToRecordField Float where
-  newCField s v = (s,Concrete . Fix      . TVFloat $ v)
-  newAField s c = (s,Abstract . TypeCons . TCFloat $ c)
-
-instance ToRecordField Integer where
-  newCField s v = (s,Concrete . Fix      . TVInt $ v)
-  newAField s c = (s,Abstract . TypeCons . TCInt $ c)
-
-instance ToRecordField String where
-  newCField s v = (s,Concrete . Fix      . TVString $ v)
-  newAField s c = (s,Abstract . TypeCons . TCString $ c)
-
-instance ToRecordField (UID Integer) where
-  newCField s v = (s,Concrete . Fix      . TVUID $ v)
-  newAField s c = (s,Abstract . TypeCons . TCUID $ c)
-
-instance ToRecordField Record where
-  newCField s v = (s,Concrete . Fix      . TVRecord $ v)
-  newAField s c = (s,Abstract . TypeCons . TCRecord $ c)
-
-(<:-) s c v = (s,Concrete . Fix      . c $ v)
+-- | TODO :: Replace this with some actual documentation.
+(<:) :: String -> (t -> TypeVal' TypeVal) -> t -> (String,Ambiguous TypeVal)
+(<:) s c v = (s,Concrete . Fix      . c $ v)
 
 
--- | Temporary function for creating a concrete field
-(<:) :: ToRecordField t => String -> t -> (String,Ambiguous TypeVal)
-(<:) = newCField
+-- | TODO :: Write actual documentation, in the meantime see example below.
+(<~) :: String -> (Constraints t -> TypeCons' TypeVal) -> Constraints t -> (String,Ambiguous TypeVal)
+(<~) s c v = (s,Abstract . TypeCons . c $ v)
 
--- | Temporary function to create an ambiguous field.
-(<~) :: ToRecordField t => String -> Constraints t -> (String,Ambiguous TypeVal)
-(<~) = newAField
 
--- TODO :: Remove this, just testing some stuff.
+-- TODO :: Just an example of how you compose a record, make the documentation
+--         here better and test a few more things. Esp. nesting record fields.
 foo :: RecordCons TypeVal
-foo = ["Name" <: @Integer $ 3]
+foo = ["Number-of-doodads" <: TVInt $ 3
+      ,"Name" <~ TCString $ oneOf ["a","b","c"]]
 
 -- -- | Same Deal with kinds, we can    tie the knot externally, and get something
 -- --   more useful than just this s   imple witness for the kinds of the first
