@@ -113,3 +113,13 @@ instance Ord t => MeetSemiLattice (MaybeBoundNoneOf t) where
 --
 --         Ahh, the type I'm looking for is Algebra.Lattice.Levitated. That's
 --         going to need an alias :P but it's a start.
+--
+--         Oh also, when you do this refactoring, use PatternSynonyms and
+--         ViewPatterns to create pattern-like smart constructors, something
+--         to the effect of:
+--
+--         pattern Foo x <- (normalize -> Just (Foo' x)) where
+--           Foo x = Foo' x
+--
+--         Which takes care of a lot of the constant collapsing things into
+--         their most simplified state.

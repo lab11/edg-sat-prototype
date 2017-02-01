@@ -98,7 +98,7 @@ library
     EDG.Classes.Fields
     EDG.Classes.Normalizable
     -- EDG.Library
-    -- EDG.Library.Types
+    EDG.Library.Types
     EDG.Library.Types.Bool
     EDG.Library.Types.String
     EDG.Library.Types.Float
