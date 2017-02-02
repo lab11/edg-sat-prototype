@@ -109,6 +109,7 @@ instance AsPredicate IntCons where
   type PredicateDomain IntCons = Integer
   asPredicate (ICOneOf o) = asPredicate o
   asPredicate (ICOther n l u) = asPredicate (n,l,u)
+  asPredicate (ICBottom) = const True
 
 instance SATAblePredicate IntCons where
   isSAT (ICOneOf o) = isSAT o

@@ -195,8 +195,7 @@ library
   default-language:   
     Haskell2010
 
-  ghc-options: 
-    -ddump-splices
+  ghc-options: -ddump-splices -fwarn-incomplete-patterns
 
 test-suite edg-prototype-test
   type: exitcode-stdio-1.0 

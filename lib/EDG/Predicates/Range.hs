@@ -81,14 +81,25 @@ instance (Ord a) => LiftablePredicate (Range a) where
 -- The chain of implication should always terminate at the relevant `SATPred a`
 -- constraint.
 instance (SATPred (Range a),Ord a,Eq (LowerBound a),Eq (UpperBound a)) => PartialOrd (Range a) where
-  leq   (Range (Just lb) Nothing) (Range (Just lb') Nothing )
-    = lb `leq` lb'
-  leq   (Range Nothing (Just ub)) (Range Nothing (Just ub'))
-    = ub `leq` ub'
+  leq (Range Nothing Nothing) _ = True -- Everything is <= bottom
+  leq _ (Range Nothing Nothing) = False -- Everything except bottom is >= bottom
+  leq   (Range (Just lb) Nothing) r'@(Range (Just lb') _ )
+    | unSAT r'  = True
+    | otherwise = lb `leq` lb'
+  leq   (Range Nothing (Just ub)) r'@(Range _ (Just ub'))
+    | unSAT r'  = True
+    | otherwise = ub `leq` ub'
   leq r@(Range (Just lb) (Just ub)) r'@(Range (Just lb') (Just ub'))
     | unSAT r' = True   -- If r' is Top then r is either Top or less than top
     | unSAT r  = False  -- if unSAT r && isSAT r' then r == Top and r' /= Top
     | otherwise = (lb `leq` lb') && (ub `leq` ub')
+  -- All other cases mean you have non-overlapping ranges so it only is true
+  -- if r' is Top
+  leq r r'
+    | unSAT r'  = True
+    | otherwise = False
+
+
 
 instance (Ord a) => JoinSemiLattice (Range a) where
   (\/) (Range l u) (Range l' u') = Range (l \/ l') (u \/ u')

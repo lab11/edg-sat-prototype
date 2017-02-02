@@ -58,11 +58,13 @@ instance (Ord a) => AsPredicate (LowerBound a) where
   type PredicateDomain (LowerBound a) = a
   asPredicate (LowerBound Inclusive a)    = (\ b -> b >= a)
   asPredicate (LowerBound NonInclusive a) = (\ b -> b >  a)
+  asPredicate (LowerBound _ _) = error "This should never happen"
 
 instance (Ord a) => AsPredicate (UpperBound a) where
   type PredicateDomain (UpperBound a) = a
   asPredicate (UpperBound Inclusive a)    = (\b -> b <= a)
   asPredicate (UpperBound NonInclusive a) = (\b -> b <  a)
+  asPredicate (UpperBound _ _) = error "This should never happen"
 
 boundedIsSATLP :: (Eq a,Bounded a) => LowerBound a -> Bool
 boundedIsSATLP (LowerBound inc a)

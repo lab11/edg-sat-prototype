@@ -372,6 +372,7 @@ instance Newtype KindVal (KindVal' (Map String KindVal)) where
 --   what need to happen. Everything should be doable with the tools from
 --   Functor, Applicative, Monad, Newtype, and the KindVal constructors.
 getTVKindM :: Monad m => (Record' a -> m (KindVal' b)) -> TypeVal' a -> m (KindVal' b)
+getTVKindM _ (TVBool   _) = return KVBool
 getTVKindM _ (TVFloat  _) = return KVFloat
 getTVKindM _ (TVInt    _) = return KVInt
 getTVKindM _ (TVString _) = return KVString
@@ -392,6 +393,7 @@ getTVKind = runIdentity . getKind
 --   Again, types are your friend, just do what they ask you in order to get
 --   the result you need.
 getTCKindM :: Monad m => (Constraints (Record' a) -> m (KindVal' b)) -> TypeCons' a -> m (KindVal' b)
+getTCKindM _ (TCBool   _) = return KVBool
 getTCKindM _ (TCFloat  _) = return KVFloat
 getTCKindM _ (TCInt    _) = return KVInt
 getTCKindM _ (TCString _) = return KVString
