@@ -10,13 +10,30 @@ import qualified Data.Set as Set
 import Data.Bimap (Bimap)
 import qualified Data.Bimap as Bimap
 
+import Control.Newtype
+import Control.Newtype.Util
+
 import Algebra.PartialOrd
 import Algebra.Lattice
 
 import Prelude hiding (lookup)
 
 newtype EqClass = EqClass Integer
-  deriving (Eq, Ord, Show, Read, Num)
+  deriving (Eq, Ord, Show, Read)
+
+instance Newtype EqClass Integer where
+  pack = EqClass
+  unpack (EqClass i) = i
+
+-- Autogenerating this instance breaks it ... so I'll just do it manually.
+instance Num EqClass where
+ (+) = under2' (+)
+ (-) = under2' (-)
+ (*) = under2' (*)
+ negate = over EqClass negate
+ abs = over EqClass abs
+ signum = over EqClass signum
+ fromInteger = EqClass . fromInteger
 
 data EqMap k v = EqMap {
     toEq     :: Map k EqClass
