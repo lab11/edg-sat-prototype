@@ -34,6 +34,8 @@ import Control.Applicative
 
 import GHC.Exts
 
+import Data.Functor.Identity
+
 -- The Subtypes we're going to be working with.
 import EDG.Library.Types.Bool
 import EDG.Library.Types.Float
@@ -257,90 +259,168 @@ instance (MeetSemiLattice (Ambiguous TypeVal)) => BoundedMeetSemiLattice TypeCon
 --   and all the nested types we've got lying around. This lets us present
 --   a much nicer interface to the user while preserving all the power in the
 --   backend.
+--
+--   TODO :: Make sure there's no sensible list interface for these things, at
+--           least insofar as pattern matching is concerned.
+--
 instance IsList (RecordCons TypeVal) where
   type Item (RecordCons TypeVal) = (String,Ambiguous TypeVal)
 
   fromList = RCAmbig . Map.fromList
   toList = error "Don't use list syntax in a pattern match"
 
--- -- TODO :: Also create the IsList instance for a normal Record which should
--- --         just unwrap all the internal values to get a concrete record.
+-- | This instance allows us to make sure that a single static record is
+--   actually treated as one, and collapsed into a single value. Problem is
+--   that it produces a runtime error rather than a compile time error.
 --
--- -- | This typeclass allows various other types to be turned into nice record
--- --   field tuples without all that much effort.
--- --
--- --   We need a class here, because it allows us to specify which TypeVal or
--- --   TypeCons constructor we use at any given point
--- --   .
--- class (Constrainable t) => ToRecordField t where
---   -- | Write a single concrete value into a record field as follows
---   --
---   --   > "foo" <: @Integer 4
---   --
---   -- TODO :: *sigh* This doesn't work as intended because TypeApplication
---   --         doesn't play nice with infix operators. Find a nicer syntax
---   --         that's actually doable.
---   newCField :: String -> t -> (String,Ambiguous TypeVal)
---   -- | Write an abstract value into a record field as follows
---   --
---   --   > "Foo" <~ @Integer [lessThan 3, greaterThanEq -4, oneOf [1,3,4]]
---   --
---   -- TODO :: *sigh* This doesn't work as intended because TypeApplication
---   --         doesn't play nice with infix operators. Find a nicer syntax
---   --         that's actually doable.
---   newAField :: String -> Constraints t -> (String,Ambiguous TypeVal)
+--   TODO :: See if you can't get this to produce compile time errors, rather
+--           than a runtime error. There should be some typeclass trickery
+--           that allows you to use the same operator in multiple contexts.
 --
--- instance ToRecordField Bool where
---   newCField s v = (s,Concrete . Fix      . TVBool $ v)
---   newAField s c = (s,Abstract . TypeCons . TCBool $ c)
---
--- instance ToRecordField Float where
---   newCField s v = (s,Concrete . Fix      . TVFloat $ v)
---   newAField s c = (s,Abstract . TypeCons . TCFloat $ c)
---
--- instance ToRecordField Integer where
---   newCField s v = (s,Concrete . Fix      . TVInt $ v)
---   newAField s c = (s,Abstract . TypeCons . TCInt $ c)
---
--- instance ToRecordField String where
---   newCField s v = (s,Concrete . Fix      . TVString $ v)
---   newAField s c = (s,Abstract . TypeCons . TCString $ c)
---
--- instance ToRecordField (UID Integer) where
---   newCField s v = (s,Concrete . Fix      . TVUID $ v)
---   newAField s c = (s,Abstract . TypeCons . TCUID $ c)
---
--- instance ToRecordField Record where
---   newCField s v = (s,Concrete . Fix      . TVRecord $ v)
---   newAField s c = (s,Abstract . TypeCons . TCRecord $ c)
+instance IsList Record where
+  type Item Record = (String,Ambiguous TypeVal)
+
+  fromList l = case collapse . RCAmbig . Map.fromList $ l of
+    Nothing -> error $ "This record isn't a single fixed value :" ++ show l
+    Just v  -> v
+  toList = error "Don't use list syntax in a pattern match"
 
 
--- | TODO :: Replace this with some actual documentation.
-(<:) :: String -> (t -> TypeVal' TypeVal) -> t -> (String,Ambiguous TypeVal)
-(<:) s c v = (s,Concrete . Fix      . c $ v)
-
-
--- | TODO :: Write actual documentation, in the meantime see example below.
-(<~) :: String -> (Constraints t -> TypeCons' TypeVal) -> Constraints t -> (String,Ambiguous TypeVal)
-(<~) s c v = (s,Abstract . TypeCons . c $ v)
-
-
--- TODO :: Just an example of how you compose a record, make the documentation
---         here better and test a few more things. Esp. nesting record fields.
-foo :: RecordCons TypeVal
-foo = ["Number-of-doodads" <: TVInt $ 3
-      ,"Name" <~ TCString $ oneOf ["a","b","c"]]
-
--- -- | Same Deal with kinds, we can    tie the knot externally, and get something
--- --   more useful than just this s   imple witness for the kinds of the first
--- --   set of types.
--- data KindVal' a where
---   KVBool   :: KindVal' a
---   KVFloat  :: KindVal' a
---   KVInt    :: KindVal' a
---   KVString :: KindVal' a
---   KVUID    :: KindVal' a
---   KVRecord :: Map String a -> KindVal' a
---   deriving (Show,Read,Eq)
+-- | This operator allows you to create a record field with a fixed concrete
+--   value. Each field is defined as:
 --
--- type KindVal = Fix KindVal'
+--      ` <Name of Field> <:= <TV Constructor for field type> $ <field value>`
+--   or `(<Name of Field> <:= <TV Constructor for field type>)  <field value>`
+--
+--   Note :: Yes I'm using the `$` operator to get vaguely mixfix notation for
+--           this, it's the best I can do at the moment for vaguely readable
+--           easy to write syntax.
+--
+--  TODO :: There should be some typeclass trickery that allows the use of the
+--          same operator and type annotations for both ambiguous and
+--          unambiguous records, see if it's a good idea to implement it when
+--          you have time.
+--
+(<:=) :: String -> (t -> TypeVal' TypeVal) -> t -> (String,Ambiguous TypeVal)
+(<:=) s c v = (s,Concrete . Fix      . c $ v)
+
+
+-- | This operator allows you define an ambiguous field, with a series of
+--   constraints on it. Each is defined as:
+--
+--      ` <Name of Field> <~= <TC Constructor for field type> $ <Constraint over field>`
+--   or `(<Name of Field> <~= <TC Constructor for field type>)  <Constraint over field>`
+(<~=) :: String -> (Constraints t -> TypeCons' TypeVal) -> Constraints t -> (String,Ambiguous TypeVal)
+(<~=) s c v = (s,Abstract . TypeCons . c $ v)
+
+-- This is just an example of the Record definition syntax, it's mediocre at
+-- best, but it gets the job dome without having to write out a huge number
+-- of constructors and wrappers for each element.
+exampleRecord :: RecordCons TypeVal
+exampleRecord
+  = ["Number"  <:= TVInt    $ 3
+    ,"Name"    <~= TCString $ oneOf ["a","b","c"]
+    ,"record1" <~= TCRecord $
+      [ "par1"   <:= TVFloat  $ 2
+      , "pas2"   <~= TCInt    $ lessThan 3
+      , "pas3"   <~= TCInt    $ [lessThanEq 3, greaterThan 1, oneOf [2,3,4]]
+      ]
+    ,"record2" <:= TVRecord $
+      [ "foo1"   <:= TVInt    $ 1
+      , "foo2"   <:= TVString $ "test"
+      ]
+    ]
+
+-- | Same Deal with kinds, we can tie the knot with Fix, and get something
+--   more useful than just this simple witness for the kinds of the first
+--   set of types.
+--
+--   This is especially useful when we're comparing types of elements
+--   beforehand and want to split sub-records off into separate bins that
+--   are kept merged as needed.
+data KindVal' a where
+  KVBool   :: KindVal' a
+  KVFloat  :: KindVal' a
+  KVInt    :: KindVal' a
+  KVString :: KindVal' a
+  KVUID    :: KindVal' a
+  -- Sometimes we want to store records as maps to more records, othertimes
+  -- we want to store them as sets of TypeIDs that might be stored in a
+  -- database. It depends on what constext we're using them in.
+  KVRecord :: a -> KindVal' a
+  KVTop    :: KindVal' a
+  KVBottom :: KindVal' a
+  deriving (Show,Read,Eq)
+
+-- | Sadly Yes, we need this newtype and can't just use Fix.
+newtype KindVal = KindVal { unKV :: KindVal' (Map String KindVal)}
+  deriving (Show, Read, Eq)
+
+instance Newtype KindVal (KindVal' (Map String KindVal)) where
+  pack = KindVal
+  unpack = unKV
+
+-- | This is the primordial function that we use to get a kind from a
+--   corresponding TypeVal.
+--
+--   It takes a bit of effort, but you can make f work for you in a
+--   huge number of contexts. It can get the type of the sub-record, store
+--   that in a DB, and return the new ID. With judicious unpacks packs and a
+--   recursive call it can just be the pure tracnsform, etc..
+--
+--   If you need help, let the type guide you, use typed holes to figure out
+--   what need to happen. Everything should be doable with the tools from
+--   Functor, Applicative, Monad, Newtype, and the KindVal constructors.
+getTVKindM :: Monad m => (Record' a -> m (KindVal' b)) -> TypeVal' a -> m (KindVal' b)
+getTVKindM _ (TVFloat  _) = return KVFloat
+getTVKindM _ (TVInt    _) = return KVInt
+getTVKindM _ (TVString _) = return KVString
+getTVKindM _ (TVUID    _) = return KVUID
+getTVKindM f (TVRecord m) = f m
+
+-- | The pure version of the function to get the kind of a TypeVal.
+getTVKind :: TypeVal -> KindVal
+getTVKind = runIdentity . getKind
+  where
+    getKind :: TypeVal -> Identity KindVal
+    getKind = fmap pack . getTVKindM (fmap KVRecord . mapM getKind . unpack) . unpack
+
+-- | Similar to getTVKindM but with a few more complications, because the
+--   input function works on ambiguous values you need to manually disassemble
+--   and reassemble the Ambiguous returning things correctly.
+--
+--   Again, types are your friend, just do what they ask you in order to get
+--   the result you need.
+getTCKindM :: Monad m => (Constraints (Record' a) -> m (KindVal' b)) -> TypeCons' a -> m (KindVal' b)
+getTCKindM _ (TCFloat  _) = return KVFloat
+getTCKindM _ (TCInt    _) = return KVInt
+getTCKindM _ (TCString _) = return KVString
+getTCKindM _ (TCUID    _) = return KVUID
+getTCKindM f (TCRecord r) = f r
+getTCKindM _ TCBottom     = return KVBottom
+getTCKindM _ TCTop        = return KVTop
+
+-- | Pure version of the getTCKind specialized for the standard KindValue,
+--   should be good enough, even if it's a bit ugly.
+--
+--   TODO :: There's a lot of missing checking here that really should use a
+--           levitated lattice structure and a bunch of checking to ensure
+--           that Top and Bottom get propgated outwards as far as possible.
+--           With that we'd get much cleaner code all around, even if there's
+--           still a lot of packing and unpacking.
+--
+getTCKind :: TypeCons -> KindVal
+getTCKind = runIdentity . getKind
+  where
+    getKind :: TypeCons -> Identity KindVal
+    getKind = fmap pack . getTCKindM getRCKind . unpack
+
+    getRCKind :: RecordCons TypeVal -> Identity (KindVal' (Map String KindVal))
+    getRCKind  RCTop      = return KVTop
+    getRCKind  RCBottom   = return KVBottom
+    getRCKind (RCAmbig m) = KVRecord <$> mapM getAmbigKind m
+
+    getAmbigKind :: Ambiguous TypeVal -> Identity KindVal
+    getAmbigKind  Impossible  = return . pack $ KVTop
+    getAmbigKind (Concrete v) = return $ getTVKind v
+    getAmbigKind (Abstract c) = getKind c
