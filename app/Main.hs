@@ -18,6 +18,11 @@ import qualified Data.Set as Set
 --   deriving (Eq, Ord, Show, Read, Data, SymWord, HasKind, SatModel)
 --
 -- type ICMap = Map String IntCons
+data IntCons = IGT Integer | ILT Integer | IGTE Integer | ILTE Integer
+  deriving (Eq, Ord, Show, Read, Data, SymWord, HasKind, SatModel)
+
+type ICMap = Map String IntCons
+
 --
 -- newtype MapID = MapID Integer
 --   deriving (Eq, Ord, Show, Read)
@@ -84,6 +89,10 @@ import qualified Data.Set as Set
 -- runLoopM m = mdo
 --   (a,_,w) <- runRWST m (convertInfo w) (State 0)
 --   return a
+-- runLoopM m = undefined
+-- --   mdo
+-- --   (a,_,w) <- runRWST m (convertInfo w) (State 0)
+-- --   return a
 --
 -- type IDRef = Map MapID (Either MapID (Set FieldName))
 --
@@ -201,6 +210,43 @@ import qualified Data.Set as Set
 
 main :: IO ()
 main = print 3
+
+type Forward = RWS Int [Int] Int
+
+data Paired a where
+  Pair :: Forward (a,Symbolic ()) -> Paired a
+
+instance Functor Paired where
+  fmap f (Pair n) = Pair $ (\ (a,b) -> (f a,b)) <$> n
+
+instance Applicative Paired where
+  pure = return
+  (<*>) = ap
+
+instance Monad (Paired) where
+  return a = Pair $ return (a, return ())
+
+  (>>=) (Pair inp) f = Pair $ do
+    (a,s ) <- inp
+    let Pair o = f a
+    (b,s') <- o
+    return (b,s >> s')
+
+-- Class for Forward Pass Monad
+--   Assigns IDs to things that need ID
+--   Keeps track of type information
+--   Assigns values for various properties and gets oracles out.
+
+-- Class for SMT Pass Monad
+--   Makes sure all the relevant oracles are correctly typed
+--   Make sure we can get information as neccesary
+
+-- Class for pair of Forward and SMT passes
+--   Provides the relevant transformation functions, starting state and
+--   unwrap/refactor functions. We should probably tag this so that we swap
+--   out the transformations we want straightforwardly without too much
+--   trouble.
+
 
 --- Test Data
 

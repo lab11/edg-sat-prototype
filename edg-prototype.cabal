@@ -80,6 +80,7 @@ executable edg-prototype
 library
   -- Modules exported by the library.
   exposed-modules:
+    -- Algebraic Objects
     Algebra
     Algebra.GenOrd
     Algebra.Constrainable
@@ -93,7 +94,8 @@ library
     EDG.Predicates.Bounds
     EDG.Predicates.Range
     EDG.Predicates.Maybe
-    EDG.PhantomTypes 
+    -- Special Data Structures 
+    Data.EqMap 
     --EDG.Classes
     EDG.Classes.Fields
     EDG.Classes.Normalizable
@@ -164,6 +166,7 @@ library
     -- Used to build bindings to z3 and other theorem provers as needed
     sbv >= 5.12,
     -- Basic Containers
+    bimap >= 0.3.2,
     containers,
     -- Fixed point type
     data-fix >= 0.0.3,

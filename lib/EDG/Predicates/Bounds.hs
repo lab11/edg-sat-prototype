@@ -148,11 +148,11 @@ instance (Ord a) => MeetSemiLattice (UpperBound a) where
 
 normalizeEnumLB :: (Enum a) => LowerBound a -> LowerBound a
 normalizeEnumLB (LowerBound NonInclusive a) = LowerBound Inclusive (succ a)
-normalizeEnumLM a = a
+normalizeEnumLB a = a
 
 normalizeEnumUB :: (Enum a) => UpperBound a -> UpperBound a
 normalizeEnumUB (UpperBound NonInclusive a) = UpperBound Inclusive (pred a)
-normalizeEnumUM a = a
+normalizeEnumUB a = a
 
 
 class (AsPredicate t) => GTConstraint t where

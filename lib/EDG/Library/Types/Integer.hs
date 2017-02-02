@@ -248,7 +248,7 @@ icNorm i@(ICOther _ _ _)
       | Set.member lb ns = normTightenLB i{none  = Just (NoneOf (Set.delete lb ns)),
                                            lower = Just (LowerBound True (succ lb))}
       | otherwise = i
-    normTIghtenLB i = i
+    normTightenLB i = i
 
     -- | Given an other list, tighten the upper bounds and remove unneccesary elements
     --   from the noneOf list.
