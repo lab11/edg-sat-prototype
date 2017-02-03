@@ -111,6 +111,7 @@ library
 
   -- Modules included in this library but not exported.
   other-modules:
+    Control.Monad.Scribe
     Control.Newtype.Util
     Control.Lens.TupleLens
     -- Control.Lens.MakePolyFields
