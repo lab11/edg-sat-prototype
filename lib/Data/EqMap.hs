@@ -48,6 +48,10 @@ instance Num EqClass where
 --   This makes sure all the relevant equality classes are collected nicely
 --   together, and are completely transitive.
 --
+--   TODO :: I'm pretty sure none of these need a bimap, unless I'm searching
+--           on the value terms or equality classes as a whole. See if you can
+--           remove them when the full interface for EqMap is settled.
+--
 data EqMap k v = EqMap {
     toEq  :: Map k EqClass
   , toKey :: Bimap EqClass (Set k)
@@ -130,21 +134,25 @@ insert k v em@EqMap{..} = case Map.lookup k toEq of
 --   toKey .= delete IDb . (IDa += IDb)
 --   toVal .= delete IDb . (IDa = IDa \/ IDb)
 --
+--   TODO :: There's no reason this should be non-total, but I'm not sure how
+--           construct it so that we don't even use `error` without changing
+--           the type signature.
 --
 setEq :: (Ord k, Ord v, BoundedJoinSemiLattice v) => k -> k -> EqMap k v -> EqMap k v
 setEq k k' em
   | k == k'   = insert k bottom em
   | otherwise = set . (insert k bottom) . (insert k' bottom) $ em
   where
-    set em@EqMap{..} =
-      let Just id   = Map.lookup k  toEq in
-      let Just id'  = Map.lookup k' toEq in
-      let Just set' = Bimap.lookup id' toKey in
-      let Just val' = Bimap.lookup id' toVal in
-      EqMap { toEq   = Map.map (replace id' id) toEq
-            , toKey  = Bimap.delete id' . Bimap.adjust (Set.union set') id $ toKey
-            , toVal  = Bimap.delete id' . Bimap.adjust (\/ val')        id $ toVal
-            }
+    set em@EqMap{..} = fromMaybe (error "This should never fail") $ do
+      id   <-  Map.lookup k  toEq
+      id'  <-  Map.lookup k' toEq
+      set' <-  Bimap.lookup id' toKey
+      val' <-  Bimap.lookup id' toVal
+      return $ EqMap {
+          toEq   = Map.map (replace id' id) toEq
+        , toKey  = Bimap.delete id' . Bimap.adjust (Set.union set') id $ toKey
+        , toVal  = Bimap.delete id' . Bimap.adjust (\/ val')        id $ toVal
+        }
 
     replace a b k
       | k == a    = b
@@ -152,8 +160,8 @@ setEq k k' em
 
 -- * Combine
 
--- TODO :: I'm not entirely sure what a union of two sets would mean? inserting
---         each key, equality relation, and value in one map into the other?
+-- TODO :: These functions if neccesary.
+--
 -- union :: (Ord k, Ord v, BoundedJoinSemiLattice v) => EqMap k v -> EqMap k v -> EqMap k v
 -- union = undefined
 --

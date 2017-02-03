@@ -173,7 +173,6 @@ instance CollapseablePredicate (TypeCons' a) where
 instance CollapseablePredicate TypeCons where
   collapse (TypeCons c) = Fix <$> collapse c
 
-
 instance (Eq a,Constrainable a) =>  LiftablePredicate (TypeCons' a) where
   liftPredicate (TVBool   b) = TCBool   $ liftPredicate b
   liftPredicate (TVFloat  b) = TCFloat  $ liftPredicate b
@@ -301,6 +300,8 @@ instance IsList Record where
 --          unambiguous records, see if it's a good idea to implement it when
 --          you have time.
 --
+--  TODO :: Add a normal function version of the operator
+--
 (<:=) :: String -> (t -> TypeVal' TypeVal) -> t -> (String,Ambiguous TypeVal)
 (<:=) s c v = (s,Concrete . Fix      . c $ v)
 
@@ -330,6 +331,31 @@ exampleRecord
       , "foo2"   <:= TVString $ "test"
       ]
     ]
+
+--  testPort :: Port
+--  testPort = makePort "portName" do
+--    mkType [
+--        "kind"       <:= TVString $ "Power In"
+--      , "voltage"    <~= TCFloat  $ [lessThan 3.35, greaterThan 3.25]
+--      , "maxCurrent" <:= TVFloat  $ 1.2
+--      ]
+--
+--    linkType "Power"
+--
+--    constraint $ "type.voltage" .== "link.voltage"
+--
+--  testModule :: Module
+--  testModule = makeModule "moduleName" do
+--    gpios <- duplicate 8 "gpio" $ gpioPort [
+--        "voltage" <:= TVFloat $ 3.3
+--      , "current" <:= TVFloat $ 0.01
+--      ]
+--
+--    spi <- spiPort ["baudRate" <:= TVFloat $ 3.2]
+--
+--    mutuallyExclusive [gpios !! 1,gpios !! 3,gpios !! 6] [spi]
+
+
 
 -- | Same Deal with kinds, we can tie the knot with Fix, and get something
 --   more useful than just this simple witness for the kinds of the first
