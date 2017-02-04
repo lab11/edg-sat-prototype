@@ -7,10 +7,7 @@ module Control.Monad.Scribe where
 
 import Control.Newtype
 
-import Control.Monad
-import Control.Monad.Trans
-
-import Control.Monad.Writer
+import Control.Monad.Ether.Implicit
 
 -- | Type wrapper that create a monoid using monad sequencing.
 newtype SeqMonoid a = SeqMonoid { getSeqMonoid :: a () }
@@ -25,24 +22,20 @@ instance Monad a => Monoid (SeqMonoid a) where
 
 -- | Yeah, it's just a writer with the extra newtype wrapper around the
 --   written log :V
---
 type ScribeT i = WriterT (SeqMonoid i)
 
 -- | And there's no real interface either, just wrapping the MonadWriter
 --   typeclass so that we know we have access to its functions.
+--
+--   TODO :: Fix that so that the constraint is `MonadScribe i (ScribeT i m)`
+--           rather than just `MonadScribe i m`, so as to better fit the
+--           interface that mtl uses. This probably means you have to make it
+--           an actual typeclass.
+--
+--           Make sure it works with Ether too.
+--
 type MonadScribe i m = (Monad i, Monad m, MonadWriter (SeqMonoid i) (ScribeT i m))
 
--- The big downside to this approach is that lose access to any MonadWriters
--- underneath this in the monad stack. It's a pain, and there's no good way
--- around it. UndecidableInstances would allow the following to work, but
--- there's no guarentee that the system would be able to use types to
--- disambiguate which `writer` or `tell` call you meant to make anyway.
---
---  > instance (MonadWriter w m) => MonadWriter w (ScribeT i m) where
---  >   writer = lift writer
---  >   tell = lift tell
---  >   listen = lift listen
---  >   pass = lift pass
 
 -- | Write a new action to the log of things to do.
 scribe :: (MonadScribe i m) => i () -> ScribeT i m ()
