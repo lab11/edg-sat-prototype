@@ -1,7 +1,9 @@
 
 -- | A bunch of basic types and their corresponding kinds as specified by
 --   their instances of GenOrd
-module EDG.Library.Types where
+module EDG.Library.Types (
+  module LibType
+) where
 
 
 import Data.Map (Map)
@@ -30,13 +32,13 @@ import Control.Applicative
 import GHC.Exts
 
 -- The Subtypes we're going to be working with.
-import EDG.Library.Types.Bool
-import EDG.Library.Types.Float
-import EDG.Library.Types.Integer
-import EDG.Library.Types.String
-import EDG.Library.Types.UID
-import EDG.Library.Types.Record
-import EDG.Library.Types.TypeVal
+import EDG.Library.Types.Bool    as LibType
+import EDG.Library.Types.Float   as LibType
+import EDG.Library.Types.Integer as LibType
+import EDG.Library.Types.String  as LibType
+import EDG.Library.Types.UID     as LibType
+import EDG.Library.Types.Record  as LibType
+import EDG.Library.Types.TypeVal as LibType
 -- data LibType = ...
 
 

@@ -107,13 +107,20 @@ library
     EDG.Library.Types.UID
     EDG.Library.Types.Integer
     EDG.Library.Types.Record 
-    EDG.Library.Types.TypeVal 
+    EDG.Library.Types.TypeVal
+    -- Messy Modules that should be reorganized
+    -- TODO :: Reorganize these. 
+    EDG.EDGMonad
+    EDG.EDGInstances
+    EDG.EDGProblem
 
   -- Modules included in this library but not exported.
   other-modules:
     Control.Monad.Scribe
+    Control.Monad.MonadSymbolic
     Control.Newtype.Util
     Control.Lens.TupleLens
+    Control.Lens.Ether.Implicit
     -- Control.Lens.MakePolyFields
 
   -- LANGUAGE extensions used by modules in this package.
@@ -175,8 +182,8 @@ library
     -- vector >= 0.10, 
     -- -- Monad Transformers
     ether >= 0.4.0.2, 
-    -- mtl >= 2.2.1,
-    -- transformers >= 0.4.2,
+    mtl >= 2.2.1,
+    transformers >= 0.4.2,
     -- -- Provides tagged monads, so that we can remove all those 
     -- --   fucking `(lift . lift)`s
     -- ether >= 0.3.0.0,
@@ -201,6 +208,7 @@ library
     -ddump-splices 
     -fwarn-incomplete-patterns 
     -fwarn-incomplete-uni-patterns
+    -fprint-potential-instances
 
 test-suite edg-prototype-test
   type: exitcode-stdio-1.0 

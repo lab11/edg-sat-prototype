@@ -36,7 +36,6 @@ type ScribeT i = WriterT (SeqMonoid i)
 --
 type MonadScribe i m = (Monad i, Monad m, MonadWriter (SeqMonoid i) (ScribeT i m))
 
-
 -- | Write a new action to the log of things to do.
 scribe :: (MonadScribe i m) => i () -> ScribeT i m ()
 scribe = tell . SeqMonoid
@@ -54,6 +53,14 @@ runScribeT = fmap (fmap unpack) . runWriterT
 --
 execScribeT :: (MonadScribe i m) => ScribeT i m a -> m (i ())
 execScribeT = fmap unpack . execWriterT
+
+-- | Return a value and add an action to the collected list of instructions.
+--
+--   This is mostly just so that we can can nicely end various do blocks with
+--   both a return value and sets of instructions.
+--
+returnAnd :: (MonadScribe i m) => a -> i b -> ScribeT i m a
+returnAnd v i = scribe (i >> return ()) >> return v
 
 -- Here's a functionally similar (but for some packing and unpacking) monad
 -- that can be used more or less the same way. There's no actual execution
