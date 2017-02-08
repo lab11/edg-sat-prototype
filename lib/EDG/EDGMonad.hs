@@ -19,7 +19,12 @@ import Control.Newtype
 import Control.Monad.Ether.Implicit
 import Control.Monad.MonadSymbolic
 import Data.SBV (
-  Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
+    Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
+  , SatResult(..), SMTResult(..), SMTConfig(..), CW(..), Kind(..)
+  , Modelable(..)
+  )
+import Data.SBV.Internals (
+  CWVal(..)
   )
 import qualified Data.SBV as S
 import Control.Monad.Scribe
@@ -138,7 +143,6 @@ class Constrainable t => SBVAble t where
   --   just for internal use. Don't push too hard with this one.
   add :: RefType t -> SBVType t -> SBVMonad ()
 
-
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
 refAmbiguous :: SBVAble t => String -> Ambiguous t -> EDGMonad (RefType t)
@@ -147,5 +151,33 @@ refAmbiguous name (Concrete v) = refConcrete name v
 refAmbiguous name (Abstract c)
   | unSAT c   = throw $ "Ambiguous Value \"" ++ name ++ "\" is unsatisfiable."
   | otherwise = refAbstract name c
+
+-- | Can we, given a reference to a particular element in a SatModel to
+--   retrieve, retrieve it?
+class SBVAble t => InvertSBV t where
+  extract :: Modelable a => a -> RefType t -> Maybe t
+
+-- | Get an equality constraint
+class (SBVAble t,SBVAble Bool) => EDGEquals t where
+  -- | Given a name for the new variable, get the predicate that asserts two
+  --   elements are equal.
+  equalE   :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  -- | Same as `equals` but chooses its own name, usually just something
+  --   pretty obvious.
+  (.==)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
+  -- | As you'd expect.
+  unequalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  -- | Also as you'd expect.
+  (./=)   :: RefType t -> RefType t            -> EDGMonad (RefType Bool)
+
+-- | And some constraints for boolean operators.
+class (SBVAble t, SBVAble Bool) => EDGLogic t where
+  notE     :: RefType t ->              String -> EDGMonad (RefType Bool)
+  andE     :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  (.&&)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
+  orE      :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  (.||)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
+  impliesE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  (.=>)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
 
 

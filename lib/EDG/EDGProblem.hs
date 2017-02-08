@@ -74,7 +74,7 @@ testProblem :: EDGMonad (Ref Bool)
 testProblem = do
   b1 <- refAbstract @Bool "b1" bottom
   b2 <- refAbstract @Bool "b2" bottom
-  b3 <- refAbstract @Bool "b3" bottom
+  b3 <- notE b1 "notE b1"
   return b3
 
 -- | What `main` in "app/Main.hs" calls.

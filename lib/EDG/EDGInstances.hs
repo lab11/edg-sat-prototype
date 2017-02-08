@@ -20,7 +20,11 @@ import Control.Newtype
 import Control.Monad.Ether.Implicit
 import Control.Monad.MonadSymbolic
 import Data.SBV (
-  Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
+    Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
+  , SatResult(..), SMTResult(..), SMTConfig(..), CW(..), Kind(..), Modelable(..)
+  )
+import Data.SBV.Internals (
+  CWVal(..)
   )
 import qualified Data.SBV as S
 import Control.Monad.Scribe
@@ -39,6 +43,8 @@ import EDG.Library.Types
 import EDG.Predicates
 import EDG.EDGMonad
 
+-- * Instances for Bool
+
 instance SBVAble Bool where
   type SBVType Bool = SBV Bool
   type RefType Bool = Ref Bool
@@ -56,8 +62,7 @@ instance SBVAble Bool where
       lv <- lit v
       -- And now we assert that the value we created with `ref` has the
       -- correct concrete result.
-      ec <- nv `sEquals` lv
-      constrain ec
+      constrain $ (S..==) nv lv
 
   refAbstract :: String -> BoolCons -> EDGMonad (Ref Bool)
   refAbstract name' (BoolCons (OneOf s)) = do
@@ -88,3 +93,74 @@ instance SBVAble Bool where
 
 
 
+instance InvertSBV Bool where
+  extract :: Modelable a => a -> Ref Bool -> Maybe Bool
+  extract model (Ref name) = getModelValue name model
+
+-- TODO :: Consider moving the infix operators out of these portions, they
+--         should be the same in all circumstances. Just adding a nice name to
+--         everything should be agnostic of type implementation.
+instance EDGEquals Bool where
+  equalE   :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  equalE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av S..== bv)
+
+  (.==)    :: Ref Bool -> Ref Bool           -> EDGMonad (Ref Bool)
+  (.==) a b = equalE a b ("equalE (" ++ unpack a ++ ") (" ++ unpack b ++ ")")
+
+  unequalE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  unequalE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av S../= bv)
+
+  (./=)   :: Ref Bool -> Ref Bool           -> EDGMonad (Ref Bool)
+  (./=) a b = unequalE a b ("unequalE (" ++ unpack a ++ ") (" ++ unpack b ++ ")")
+
+
+instance EDGLogic Bool where
+  notE     :: Ref Bool ->             String -> EDGMonad (Ref Bool)
+  notE a name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      add n (S.bnot av)
+
+  andE     :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  andE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av &&& bv)
+
+  (.&&)    :: Ref Bool -> Ref Bool           -> EDGMonad (Ref Bool)
+  (.&&) a b = andE a b ("andE (" ++ unpack a ++ ") (" ++ unpack b ++ ")")
+
+  orE      :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  orE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av ||| bv)
+
+  (.||)    :: Ref Bool -> Ref Bool           -> EDGMonad (Ref Bool)
+  (.||) a b = andE a b ("orE (" ++ unpack a ++ ") (" ++ unpack b ++ ")")
+
+  impliesE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  impliesE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av ==> bv)
+
+  (.=>)    :: Ref Bool -> Ref Bool           -> EDGMonad (Ref Bool)
+  (.=>) a b = impliesE a b ("impliesE (" ++ unpack a ++ ") (" ++ unpack b ++ ")")

@@ -24,10 +24,10 @@ instance MonadSymbolic Symbolic where
   sBool = S.sBool
   constrain = S.constrain
 
-class EqSymbolic a where
-  sEquals :: MonadSymbolic m => a -> a -> m (SBV Bool)
-
--- Also UndecidableInstances is used here, but it should terminate quickly and
--- without issue.
-instance (S.EqSymbolic a) => EqSymbolic a where
-  sEquals a b = return $ (S..==) a b
+-- class EqSymbolic a where
+--   sEquals :: MonadSymbolic m => a -> a -> m (SBV Bool)
+--
+-- -- Also UndecidableInstances is used here, but it should terminate quickly and
+-- -- without issue.
+-- instance (S.EqSymbolic a) => EqSymbolic a where
+--   sEquals a b = return $ (S..==) a b
