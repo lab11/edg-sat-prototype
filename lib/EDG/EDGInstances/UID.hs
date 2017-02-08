@@ -119,7 +119,7 @@ instance SBVAble UID where
 instance InvertSBV UID where
 
   extract :: Modelable a => DecodeState -> a -> Ref UID -> Maybe UID
-  extract _ model (Ref name) = UIDN <$> getModelValue name model
+  extract _ model (Ref name) = UIDNewtype <$> getModelValue name model
 
 instance EDGEquals UID where
 
