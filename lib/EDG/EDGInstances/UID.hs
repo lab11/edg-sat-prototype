@@ -48,70 +48,51 @@ instance SBVAble UID where
   type RefType UID = Ref UID
 
   ref :: String -> EDGMonad (Ref UID)
-  ref name = undefined
-  -- let n = Ref name in returnAnd n (sFloat name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sUID name >>= add n)
 
   refConcrete :: String -> UID -> EDGMonad (Ref UID)
-  refConcrete name' s = undefined
-    -- do
-    -- n <- ref name'
-    -- returnAnd n $ do
-    --   nv <- sbv n
-    --   lv <- lit s
-    --   constrain $ nv S..== lv
+  refConcrete name' s = do
+    n <- ref name'
+    returnAnd n $ do
+      nv <- sbv n
+      lv <- lit s
+      constrain $ nv S..== lv
 
   refAbstract :: String -> UIDCons -> EDGMonad (Ref UID)
-  refAbstract name' c = undefined
-    -- | unSAT c = throw $ "No valid solution for float " ++ show name' ++ "."
-    -- | otherwise = do
-    --   n <- ref name'
-    --   returnAnd n $ case c of
-    --     FCBottom -> return ()
-    --     FCOneOf (OneOf m) -> do
-    --       nv <- sbv n
-    --       lvs <- mapM lit (Set.toList m)
-    --       case lvs of
-    --         [] -> throw $ "Contraints for float `" ++ show n ++ "` insoluble."
-    --         ts -> constrain $ S.bAny ((S..==) nv) ts
-    --     FCRange (Range lb ub) -> do
-    --       case lb of
-    --         Nothing -> return ()
-    --         Just (LowerBound inc val) -> do
-    --           nv <- sbv n
-    --           lv <- lit val
-    --           case inc of
-    --             Inclusive    -> constrain $ lv S..<= nv
-    --             NonInclusive -> constrain $ lv S..<  nv
-    --             _            -> error "This should never happen"
-    --       case ub of
-    --         Nothing -> return ()
-    --         Just (UpperBound inc val) -> do
-    --           nv <- sbv n
-    --           lv <- lit val
-    --           case inc of
-    --             Inclusive    -> constrain $ lv S..>= nv
-    --             NonInclusive -> constrain $ lv S..>  nv
-    --             _            -> error "This should never happen"
+  refAbstract name' c
+    | unSAT c       = throw $ "No valid solution for UID " ++ show name' ++ "."
+    | UCTop    <- c = throw $ "No valid solution for UID " ++ show name' ++ "."
+    | UCBottom <- c = ref name'
+    | UCNew    <- c = do
+      n   <- ref name'
+      uid <- UID <$> newUID
+      returnAnd n $ do
+        nv <- sbv n
+        lv <- lit uid
+        constrain $ nv S..== lv
+    | UCVal u <- c = do
+      n   <- ref name'
+      returnAnd n $ do
+        nv <- sbv n
+        lv <- lit u
+        constrain $ nv S..== lv
 
   sbv :: Ref UID -> SBVMonad (SBV UID)
-  sbv r = undefined
-    -- do
-    -- val <- uses @SBVS floatRef (Map.lookup r)
-    -- case val of
-    --   Nothing -> throw $ "No ref to float `" ++ show r ++ "` found, cannot continue."
-    --   Just v  -> return v
+  sbv r = do
+    val <- uses @SBVS uidRef (Map.lookup r)
+    case val of
+      Nothing -> throw $ "No ref to UID `" ++ show r ++ "` found, cannot continue."
+      Just v  -> return v
 
   lit :: UID     -> SBVMonad (SBV UID)
-  lit = undefined
-    -- return . S.literal
+  lit = return . reWrap . S.literal . unpack
 
   add :: Ref UID -> SBV UID -> SBVMonad ()
-  add r s = undefined
-    -- do
-    -- exists <- uses @SBVS floatRef (Map.member r)
-    -- case exists of
-    --   True  -> throw $ "Reference to float `" ++ show r ++ "` already exists."
-    --   False -> floatRef @SBVS %= (Map.insert r s)
+  add r s = do
+    exists <- uses @SBVS uidRef (Map.member r)
+    case exists of
+      True  -> throw $ "Reference to UID `" ++ show r ++ "` already exists."
+      False -> uidRef @SBVS %= (Map.insert r s)
 
   getName :: Ref UID -> String
   getName = unpack
@@ -124,20 +105,18 @@ instance InvertSBV UID where
 instance EDGEquals UID where
 
   equalE :: Ref UID -> Ref UID -> String -> EDGMonad (Ref Bool)
-  equalE a b name = undefined
-    -- do
-    -- let n = Ref name
-    -- returnAnd n $ do
-    --   av <- sbv a
-    --   bv <- sbv b
-    --   add n (av S..== bv)
+  equalE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av S..== bv)
 
   unequalE :: Ref UID -> Ref UID -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = undefined
-    -- do
-    -- let n = Ref name
-    -- returnAnd n $ do
-    --   av <- sbv a
-    --   bv <- sbv b
-    --   add n (av S../= bv)
+  unequalE a b name = do
+    let n = Ref name
+    returnAnd n $ do
+      av <- sbv a
+      bv <- sbv b
+      add n (av S../= bv)
 

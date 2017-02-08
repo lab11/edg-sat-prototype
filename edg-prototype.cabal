@@ -46,6 +46,7 @@ executable edg-prototype
     OverloadedLabels
     OverloadedLists
     OverloadedStrings
+    PatternGuards
     PatternSynonyms
     RankNTypes
     RecordWildCards
@@ -150,6 +151,7 @@ library
     OverloadedLabels
     OverloadedLists
     OverloadedStrings
+    PatternGuards
     PatternSynonyms
     RankNTypes
     RecordWildCards
@@ -279,6 +281,7 @@ test-suite edg-prototype-test
     OverloadedLabels
     OverloadedLists
     OverloadedStrings
+    PatternGuards
     PatternSynonyms
     RankNTypes
     RecordWildCards
