@@ -12,6 +12,7 @@ module EDG.EDGInstances (
 
 import qualified EDG.EDGInstances.Bool   as EDG
 import qualified EDG.EDGInstances.String as EDG
+import qualified EDG.EDGInstances.Float  as EDG
 
 -- Default starting stuff for an EDGInstance :
 --

@@ -85,6 +85,7 @@ type SBVMonad = StateT SBVState (ExceptT String Symbolic)
 data SBVState = SBVState {
     ssBoolRef   :: Map (Ref Bool)   (SBV Bool)
   , ssStringRef :: Map (Ref String) (SBV Integer)
+  , ssFloatRef  :: Map (Ref Float)  (SBV Float)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
@@ -92,6 +93,16 @@ data SBVState = SBVState {
 makeLensesWith abbreviatedFields ''SBVState
 
 type SBVS = SBVState
+
+-- | Transform the ending state from the Gather pass into the start state for
+--   the SBV pass.
+transformState :: GatherState -> SBVState
+transformState _ = SBVState {
+    ssBoolRef = Map.empty
+  , ssStringRef = Map.empty
+  , ssFloatRef = Map.empty
+  , ssStringDecode = Bimap.empty
+  }
 
 -- | This monad lets us construct the design in a nice recursive fashion while
 --   writing a list of instructions into the SBVMonad about how to actually
@@ -230,3 +241,39 @@ notE' a = notE a ("notE (" ++ getName a ++ ")")
 --   pretty obvious.
 (.=>)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
 (.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | And some constraints for ordered values
+class (SBVAble t, SBVAble Bool) => EDGOrd t where
+  gtE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  gteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  ltE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  lteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+
+-- | Same as `ltE` but chooses its own name, usually just something
+--   pretty obvious.
+(.<)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.<) a b = ltE a b ("ltE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `lteE` but chooses its own name, usually just something
+--   pretty obvious.
+(.<=)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.<=) a b = lteE a b ("lteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `gtE` but chooses its own name, usually just something
+--   pretty obvious.
+(.>)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.>) a b = gtE a b ("gtE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `gteE` but chooses its own name, usually just something
+--   pretty obvious.
+(.>=)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.>=) a b = gteE a b ("gteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | And some constraints for ordered values
+class (SBVAble t, SBVAble Bool) => EDGPartialOrd t where
+  leqE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+
+-- | Same as `gteE` but chooses its own name, usually just something
+--   pretty obvious.
+leqE' :: EDGPartialOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+leqE' a b = leqE a b ("leqE (" ++ getName a ++ ") (" ++ getName b ++ ")")

@@ -69,21 +69,18 @@ runSBVMonad target state sio monad = fmap throwUp . runExceptT $ evalStateT nm s
     throwUp (Left err) = error $ "Execution failed in SBV phase with error: " ++ err
     throwUp (Right  v) = v
 
+    -- Yup :V I'm grabbing the state through an IORef, this is incredibly not
+    -- robust against using allSat or repeated invocations. There has to be
+    -- some special provision to allow that.
+    --
+    -- TODO :: Though It might just be that I have to make sure that the
+    --         decoding can work with only the completed GatherState. At the
+    --         moment we're fine. But this is a change that we should consider.
     nm = do
       monad
       state <- get
       sequence ((\ r -> liftIO $ writeIORef r state) <$> sio)
       sbv target
-
--- | Transform the ending state from the Gather pass into the start state for
---   the SBV pass.
-transformState :: GatherState -> SBVState
-transformState _ = SBVState {
-    ssBoolRef = Map.empty
-  , ssStringRef = Map.empty
-  , ssStringDecode = Bimap.empty
-  }
-
 -- | Turn the entire EDG monad into a predicate while propagating errors up to
 --   the standard error system.
 --
@@ -99,13 +96,10 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --
 testProblem :: EDGMonad (Ref Bool)
 testProblem = do
-  b1 <- refAbstract @String "b1" [oneOf  ["13","14","15"]]
-  b2 <- refAbstract @String "b2" [oneOf  ["weird","blunder","134","15"]]
-  b3 <- refAbstract @String "b3" [noneOf ["weird","blunder","134","15"]]
-  b4 <- b1 ./= b2
-  b5 <- b3 .== b1
-  b6 <- b5 .&& b4
-  return b6
+  b1 <- refAbstract @Float "b1" [greaterThan 3.2, lessThan 12.4]
+  b2 <- refAbstract @Float "b2" [greaterThan 10.2, lessThan 15.4]
+  b3 <- b1 .== b2
+  return b3
 
 -- | What `main` in "app/Main.hs" calls.
 runTestProblem :: IO ()
@@ -117,9 +111,8 @@ runTestProblem = do
   ss' <- readIORef ss
   print ss'
   let decSt = buildDecodeState gs ss'
-  print $ extract @String decSt sol (Ref "b1")
-  print $ extract @String decSt sol (Ref "b2")
-  print $ extract @String decSt sol (Ref "b3")
+  print $ extract @Float decSt sol (Ref "b1")
+  print $ extract @Float decSt sol (Ref "b2")
 
 
 -- TODO :: Everything below this point is bullshit that i'm using to make

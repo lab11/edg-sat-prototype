@@ -118,6 +118,15 @@ instance SBVAble String where
 
 instance InvertSBV String where
 
+
+  -- TODO :: Change the entire implementation so that you can decode with only
+  --         the gather state. This means that all of those literal invocations
+  --         have to have a GatherMonad component that saves all the strings
+  --         before going to the latter SBVMonad component.
+  --
+  --         That is however a non-trivial change, and we have temporary
+  --         workaround. So we'll see what we can do about that.
+  --
   extract :: Modelable a => DecodeState -> a -> Ref String -> Maybe String
   extract (getStringDecode -> m) model (Ref name) = do
     int <- getModelValue name model

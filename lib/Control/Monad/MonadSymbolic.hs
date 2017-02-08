@@ -12,6 +12,7 @@ type SBV = S.SBV
 class Monad m => MonadSymbolic m where
   sBool     :: String -> m (SBV Bool)
   sInteger  :: String -> m (SBV Integer)
+  sFloat    :: String -> m (SBV Float)
   constrain :: SBV Bool -> m ()
 
 -- This is where we're using UndecidableInstances. This can almost certainly
@@ -20,11 +21,13 @@ class Monad m => MonadSymbolic m where
 instance (MonadSymbolic m,MonadTrans t, Monad (t m)) => MonadSymbolic (t m) where
   sBool     = lift . sBool
   sInteger  = lift . sInteger
+  sFloat    = lift . sFloat
   constrain = lift . constrain
 
 instance MonadSymbolic Symbolic where
   sBool     = S.sBool
   sInteger  = S.sInteger
+  sFloat    = S.sFloat
   constrain = S.constrain
 
 -- class EqSymbolic a where
