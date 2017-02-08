@@ -53,12 +53,12 @@ import EDG.Library.Types.Record
 --   in one place.
 --
 data TypeVal' a where
-  TVBool   :: Bool        -> TypeVal' a
-  TVFloat  :: Float       -> TypeVal' a
-  TVInt    :: Integer     -> TypeVal' a
-  TVString :: String      -> TypeVal' a
-  TVUID    :: UID Integer -> TypeVal' a
-  TVRecord :: Record' a   -> TypeVal' a
+  TVBool   :: Bool      -> TypeVal' a
+  TVFloat  :: Float     -> TypeVal' a
+  TVInt    :: Integer   -> TypeVal' a
+  TVString :: String    -> TypeVal' a
+  TVUID    :: UID       -> TypeVal' a
+  TVRecord :: Record' a -> TypeVal' a
   deriving (Show,Read,Eq)
 
 -- | This is the type alias that allows the TypeVal' to recurse as deep as
@@ -79,12 +79,12 @@ type Record = Record' TypeVal
 --   TODO :: Feh, I'm seriously hating having to put all these explicit bottoms
 --           and tops in all of our constraint dataTypes, they
 data TypeCons' a where
-  TCBool   :: (Constraints Bool         ) -> TypeCons' a
-  TCFloat  :: (Constraints Float        ) -> TypeCons' a
-  TCInt    :: (Constraints Integer      ) -> TypeCons' a
-  TCString :: (Constraints String       ) -> TypeCons' a
-  TCUID    :: (Constraints (UID Integer)) -> TypeCons' a
-  TCRecord :: (Constraints (Record' a  )) -> TypeCons' a
+  TCBool   :: (Constraints Bool       ) -> TypeCons' a
+  TCFloat  :: (Constraints Float      ) -> TypeCons' a
+  TCInt    :: (Constraints Integer    ) -> TypeCons' a
+  TCString :: (Constraints String     ) -> TypeCons' a
+  TCUID    :: (Constraints UID        ) -> TypeCons' a
+  TCRecord :: (Constraints (Record' a)) -> TypeCons' a
   TCBottom :: TypeCons' a
   TCTop    :: TypeCons' a
 

@@ -16,29 +16,29 @@ import Control.Newtype.Util
 
 import GHC.Exts
 
--- | This is the raw type we have to define, for UIDs whose partial order is
+-- | This is the raw type we have to define, for UIDNs whose partial order is
 --   just flat.
-newtype UID a = UID a
+newtype UIDN a = UIDN a
   deriving (Show, Read, Eq)
 
-instance Newtype (UID a) a where
-  pack = UID
-  unpack (UID a) = a
+instance Newtype (UIDN a) a where
+  pack = UIDN
+  unpack (UIDN a) = a
 
--- | The constraint type for UIDs, which just treat UIDs as a partial order
---   where `UIDTop >= everything` , `UIDBottom <= everything`, nothing else is
+-- | The constraint type for UIDNs, which just treat UIDNs as a partial order
+--   where `UIDNTop >= everything` , `UIDNBottom <= everything`, nothing else is
 --   similar.
 --
 --   Also, it is assumed that any `UCNew` is temporary and will be replaced with
---   the appropriate new fixed UID from a pool before any operations are run,
+--   the appropriate new fixed UIDN from a pool before any operations are run,
 --   therefore all ops with `UCNew` will throw runtime errors.
-data UIDCons a
-  -- | There is no UID that is valid here
+data UIDNCons a
+  -- | There is no UIDN that is valid here
   = UCTop
-  -- | Every UID is valid here
+  -- | Every UIDN is valid here
   | UCBottom
-  -- | This particular UID is valid here
-  | UCVal (UID a)
+  -- | This particular UIDN is valid here
+  | UCVal (UIDN a)
   -- | You need to replace this with an actual unique ID before doing any
   --   actual work with this value.
   --
@@ -47,8 +47,8 @@ data UIDCons a
   | UCNew
   deriving (Show, Read, Eq)
 
-instance Eq a => AsPredicate (UIDCons a) where
-  type PredicateDomain (UIDCons a) = UID a
+instance Eq a => AsPredicate (UIDNCons a) where
+  type PredicateDomain (UIDNCons a) = UIDN a
   asPredicate UCTop     = const False
   asPredicate UCBottom  = const True
   asPredicate (UCVal v) = (== v)
@@ -60,24 +60,24 @@ instance Eq a => AsPredicate (UIDCons a) where
   --         domains.
   asPredicate UCNew     = error "Can't perform ops on a UCNew"
 
-instance Eq a => SATAblePredicate (UIDCons a) where
+instance Eq a => SATAblePredicate (UIDNCons a) where
   isSAT UCNew =  error "Can't perform ops on a UCNew"
   isSAT UCTop = False
   isSAT _     = True
 
-instance Eq a => CollapseablePredicate (UIDCons a) where
+instance Eq a => CollapseablePredicate (UIDNCons a) where
   collapse UCNew     = error "Can't perform ops on a UCNew"
   collapse (UCVal c) = Just c
   collapse _         = Nothing
 
-instance Eq a => LiftablePredicate (UIDCons a) where
+instance Eq a => LiftablePredicate (UIDNCons a) where
   liftPredicate = UCVal
 
-instance Eq a => BottomPredicate (UIDCons a) where
+instance Eq a => BottomPredicate (UIDNCons a) where
   isBottom UCBottom = True
   isBottom _ = False
 
-instance Eq a => PartialOrd (UIDCons a) where
+instance Eq a => PartialOrd (UIDNCons a) where
   leq UCNew _ = error "Can't perform ops on a UCNew"
   leq _ UCNew = error "Can't perform ops on a UCNew"
   leq _         UCTop     = True
@@ -86,7 +86,7 @@ instance Eq a => PartialOrd (UIDCons a) where
   leq _         UCBottom  = False
   leq (UCVal a) (UCVal b) = a == b
 
-instance Eq a => JoinSemiLattice (UIDCons a) where
+instance Eq a => JoinSemiLattice (UIDNCons a) where
   (\/) UCNew _ = error "Can't perform ops on a UCNew"
   (\/) _ UCNew = error "Can't perform ops on a UCNew"
   (\/) UCTop _ = UCTop
@@ -97,7 +97,7 @@ instance Eq a => JoinSemiLattice (UIDCons a) where
     | a == b    = UCVal a
     | otherwise = UCTop
 
-instance Eq a => MeetSemiLattice (UIDCons a) where
+instance Eq a => MeetSemiLattice (UIDNCons a) where
   (/\) UCNew _ = error "Can't perform ops on a UCNew"
   (/\) _ UCNew = error "Can't perform ops on a UCNew"
   (/\) UCTop a = a
@@ -108,21 +108,24 @@ instance Eq a => MeetSemiLattice (UIDCons a) where
     | a == b = UCVal a
     | otherwise = UCBottom
 
-instance Eq a => BoundedJoinSemiLattice (UIDCons a) where
+instance Eq a => BoundedJoinSemiLattice (UIDNCons a) where
   bottom = UCBottom
 
-instance Eq a => BoundedMeetSemiLattice (UIDCons a) where
+instance Eq a => BoundedMeetSemiLattice (UIDNCons a) where
   top = UCTop
 
-instance Eq a => Constrainable (UID a) where
-  type Constraints (UID a) = UIDCons a
+instance Eq a => Constrainable (UIDN a) where
+  type Constraints (UIDN a) = UIDNCons a
 
 -- We don't define an IsList constraint here, since there's no valid
--- constructor for a UID in a definition other than `top`, `bottom` and `unique`
--- nobody should be specifying actual values of a UID.
+-- constructor for a UIDN in a definition other than `top`, `bottom` and `unique`
+-- nobody should be specifying actual values of a UIDN.
 
--- | Ask for a unique value to be used as this UID upon insertion into the
+-- | Ask for a unique value to be used as this UIDN upon insertion into the
 --   system.
-unique :: UIDCons a
+unique :: UIDNCons a
 unique = UCNew
 
+-- | An alias for the UID type we use all over the place.
+type UID = UIDN Integer
+type UIDCons = UIDNCons Integer
