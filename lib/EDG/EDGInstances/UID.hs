@@ -38,12 +38,12 @@ import EDG.Library.Types
 import EDG.Predicates
 import EDG.EDGMonad
 import EDG.EDGInstances.Bool
-
+import EDG.SBVWrap
 
 
 instance SBVAble UID where
 
-  type SBVType UID = SBV Integer
+  type SBVType UID = SBV UID
 
   type RefType UID = Ref UID
 
@@ -93,7 +93,7 @@ instance SBVAble UID where
     --             NonInclusive -> constrain $ lv S..>  nv
     --             _            -> error "This should never happen"
 
-  sbv :: Ref UID -> SBVMonad (SBV Integer)
+  sbv :: Ref UID -> SBVMonad (SBV UID)
   sbv r = undefined
     -- do
     -- val <- uses @SBVS floatRef (Map.lookup r)
@@ -101,11 +101,11 @@ instance SBVAble UID where
     --   Nothing -> throw $ "No ref to float `" ++ show r ++ "` found, cannot continue."
     --   Just v  -> return v
 
-  lit :: UID     -> SBVMonad (SBV Integer)
+  lit :: UID     -> SBVMonad (SBV UID)
   lit = undefined
     -- return . S.literal
 
-  add :: Ref UID -> SBV Integer -> SBVMonad ()
+  add :: Ref UID -> SBV UID -> SBVMonad ()
   add r s = undefined
     -- do
     -- exists <- uses @SBVS floatRef (Map.member r)
@@ -119,7 +119,7 @@ instance SBVAble UID where
 instance InvertSBV UID where
 
   extract :: Modelable a => DecodeState -> a -> Ref UID -> Maybe UID
-  extract _ model (Ref name) = UIDNewtype <$> getModelValue name model
+  extract _ model (Ref name) = pack <$> getModelValue name model
 
 instance EDGEquals UID where
 

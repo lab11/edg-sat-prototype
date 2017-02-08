@@ -39,17 +39,18 @@ import EDG.Library.Types
 import EDG.Predicates
 import EDG.EDGMonad
 import EDG.EDGInstances.Bool
+import EDG.SBVWrap
 
 
 
 instance SBVAble String where
 
-  type SBVType String = SBV Integer
+  type SBVType String = SBV String
 
   type RefType String = Ref String
 
   ref :: String -> EDGMonad (Ref String)
-  ref name = let n = Ref name in returnAnd n (sInteger name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sString name >>= add n)
 
   refConcrete :: String -> String -> EDGMonad (Ref String)
   refConcrete name' s = do
@@ -79,34 +80,34 @@ instance SBVAble String where
             [] -> return ()
             ts -> constrain $ S.bAll ((S../=) nv) ts
 
-  sbv :: Ref String -> SBVMonad (SBV Integer)
+  sbv :: Ref String -> SBVMonad (SBV String)
   sbv r = do
     val <- uses @SBVS stringRef (Map.lookup r)
     case val of
       Nothing -> throw $ "No ref to string `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
 
-  lit :: String     -> SBVMonad (SBV Integer)
+  lit :: String     -> SBVMonad (SBV String)
   lit str = do
     empty <- uses @SBVS stringDecode (Bimap.null)
     case empty of
       -- If the Bimap is empty just insert with an index of 0
-      True -> (stringDecode @SBVS %= Bimap.insert 0 str) >> return (S.literal 0)
+      True -> (stringDecode @SBVS %= Bimap.insert 0 str) >> (return . reWrap $ S.literal 0)
       False -> do
         exists <- uses @SBVS stringDecode (Bimap.lookupR str)
         case exists of
           -- If the string is already in the map, just return the integer we're
           -- already using for it.
-          Just i -> return $ S.literal i
+          Just i -> return . reWrap @String $ S.literal i
           -- Otherwise allocate a new ID, add that pair to the Bimap, and
           -- return the new ID.
           Nothing -> do
             (max,_) <- uses @SBVS stringDecode (Bimap.findMax)
             let new = max + 1
             stringDecode @SBVS %= (Bimap.insert new str)
-            return $ S.literal new
+            return . reWrap @String $ S.literal new
 
-  add :: Ref String -> SBV Integer -> SBVMonad ()
+  add :: Ref String -> SBV String -> SBVMonad ()
   add r s = do
     exists <- uses @SBVS stringRef (Map.member r)
     case exists of

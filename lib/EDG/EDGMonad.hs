@@ -38,10 +38,12 @@ import Control.Lens.TH
 import Algebra.PartialOrd
 import Algebra.Lattice
 
-import EDG.Library.Types
-import EDG.Predicates
 import Algebra.Constrainable
 import Algebra.AsPredicate
+
+import EDG.Library.Types
+import EDG.Predicates
+import EDG.SBVWrap
 
 -- import Debug.Trace
 trace _ b = b
@@ -84,8 +86,9 @@ type SBVMonad = StateT SBVState (ExceptT String Symbolic)
 
 data SBVState = SBVState {
     ssBoolRef   :: Map (Ref Bool)   (SBV Bool)
-  , ssStringRef :: Map (Ref String) (SBV Integer)
+  , ssStringRef :: Map (Ref String) (SBV String)
   , ssFloatRef  :: Map (Ref Float)  (SBV Float)
+  , ssUidRef    :: Map (Ref UID)    (SBV UID)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
@@ -101,6 +104,7 @@ transformState _ = SBVState {
     ssBoolRef = Map.empty
   , ssStringRef = Map.empty
   , ssFloatRef = Map.empty
+  , ssUidRef = Map.empty
   , ssStringDecode = Bimap.empty
   }
 
