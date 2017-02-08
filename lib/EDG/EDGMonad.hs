@@ -13,6 +13,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Bimap (Bimap)
+import qualified Data.Bimap as Bimap
 
 import Control.Newtype
 
@@ -59,6 +61,7 @@ type GatherMonad = StateT GatherState (ExceptT String  Identity)
 
 -- | The state datatype with all the various pieces of info we care about.
 data GatherState = GatherState {
+  -- Counter for assigning UIDs to things
     gsUidCounter :: Integer
   } deriving (Show,Read)
 
@@ -80,7 +83,10 @@ initialGatherState = GatherState {
 type SBVMonad = StateT SBVState (ExceptT String Symbolic)
 
 data SBVState = SBVState {
-    ssBoolRef :: Map (Ref Bool) (SBV Bool)
+    ssBoolRef   :: Map (Ref Bool)   (SBV Bool)
+  , ssStringRef :: Map (Ref String) (SBV Integer)
+  -- Map for assigning strings to integer values, so that they can be search
+  , ssStringDecode :: Bimap Integer String
   } deriving (Show)
 
 makeLensesWith abbreviatedFields ''SBVState
@@ -91,8 +97,6 @@ type SBVS = SBVState
 --   writing a list of instructions into the SBVMonad about how to actually
 --   build the final SMT problem.
 type EDGMonad = ScribeT SBVMonad GatherMonad
-
-
 
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
@@ -143,6 +147,9 @@ class Constrainable t => SBVAble t where
   --   just for internal use. Don't push too hard with this one.
   add :: RefType t -> SBVType t -> SBVMonad ()
 
+  -- | Gets the name out of the Ref, mostly just internal.
+  getName :: RefType t -> String
+
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
 refAmbiguous :: SBVAble t => String -> Ambiguous t -> EDGMonad (RefType t)
@@ -153,31 +160,73 @@ refAmbiguous name (Abstract c)
   | otherwise = refAbstract name c
 
 -- | Can we, given a reference to a particular element in a SatModel to
---   retrieve, retrieve it?
+--   retrieve, retrieve it? Well, if we have the particular context, which
+--   is the final combination of the gatherState and the SBV State
+--
+--   TODO :: Now I just need to fogiure out how I can get the SBVState back
+--           out :V probably some shenanigans with MVars and whatnot. Whatever,
+--           I'll deal with it later.
+--
 class SBVAble t => InvertSBV t where
-  extract :: Modelable a => a -> RefType t -> Maybe t
+  extract :: Modelable a => DecodeState -> a -> RefType t -> Maybe t
+
+-- | This is final output we use to gether information we need to reconstruct
+--   a design.
+--
+--   TODO :: Convert this from a type alias to an actual type of its own, and
+--           make the other bits less vacuous.
+type DecodeState = (GatherState,SBVState)
+
+-- | Use the final GatherState and SBVState to generate a DecodeState that we
+--   can use to reconstruct the design.
+buildDecodeState :: GatherState -> SBVState -> DecodeState
+buildDecodeState = (,)
+
+-- | Get the string Decoder from the decodeState
+getStringDecode :: DecodeState -> Bimap Integer String
+getStringDecode d = d ^. _2 . stringDecode
 
 -- | Get an equality constraint
 class (SBVAble t,SBVAble Bool) => EDGEquals t where
   -- | Given a name for the new variable, get the predicate that asserts two
   --   elements are equal.
   equalE   :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  -- | Same as `equals` but chooses its own name, usually just something
-  --   pretty obvious.
-  (.==)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
   -- | As you'd expect.
   unequalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  -- | Also as you'd expect.
-  (./=)   :: RefType t -> RefType t            -> EDGMonad (RefType Bool)
+
+-- | Same as `equalE` but chooses its own name, usually just something
+--   pretty obvious.
+(.==)   :: EDGEquals t => RefType t -> RefType t            -> EDGMonad (RefType Bool)
+(.==) a b = equalE a b ("equalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `unequalE` but chooses its own name, usually just something
+--   pretty obvious.
+(./=)   :: EDGEquals t => RefType t -> RefType t            -> EDGMonad (RefType Bool)
+(./=) a b = unequalE a b ("unequalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | And some constraints for boolean operators.
 class (SBVAble t, SBVAble Bool) => EDGLogic t where
   notE     :: RefType t ->              String -> EDGMonad (RefType Bool)
   andE     :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  (.&&)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
   orE      :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  (.||)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
   impliesE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  (.=>)    :: RefType t -> RefType t           -> EDGMonad (RefType Bool)
 
+-- | Same as `notE` but chooses its own name, usually just something
+--   pretty obvious.
+notE'    :: EDGLogic t => RefType t            -> EDGMonad (RefType Bool)
+notE' a = notE a ("notE (" ++ getName a ++ ")")
 
+-- | Same as `andE` but chooses its own name, usually just something
+--   pretty obvious.
+(.&&)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.&&) a b = andE a b ("andE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `orE` but chooses its own name, usually just something
+--   pretty obvious.
+(.||)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.||) a b = andE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `impliesE` but chooses its own name, usually just something
+--   pretty obvious.
+(.=>)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") (" ++ getName b ++ ")")

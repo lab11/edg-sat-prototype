@@ -9,6 +9,8 @@ module EDG.EDGProblem where
 
 import Data.EqMap (EqMap)
 import qualified Data.EqMap as EqMap
+import Data.Bimap (Bimap)
+import qualified Data.Bimap as Bimap
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -22,8 +24,12 @@ import Data.SBV (
   Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
   )
 import qualified Data.SBV as S
+
+import Data.IORef
+
 import Control.Monad.Scribe
 import Control.Monad.Identity (Identity)
+import Control.Monad.IO.Class
 
 import Control.Lens.Ether.Implicit
 import Control.Lens.TH
@@ -49,39 +55,72 @@ runGather = runIdentity . runExceptT . flip runStateT initialGatherState
 -- | Given a particular variable which should be true, a start state, and
 --   the monad, get the underlying Symbolic monad with the relevant sBool
 --   chosen. This is a predicate we can work with pretty straightforwardly.
-runSBVMonad :: Ref Bool -> SBVState -> SBVMonad a -> Symbolic (SBV Bool)
-runSBVMonad target state monad = fmap throwUp . runExceptT $ evalStateT (monad >> sbv target) state
+--
+--   TODO :: Fix this super cludgy way of getting the insternal state of the
+--           SBVMonad back out. There's got to be something that
+--           allows us to get the value back out more elegantly. That said
+--           if you can't think of one, refactor this interface so it's
+--           less awyward but still lets you get the
+--           state back out.
+--
+runSBVMonad :: Ref Bool -> SBVState -> Maybe (IORef SBVState) -> SBVMonad a -> Symbolic (SBV Bool)
+runSBVMonad target state sio monad = fmap throwUp . runExceptT $ evalStateT nm state
   where
     throwUp (Left err) = error $ "Execution failed in SBV phase with error: " ++ err
     throwUp (Right  v) = v
+
+    nm = do
+      monad
+      state <- get
+      sequence ((\ r -> liftIO $ writeIORef r state) <$> sio)
+      sbv target
 
 -- | Transform the ending state from the Gather pass into the start state for
 --   the SBV pass.
 transformState :: GatherState -> SBVState
 transformState _ = SBVState {
     ssBoolRef = Map.empty
+  , ssStringRef = Map.empty
+  , ssStringDecode = Bimap.empty
   }
 
 -- | Turn the entire EDG monad into a predicate while propagating errors up to
 --   the standard error system.
-runEDGMonad :: EDGMonad (Ref Bool) -> Symbolic (SBV Bool)
-runEDGMonad i = case runGather . runScribeT $ i of
+--
+runEDGMonad :: Maybe (IORef SBVState) ->  EDGMonad (Ref Bool) -> (Symbolic (SBV Bool),GatherState)
+runEDGMonad sio i = case runGather . runScribeT $ i of
   Left err -> error $ "Execution failed in Gather phase with error: " ++ err
-  Right ((ref,sbvm),gs) -> runSBVMonad ref (transformState gs) sbvm
+  Right ((ref,sbvm),gs) -> (runSBVMonad ref (transformState gs) sio sbvm,gs)
 
 -- | Just a test problem I'll be editing a lot.
+--
+--   TODO ;: Change this interface so it's easier to get the RefType values
+--           back out once you're done. Not sure how that'll look either.
+--
 testProblem :: EDGMonad (Ref Bool)
 testProblem = do
-  b1 <- refAbstract @Bool "b1" bottom
-  b2 <- refAbstract @Bool "b2" bottom
-  b3 <- notE b1 "notE b1"
-  return b3
+  b1 <- refAbstract @String "b1" [oneOf  ["13","14","15"]]
+  b2 <- refAbstract @String "b2" [oneOf  ["weird","blunder","134","15"]]
+  b3 <- refAbstract @String "b3" [noneOf ["weird","blunder","134","15"]]
+  b4 <- b1 ./= b2
+  b5 <- b3 .== b1
+  b6 <- b5 .&& b4
+  return b6
 
 -- | What `main` in "app/Main.hs" calls.
 runTestProblem :: IO ()
 runTestProblem = do
-  sol <- S.allSatWith S.defaultSMTCfg{S.verbose = False}  . runEDGMonad $ testProblem
+  ss <- newIORef (undefined :: SBVState)
+  let (symb,gs) = runEDGMonad (Just ss) $ testProblem
+  sol <- S.satWith S.defaultSMTCfg{S.verbose = False} symb
   print sol
+  ss' <- readIORef ss
+  print ss'
+  let decSt = buildDecodeState gs ss'
+  print $ extract @String decSt sol (Ref "b1")
+  print $ extract @String decSt sol (Ref "b2")
+  print $ extract @String decSt sol (Ref "b3")
+
 
 -- TODO :: Everything below this point is bullshit that i'm using to make
 --         sure I've got the broad sketch of the design right, and there's no

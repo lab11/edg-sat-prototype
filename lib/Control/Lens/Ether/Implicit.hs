@@ -12,11 +12,13 @@ import Control.Lens           hiding (
     uses, use
   , assign, (.=), (%=), (%%=)
   , (<+=)
+  , noneOf
   )
 import qualified Control.Lens hiding (
     uses, use
   , assign, (.=), (%=), (%%=)
   , (<+=)
+  , noneOf
   )
 import Control.Monad.Ether.Implicit
 

@@ -10,18 +10,21 @@ type Symbolic = S.Symbolic
 type SBV = S.SBV
 
 class Monad m => MonadSymbolic m where
-  sBool :: String -> m (SBV Bool)
+  sBool     :: String -> m (SBV Bool)
+  sInteger  :: String -> m (SBV Integer)
   constrain :: SBV Bool -> m ()
 
 -- This is where we're using UndecidableInstances. This can almost certainly
 -- cause a softlock if we have some sort of weird state stuff going on but
 -- maybe it's fine?
 instance (MonadSymbolic m,MonadTrans t, Monad (t m)) => MonadSymbolic (t m) where
-  sBool = lift . sBool
+  sBool     = lift . sBool
+  sInteger  = lift . sInteger
   constrain = lift . constrain
 
 instance MonadSymbolic Symbolic where
-  sBool = S.sBool
+  sBool     = S.sBool
+  sInteger  = S.sInteger
   constrain = S.constrain
 
 -- class EqSymbolic a where

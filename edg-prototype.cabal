@@ -111,8 +111,10 @@ library
     -- Messy Modules that should be reorganized
     -- TODO :: Reorganize these. 
     EDG.EDGMonad
-    EDG.EDGInstances
     EDG.EDGProblem
+    EDG.EDGInstances
+    EDG.EDGInstances.Bool
+    EDG.EDGInstances.String
 
   -- Modules included in this library but not exported.
   other-modules:
