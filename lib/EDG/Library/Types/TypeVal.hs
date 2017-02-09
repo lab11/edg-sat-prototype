@@ -44,6 +44,31 @@ import EDG.Library.Types.String
 import EDG.Library.Types.UID
 import EDG.Library.Types.Record
 
+-- data Bar
+-- data Buz
+--
+-- data Foo :: (* -> *) -> * where
+--   Bar :: t Bar -> Foo t
+--   Buz :: t Buz -> Foo t
+--
+-- data family Test a
+-- data instance Test Bar = TBR Bool
+-- data instance Test Buz = TBZ Int
+--
+-- data family Test2 a
+-- data instance Test2 Bar = TSR String
+-- data instance Test2 Buz = TSZ String
+--
+-- boing :: Foo Test -> Int
+-- boing (Bar (TBR b)) = if b then 1 else 0
+-- boing (Buz (TBZ v)) = v
+--
+-- boing2 :: Foo Test2 -> String
+-- boing2 (Bar (TSR s)) = s
+-- boing2 (Buz (TSZ s)) = s
+
+
+
 -- | This is the basic TypeVal', which disambiguates between each of the types
 --   we have handy, each constructor can also act as a value level witness if
 --   we need one.
