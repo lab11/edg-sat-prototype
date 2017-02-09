@@ -17,7 +17,10 @@ class Monad m => MonadSymbolic m where
   sInteger  :: String -> m (SBV Integer)
   sFloat    :: String -> m (SBV Float)
   free      :: SymWord a => String -> m (SBV a)
-  constrain :: SBV Bool -> m ()
+
+-- Just so i can use constrain in more outward monads as well.
+class Monad m => MonadConstrain m a where
+  constrain :: a -> m ()
 
 -- This is where we're using UndecidableInstances. This can almost certainly
 -- cause a softlock if we have some sort of weird state stuff going on but
@@ -27,6 +30,8 @@ instance (MonadSymbolic m,MonadTrans t, Monad (t m)) => MonadSymbolic (t m) wher
   sInteger  = lift . sInteger
   sFloat    = lift . sFloat
   free      = lift . free
+
+instance (MonadConstrain m (SBV Bool),MonadTrans t, Monad (t m)) => MonadConstrain (t m) (SBV Bool) where
   constrain = lift . constrain
 
 instance MonadSymbolic Symbolic where
@@ -34,6 +39,8 @@ instance MonadSymbolic Symbolic where
   sInteger  = S.sInteger
   sFloat    = S.sFloat
   free      = S.free
+
+instance MonadConstrain Symbolic (SBV Bool) where
   constrain = S.constrain
 
 -- | Allows you to construct an `SBV typ` value for a typ that has a valid

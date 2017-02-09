@@ -118,6 +118,7 @@ library
     EDG.EDGInstances.String
     EDG.EDGInstances.Float
     EDG.EDGInstances.UID
+    EDG.EDGInstances.Integer
 
   -- Modules included in this library but not exported.
   other-modules:

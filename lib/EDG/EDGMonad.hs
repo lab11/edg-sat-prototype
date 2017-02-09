@@ -85,10 +85,11 @@ initialGatherState = GatherState {
 type SBVMonad = StateT SBVState (ExceptT String Symbolic)
 
 data SBVState = SBVState {
-    ssBoolRef   :: Map (Ref Bool)   (SBV Bool)
-  , ssStringRef :: Map (Ref String) (SBV String)
-  , ssFloatRef  :: Map (Ref Float)  (SBV Float)
-  , ssUidRef    :: Map (Ref UID)    (SBV UID)
+    ssBoolRef    :: Map (Ref Bool)    (SBV Bool)
+  , ssStringRef  :: Map (Ref String)  (SBV String)
+  , ssFloatRef   :: Map (Ref Float)   (SBV Float)
+  , ssUidRef     :: Map (Ref UID)     (SBV UID)
+  , ssIntegerRef :: Map (Ref Integer) (SBV Integer)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
@@ -105,6 +106,7 @@ transformState _ = SBVState {
   , ssStringRef = Map.empty
   , ssFloatRef = Map.empty
   , ssUidRef = Map.empty
+  , ssIntegerRef = Map.empty
   , ssStringDecode = Bimap.empty
   }
 
@@ -112,6 +114,7 @@ transformState _ = SBVState {
 --   writing a list of instructions into the SBVMonad about how to actually
 --   build the final SMT problem.
 type EDGMonad = ScribeT SBVMonad GatherMonad
+
 
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer

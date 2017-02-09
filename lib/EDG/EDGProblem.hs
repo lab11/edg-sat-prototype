@@ -63,8 +63,8 @@ runGather = runIdentity . runExceptT . flip runStateT initialGatherState
 --           less awyward but still lets you get the
 --           state back out.
 --
-runSBVMonad :: Ref Bool -> SBVState -> Maybe (IORef SBVState) -> SBVMonad a -> Symbolic (SBV Bool)
-runSBVMonad target state sio monad = fmap throwUp . runExceptT $ evalStateT nm state
+runSBVMonad :: SBVState -> Maybe (IORef SBVState) -> SBVMonad a -> Symbolic (SBV Bool)
+runSBVMonad state sio monad = fmap throwUp . runExceptT $ evalStateT nm state
   where
     throwUp (Left err) = error $ "Execution failed in SBV phase with error: " ++ err
     throwUp (Right  v) = v
@@ -80,14 +80,15 @@ runSBVMonad target state sio monad = fmap throwUp . runExceptT $ evalStateT nm s
       monad
       state <- get
       sequence ((\ r -> liftIO $ writeIORef r state) <$> sio)
-      sbv target
+      return $ S.literal True
+
 -- | Turn the entire EDG monad into a predicate while propagating errors up to
 --   the standard error system.
 --
-runEDGMonad :: Maybe (IORef SBVState) ->  EDGMonad (Ref Bool) -> (Symbolic (SBV Bool),GatherState)
+runEDGMonad :: Maybe (IORef SBVState) ->  EDGMonad a -> (Symbolic (SBV Bool),GatherState,a)
 runEDGMonad sio i = case runGather . runScribeT $ i of
   Left err -> error $ "Execution failed in Gather phase with error: " ++ err
-  Right ((ref,sbvm),gs) -> (runSBVMonad ref (transformState gs) sio sbvm,gs)
+  Right ((a,sbvm),gs) -> (runSBVMonad (transformState gs) sio sbvm,gs,a)
 
 -- | Just a test problem I'll be editing a lot.
 --
@@ -99,13 +100,14 @@ testProblem = do
   b1 <- refAbstract @Float "b1" [greaterThan 3.2, lessThan 12.4]
   b2 <- refAbstract @Float "b2" [greaterThan 10.2, lessThan 15.4]
   b3 <- b1 .== b2
+  constrain $ b3
   return b3
 
 -- | What `main` in "app/Main.hs" calls.
 runTestProblem :: IO ()
 runTestProblem = do
   ss <- newIORef (undefined :: SBVState)
-  let (symb,gs) = runEDGMonad (Just ss) $ testProblem
+  let (symb,gs,_) = runEDGMonad (Just ss) testProblem
   sol <- S.satWith S.defaultSMTCfg{S.verbose = False} symb
   print sol
   ss' <- readIORef ss

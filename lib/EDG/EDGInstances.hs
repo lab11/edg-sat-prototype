@@ -10,9 +10,21 @@ module EDG.EDGInstances (
   module EDG
 ) where
 
-import qualified EDG.EDGInstances.Bool   as EDG
-import qualified EDG.EDGInstances.String as EDG
-import qualified EDG.EDGInstances.Float  as EDG
+import qualified EDG.EDGInstances.Bool    as EDG
+import qualified EDG.EDGInstances.String  as EDG
+import qualified EDG.EDGInstances.Float   as EDG
+import qualified EDG.EDGInstances.UID     as EDG
+import qualified EDG.EDGInstances.Integer as EDG
+
+import EDG.EDGMonad
+import Control.Monad.MonadSymbolic
+import Control.Monad.Scribe
+
+-- | No other good place to keep this instance for now.
+--
+--   TODO :: Find better location for this instance
+instance MonadConstrain EDGMonad (Ref Bool) where
+  constrain s = returnAnd () $ sbv s >>= constrain
 
 -- Default starting stuff for an EDGInstance :
 --
@@ -50,7 +62,7 @@ import qualified EDG.EDGInstances.Float  as EDG
 --  import EDG.Library.Types
 --  import EDG.Predicates
 --  import EDG.EDGMonad
---
+
 --
 --  class SBVAble String where
 --
