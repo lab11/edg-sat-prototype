@@ -95,26 +95,27 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --   TODO ;: Change this interface so it's easier to get the RefType values
 --           back out once you're done. Not sure how that'll look either.
 --
-testProblem :: EDGMonad (Ref Bool)
+testProblem :: EDGMonad (Ref Float, Ref Float, Ref Bool)
 testProblem = do
   b1 <- refAbstract @Float "b1" [greaterThan 3.2, lessThan 12.4]
   b2 <- refAbstract @Float "b2" [greaterThan 10.2, lessThan 15.4]
   b3 <- b1 .== b2
   constrain $ b3
-  return b3
+  return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
 runTestProblem :: IO ()
 runTestProblem = do
   ss <- newIORef (undefined :: SBVState)
-  let (symb,gs,_) = runEDGMonad (Just ss) testProblem
+  let (symb,gs,(b1,b2,b3)) = runEDGMonad (Just ss) testProblem
   sol <- S.satWith S.defaultSMTCfg{S.verbose = False} symb
   print sol
   ss' <- readIORef ss
   print ss'
   let decSt = buildDecodeState gs ss'
-  print $ extract @Float decSt sol (Ref "b1")
-  print $ extract @Float decSt sol (Ref "b2")
+  print $ extract decSt sol b1
+  print $ extract decSt sol b2
+  print $ extract decSt sol b3
 
 
 -- TODO :: Everything below this point is bullshit that i'm using to make

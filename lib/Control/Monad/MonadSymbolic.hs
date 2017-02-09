@@ -13,10 +13,10 @@ type SBV      = S.SBV
 type SymWord  = S.SymWord
 
 class Monad m => MonadSymbolic m where
-  sBool     :: String -> m (SBV Bool)
-  sInteger  :: String -> m (SBV Integer)
-  sFloat    :: String -> m (SBV Float)
-  free      :: SymWord a => String -> m (SBV a)
+  sBool      :: String -> m (SBV Bool)
+  sInteger   :: String -> m (SBV Integer)
+  sFloat     :: String -> m (SBV Float)
+  free       :: SymWord a => String -> m (SBV a)
 
 -- Just so i can use constrain in more outward monads as well.
 class Monad m => MonadConstrain m a where

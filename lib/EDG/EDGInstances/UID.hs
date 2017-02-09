@@ -63,13 +63,7 @@ instance SBVAble UID where
     | unSAT c       = throw $ "No valid solution for UID " ++ show name' ++ "."
     | UCTop    <- c = throw $ "No valid solution for UID " ++ show name' ++ "."
     | UCBottom <- c = ref name'
-    | UCNew    <- c = do
-      n   <- ref name'
-      uid <- UID <$> newUID
-      returnAnd n $ do
-        nv <- sbv n
-        lv <- lit uid
-        constrain $ nv S..== lv
+    | UCNew    <- c = fixAbstract UCNew >>= refAbstract name'
     | UCVal u <- c = do
       n   <- ref name'
       returnAnd n $ do
@@ -97,26 +91,13 @@ instance SBVAble UID where
   getName :: Ref UID -> String
   getName = unpack
 
+  fixAbstract :: UIDCons -> EDGMonad UIDCons
+  fixAbstract UCNew = UCVal . UID <$> newUID
+  fixAbstract a     = return a
+
 instance InvertSBV UID where
 
   extract :: Modelable a => DecodeState -> a -> Ref UID -> Maybe UID
   extract _ model (Ref name) = pack <$> getModelValue name model
 
-instance EDGEquals UID where
-
-  equalE :: Ref UID -> Ref UID -> String -> EDGMonad (Ref Bool)
-  equalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..== bv)
-
-  unequalE :: Ref UID -> Ref UID -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S../= bv)
-
+instance EDGEquals UID

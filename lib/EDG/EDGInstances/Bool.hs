@@ -82,61 +82,29 @@ instance SBVAble Bool where
     exists <- uses @SBVS boolRef (Map.member r)
     case exists of
       True  -> throw $ "Reference to Bool `" ++ show r ++ "` already exists."
-      False -> boolRef @SBVS %= (Map.insert r s)
+      False -> do
+        boolRef @SBVS %= (Map.insert r s)
 
   getName :: Ref Bool -> String
   getName = unpack
 
 instance InvertSBV Bool where
+
   extract :: Modelable a => DecodeState -> a -> Ref Bool -> Maybe Bool
   extract _ model (Ref name) = getModelValue name model
 
-instance EDGEquals Bool where
-  equalE   :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  equalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..== bv)
-
-  unequalE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S../= bv)
+instance EDGEquals Bool
 
 instance EDGLogic Bool where
-  notE     :: Ref Bool ->             String -> EDGMonad (Ref Bool)
-  notE a name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      add n (S.bnot av)
+  notE :: Ref Bool ->             String -> EDGMonad (Ref Bool)
+  notE = mkUnOp (S.bnot)
 
-  andE     :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  andE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av &&& bv)
+  andE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  andE = mkBinOp (&&&)
 
-  orE      :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  orE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av ||| bv)
+  orE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  orE = mkBinOp (|||)
 
   impliesE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  impliesE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av ==> bv)
+  impliesE = mkBinOp (==>)
 

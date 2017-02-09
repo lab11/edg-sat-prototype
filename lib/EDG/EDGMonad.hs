@@ -168,6 +168,18 @@ class Constrainable t => SBVAble t where
   -- | Gets the name out of the Ref, mostly just internal.
   getName :: RefType t -> String
 
+  -- | Takes the version of a type used by the library and converts it into
+  --   one that can be used during the evaluation process. This is mostly for
+  --   saving metadata, assigning UIDs and similar tasks.
+  fixConcrete :: t -> EDGMonad t
+  fixConcrete = return
+
+  -- | Takes the version of a type used by the library and converts it into
+  --   one that can be used during the evaluation process. This is mostly for
+  --   saving metadata, assigning UIDs and similar tasks.
+  fixAbstract :: Constraints t -> EDGMonad (Constraints t)
+  fixAbstract = return
+
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
 refAmbiguous :: SBVAble t => String -> Ambiguous t -> EDGMonad (RefType t)
@@ -176,6 +188,13 @@ refAmbiguous name (Concrete v) = refConcrete name v
 refAmbiguous name (Abstract c)
   | unSAT c   = throw $ "Ambiguous Value \"" ++ name ++ "\" is unsatisfiable."
   | otherwise = refAbstract name c
+
+-- | Given an ambiguous value, return the corresponding Reference, throwing
+--   an error if the value is unsatisfiable.
+fixAmbiguous :: SBVAble t => Ambiguous t -> EDGMonad (Ambiguous t)
+fixAmbiguous Impossible   = return Impossible
+fixAmbiguous (Concrete v) = Concrete <$> fixConcrete v
+fixAmbiguous (Abstract c) = Abstract <$> fixAbstract c
 
 -- | Can we, given a reference to a particular element in a SatModel to
 --   retrieve, retrieve it? Well, if we have the particular context, which
@@ -204,13 +223,50 @@ buildDecodeState = (,)
 getStringDecode :: DecodeState -> Bimap Integer String
 getStringDecode d = d ^. _2 . stringDecode
 
+-- | ease of se internal funtion that allow us to easily generate a binary
+--   operator on refs from an operator on sbv values
+mkBinOp :: (SBVAble i,SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))
+        => (SBVType i -> SBVType j -> SBVType k)
+        ->  RefType i -> RefType j
+        ->  String
+        ->  EDGMonad (RefType k)
+mkBinOp op a b name = do
+  n <- ref name
+  returnAnd n $ do
+    av <- sbv a
+    bv <- sbv b
+    nv <- sbv n
+    constrain $ nv S..== (op av bv)
+
+-- | ease of se internal funtion that allow us to easily generate a unary
+--   operator on refs from an operator on sbv values
+mkUnOp :: (SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))
+       => (SBVType j -> SBVType k)
+       ->  RefType j
+       ->  String
+       ->  EDGMonad (RefType k)
+mkUnOp op a name = do
+  n <- ref name
+  returnAnd n $ do
+    av <- sbv a
+    nv <- sbv n
+    constrain $ nv S..== (op av)
+
 -- | Get an equality constraint
 class (SBVAble t,SBVAble Bool) => EDGEquals t where
+
   -- | Given a name for the new variable, get the predicate that asserts two
   --   elements are equal.
-  equalE   :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  equalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  default equalE :: (SBVType Bool ~ S.SBV Bool,S.EqSymbolic (SBVType t))
+                 => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  equalE = mkBinOp (S..==)
+
   -- | As you'd expect.
   unequalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  default unequalE :: (SBVType Bool ~ S.SBV Bool,S.EqSymbolic (SBVType t))
+                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  unequalE = mkBinOp (S../=)
 
 -- | Same as `equalE` but chooses its own name, usually just something
 --   pretty obvious.
@@ -223,6 +279,10 @@ class (SBVAble t,SBVAble Bool) => EDGEquals t where
 (./=) a b = unequalE a b ("unequalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | And some constraints for boolean operators.
+--
+--   We can't really add defaults to this, since the only sensible defaults
+--   requre that we're working with Booleans. Other implementations would have
+--   to be custom. So we just have a boolean implementation.
 class (SBVAble t, SBVAble Bool) => EDGLogic t where
   notE     :: RefType t ->              String -> EDGMonad (RefType Bool)
   andE     :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
@@ -251,10 +311,26 @@ notE' a = notE a ("notE (" ++ getName a ++ ")")
 
 -- | And some constraints for ordered values
 class (SBVAble t, SBVAble Bool) => EDGOrd t where
+
   gtE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  default gtE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
+                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  gtE = mkBinOp (S..>)
+
   gteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  default gteE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
+                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  gteE = mkBinOp (S..>=)
+
   ltE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  default ltE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
+                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  ltE = mkBinOp (S..<)
+
   lteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  default lteE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
+                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  lteE = mkBinOp (S..>=)
 
 -- | Same as `ltE` but chooses its own name, usually just something
 --   pretty obvious.

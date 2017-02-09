@@ -72,38 +72,26 @@ instance SBVAble Integer where
     | ICOther{..} <- c = do
       n <- ref name'
       returnAnd n $ do
-        flip mapM_ none  undefined
-        flip mapM_ lower undefined
-        flip mapM_ upper undefined
-    -- | otherwise = do
-    --   n <- ref name'
-    --   returnAnd n $ case c of
-    --     FCBottom -> return ()
-    --     FCOneOf (OneOf m) -> do
-    --       nv <- sbv n
-    --       lvs <- mapM lit (Set.toList m)
-    --       case lvs of
-    --         [] -> throw $ "Contraints for float `" ++ show n ++ "` insoluble."
-    --         ts -> constrain $ S.bAny ((S..==) nv) ts
-    --     FCRange (Range lb ub) -> do
-    --       case lb of
-    --         Nothing -> return ()
-    --         Just (LowerBound inc val) -> do
-    --           nv <- sbv n
-    --           lv <- lit val
-    --           case inc of
-    --             Inclusive    -> constrain $ lv S..<= nv
-    --             NonInclusive -> constrain $ lv S..<  nv
-    --             _            -> error "This should never happen"
-    --       case ub of
-    --         Nothing -> return ()
-    --         Just (UpperBound inc val) -> do
-    --           nv <- sbv n
-    --           lv <- lit val
-    --           case inc of
-    --             Inclusive    -> constrain $ lv S..>= nv
-    --             NonInclusive -> constrain $ lv S..>  nv
-    --             _            -> error "This should never happen"
+        flip mapM_ none $ \ (NoneOf m) -> do
+          nv  <- sbv n
+          lvs <- mapM lit (Set.toList m)
+          case lvs of
+            [] -> return ()
+            ts -> constrain $ S.bAll ((S../=) nv) ts
+        flip mapM_ lower $ \ (LowerBound inc val) -> do
+          nv <- sbv n
+          lv <- lit val
+          case inc of
+            Inclusive    -> constrain $ lv S..<= nv
+            NonInclusive -> constrain $ lv S..<  nv
+            _            -> error "This should never happen"
+        flip mapM_ upper $ \ (UpperBound inc val) -> do
+          nv <- sbv n
+          lv <- lit val
+          case inc of
+            Inclusive    -> constrain $ lv S..>= nv
+            NonInclusive -> constrain $ lv S..>  nv
+            _            -> error "This should never happen"
 
   sbv :: Ref Integer -> SBVMonad (SBV Integer)
   sbv r = do
@@ -130,54 +118,6 @@ instance InvertSBV Integer where
   extract :: Modelable a => DecodeState -> a -> Ref Integer -> Maybe Integer
   extract _ model (Ref name) = getModelValue name model
 
-instance EDGEquals Integer where
+instance EDGEquals Integer
 
-  equalE :: Ref Integer -> Ref Integer -> String -> EDGMonad (Ref Bool)
-  equalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..== bv)
-
-  unequalE :: Ref Integer -> Ref Integer -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S../= bv)
-
-instance EDGOrd Integer where
-
-  ltE :: Ref Integer -> Ref Integer -> String -> EDGMonad (Ref Bool)
-  ltE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..< bv)
-
-  lteE :: Ref Integer -> Ref Integer -> String -> EDGMonad (Ref Bool)
-  lteE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..<= bv)
-
-  gtE :: Ref Integer -> Ref Integer -> String -> EDGMonad (Ref Bool)
-  gtE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..> bv)
-
-  gteE :: Ref Integer -> Ref Integer -> String -> EDGMonad (Ref Bool)
-  gteE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..>= bv)
+instance EDGOrd Integer

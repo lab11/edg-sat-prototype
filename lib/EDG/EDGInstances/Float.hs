@@ -116,54 +116,5 @@ instance InvertSBV Float where
   extract :: Modelable a => DecodeState -> a -> Ref Float -> Maybe Float
   extract _ model (Ref name) = getModelValue name model
 
-instance EDGEquals Float where
-
-  equalE :: Ref Float -> Ref Float -> String -> EDGMonad (Ref Bool)
-  equalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..== bv)
-
-  unequalE :: Ref Float -> Ref Float -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S../= bv)
-
-instance EDGOrd Float where
-
-  ltE :: Ref Float -> Ref Float -> String -> EDGMonad (Ref Bool)
-  ltE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..< bv)
-
-  lteE :: Ref Float -> Ref Float -> String -> EDGMonad (Ref Bool)
-  lteE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..<= bv)
-
-  gtE :: Ref Float -> Ref Float -> String -> EDGMonad (Ref Bool)
-  gtE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..> bv)
-
-  gteE :: Ref Float -> Ref Float -> String -> EDGMonad (Ref Bool)
-  gteE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..>= bv)
+instance EDGEquals Float
+instance EDGOrd Float

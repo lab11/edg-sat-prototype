@@ -133,20 +133,4 @@ instance InvertSBV String where
     int <- getModelValue name model
     Bimap.lookup int m
 
-instance EDGEquals String where
-
-  equalE :: Ref String -> Ref String -> String -> EDGMonad (Ref Bool)
-  equalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S..== bv)
-
-  unequalE :: Ref String -> Ref String -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = do
-    let n = Ref name
-    returnAnd n $ do
-      av <- sbv a
-      bv <- sbv b
-      add n (av S../= bv)
+instance EDGEquals String
