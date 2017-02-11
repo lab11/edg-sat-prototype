@@ -44,6 +44,7 @@ import Algebra.AsPredicate
 import EDG.Library.Types
 import EDG.Predicates
 import EDG.SBVWrap
+import EDG.EDGDatatype
 
 -- import Debug.Trace
 trace _ b = b

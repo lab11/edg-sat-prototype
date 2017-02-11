@@ -123,6 +123,7 @@ library
   -- Modules included in this library but not exported.
   other-modules:
     EDG.SBVWrap
+    EDG.EDGDatatype
     Control.Monad.Scribe
     Control.Monad.MonadSymbolic
     Control.Newtype.Util
