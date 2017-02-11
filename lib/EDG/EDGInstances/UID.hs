@@ -41,16 +41,16 @@ import EDG.EDGInstances.Bool
 import EDG.SBVWrap
 
 
-instance SBVAble UID where
+instance SBVAble UID' where
 
-  type SBVType UID = SBV UID
+  type SBVType UID' = SBV UID'
 
-  type RefType UID = Ref UID
+  type RefType UID' = Ref UID'
 
-  ref :: String -> EDGMonad (Ref UID)
-  ref name = let n = Ref name in returnAnd n (sUID name >>= add n)
+  ref :: String -> EDGMonad (Ref UID')
+  ref name = let n = Ref name in returnAnd n (sUID' name >>= add n)
 
-  refConcrete :: String -> UID -> EDGMonad (Ref UID)
+  refConcrete :: String -> UID' -> EDGMonad (Ref UID')
   refConcrete name' s = do
     n <- ref name'
     returnAnd n $ do
@@ -58,10 +58,10 @@ instance SBVAble UID where
       lv <- lit s
       constrain $ nv S..== lv
 
-  refAbstract :: String -> UIDCons -> EDGMonad (Ref UID)
+  refAbstract :: String -> UIDCons -> EDGMonad (Ref UID')
   refAbstract name' c
-    | unSAT c       = throw $ "No valid solution for UID " ++ show name' ++ "."
-    | UCTop    <- c = throw $ "No valid solution for UID " ++ show name' ++ "."
+    | unSAT c       = throw $ "No valid solution for UID' " ++ show name' ++ "."
+    | UCTop    <- c = throw $ "No valid solution for UID' " ++ show name' ++ "."
     | UCBottom <- c = ref name'
     | UCNew    <- c = fixAbstract UCNew >>= refAbstract name'
     | UCVal u <- c = do
@@ -71,33 +71,33 @@ instance SBVAble UID where
         lv <- lit u
         constrain $ nv S..== lv
 
-  sbv :: Ref UID -> SBVMonad (SBV UID)
+  sbv :: Ref UID' -> SBVMonad (SBV UID')
   sbv r = do
     val <- uses @SBVS uidRef (Map.lookup r)
     case val of
-      Nothing -> throw $ "No ref to UID `" ++ show r ++ "` found, cannot continue."
+      Nothing -> throw $ "No ref to UID' `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
 
-  lit :: UID     -> SBVMonad (SBV UID)
+  lit :: UID'     -> SBVMonad (SBV UID')
   lit = return . reWrap . S.literal . unpack
 
-  add :: Ref UID -> SBV UID -> SBVMonad ()
+  add :: Ref UID' -> SBV UID' -> SBVMonad ()
   add r s = do
     exists <- uses @SBVS uidRef (Map.member r)
     case exists of
-      True  -> throw $ "Reference to UID `" ++ show r ++ "` already exists."
+      True  -> throw $ "Reference to UID' `" ++ show r ++ "` already exists."
       False -> uidRef @SBVS %= (Map.insert r s)
 
-  getName :: Ref UID -> String
+  getName :: Ref UID' -> String
   getName = unpack
 
   fixAbstract :: UIDCons -> EDGMonad UIDCons
-  fixAbstract UCNew = UCVal . UID <$> newUID
+  fixAbstract UCNew = UCVal . UID' <$> newUID
   fixAbstract a     = return a
 
-instance InvertSBV UID where
+instance InvertSBV UID' where
 
-  extract :: Modelable a => DecodeState -> a -> Ref UID -> Maybe UID
+  extract :: Modelable a => DecodeState -> a -> Ref UID' -> Maybe UID'
   extract _ model (Ref name) = pack <$> getModelValue name model
 
-instance EDGEquals UID
+instance EDGEquals UID'

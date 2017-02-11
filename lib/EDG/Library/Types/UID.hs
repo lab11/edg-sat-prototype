@@ -127,10 +127,10 @@ unique :: UIDNewtypeCons a
 unique = UCNew
 
 -- | An alias for the UID type we use all over the place.
-type UID = UIDNewtype Integer
+type UID' = UIDNewtype Integer
 
-pattern UID :: Integer -> UID
-pattern UID a = UIDNewtype a
+pattern UID' :: Integer -> UID'
+pattern UID' a = UIDNewtype a
 
 type UIDCons = UIDNewtypeCons Integer
 

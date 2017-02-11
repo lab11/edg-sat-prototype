@@ -16,7 +16,7 @@ instance SBVWrap String Integer
 sString :: MonadSymbolic m => String -> m (SBV String)
 sString = getRep
 
-instance SBVWrap UID Integer
+instance SBVWrap UID' Integer
 
-sUID :: MonadSymbolic m => String -> m (SBV UID)
-sUID = getRep
+sUID' :: MonadSymbolic m => String -> m (SBV UID')
+sUID' = getRep
