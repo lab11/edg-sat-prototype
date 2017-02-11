@@ -88,7 +88,7 @@ data SBVState = SBVState {
     ssBoolRef    :: Map (Ref Bool)    (SBV Bool)
   , ssStringRef  :: Map (Ref String)  (SBV String)
   , ssFloatRef   :: Map (Ref Float)   (SBV Float)
-  , ssUidRef     :: Map (Ref UID)     (SBV UID)
+  , ssUidRef     :: Map (Ref UID')     (SBV UID')
   , ssIntegerRef :: Map (Ref Integer) (SBV Integer)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String

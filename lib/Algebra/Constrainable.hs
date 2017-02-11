@@ -91,6 +91,13 @@ data Ambiguous t where
   --   "I cannot exist"
   Impossible :: Ambiguous t
 
+-- | If the value is collapsible or unsatisfiable reduce this to its simplest
+--   representation.
+flattenAmbig :: (Constrainable t) => Ambiguous t -> Ambiguous t
+flattenAmbig a@(Abstract c) | Just v <- collapse c = Concrete v
+                            | False  <- unSAT c    = Impossible
+                            | otherwise            = a
+flattenAmbig a = a
 
 -- | Show instance for Ambiguous values
 instance (Constrainable t, Show t, Show (Constraints t)) => Show (Ambiguous t) where
@@ -103,6 +110,9 @@ instance (Constrainable t, Show t, Show (Constraints t)) => Show (Ambiguous t) w
   showsPrec d (Impossible)
     = showParen (d > app_prec) $ showString "Impossible"
       where app_prec = 10
+
+
+
 
 -- | Read instance for ambiguous values
 instance (Constrainable t, Read t, Read (Constraints t)) => Read (Ambiguous t) where
@@ -177,7 +187,6 @@ instance (Eq t,Constrainable t) => LiftablePredicate (Ambiguous t) where
   -- | Given a single value of type `a` return a perdicate that is true for
   --   only that value.
   liftPredicate = Concrete
-
 
 instance (Eq t, Constrainable t) => BottomPredicate (Ambiguous t) where
   isBottom Impossible   = False

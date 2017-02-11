@@ -44,480 +44,347 @@ import EDG.Library.Types.String
 import EDG.Library.Types.UID
 import EDG.Library.Types.Record
 
--- #### What I want to be able to do ####
+import Data.Void
 
--- The short version is I have a number of types that effectively have the exact same
--- constructors but store different pieces of data behind each of those constructors.
--- In practice these can hold values, or strings describing those values, predicates
--- over the same values, etc ..
---
--- The big differences between this example and my actual version is that my actual
--- case has many more constructors, and is recursive.
---
--- I'd love to be able to do something like the following, where I use a type
--- family as a parameter to a datatype:
+-- Value that captures the various types of things with an assiciated kind.
+data Kinded a b where
+  Int    :: (KVAble a) => KInt    a   -> Kinded a b
+  Bool   :: (KVAble a) => KBool   a   -> Kinded a b
+  Float  :: (KVAble a) => KFloat  a   -> Kinded a b
+  String :: (KVAble a) => KString a   -> Kinded a b
+  UID    :: (KVAble a) => KUID    a   -> Kinded a b
+  Record :: (KVAble a) => KRecord a b -> Kinded a b
+  KVTop  :: (KVAble a) => KTop    a   -> Kinded a b
+  KVBot  :: (KVAble a) => KBottom a   -> Kinded a b
 
--- data FBool
--- data FInt
---
--- data Foo :: (* -> *) -> * where
---   FBool :: t Bool -> Foo t
---   FInt  :: t Int  -> Foo t
---
--- type family Val a
--- type instance Val Bool = Bool
--- type instance Val Int  = Int
---
--- type family Meta a
--- type instance Meta Bool = String
--- type instance Meta Int = String
---
--- -- Note how I can reuse the constructors in different contexts
--- boing :: Foo Val -> Int
--- boing (FBool b) = if b then 1 else 0
--- boing (FInt  v) = v
---
--- boing2 :: Foo Meta -> String
--- boing2 (FBool s) = s
--- boing2 (FInt  s) = s
---
--- boing3 :: Foo Val -> Foo Meta
--- boing3 (FBool _) = FBool "Is a Bool"
--- boing3 (FInt  _) = FInt  "Is an Int"
---
--- -- #### What I do now ####
---
--- -- Multiple datatypes. At this point I have half a dozen in my actual
--- -- program, for various contexts, and will likely need more.
---
--- data FooVal :: (* -> *) -> * where
---   FVBool :: Bool -> Foo t
---   FVInt  :: Int -> Foo t
---
--- data FooMeta :: (* -> *) -> * where
---   FMBool :: String -> Foo t
---   FMInt  :: String -> Foo t
---
--- boing :: FooVal -> Int
--- boing (FVBool b) = if b then 1 else 0
--- boing (FVInt  v) = v
---
--- boing2 :: FooMeta -> String
--- boing2 (FMBool s) = s
--- boing2 (FMInt  s) = s
---
--- boing3 :: FooVal -> FooMeta
--- boing3 (FVBool _) = FMBool "Is a Bool"
--- boing3 (FVInt  _) = FMInt  "Is an Int"
---
--- -- There are many instances where I want to convert from FooVal to FooMeta
--- -- or similar transformations between versions of Foo, and this ends up
--- -- leading to a huge pile of code bloat, not to mention the overhead
--- -- of keeping all these data structures in sync.
+deriving instance (Eq (KInt a), Eq (KBool a), Eq (KFloat a), Eq (KString a)
+  , Eq (KUID a), Eq (KRecord a b), Eq (KTop a), Eq (KBottom a)
+  ) => Eq (Kinded a b)
 
--- #### Closest I can get ####
+deriving instance (Show (KInt a), Show (KBool a), Show (KFloat a)
+  , Show (KString a), Show (KUID a), Show (KRecord a b), Show (KTop a)
+  , Show (KBottom a)) => Show (Kinded a b)
 
--- It's possible to achieve the same effect with a combination of new
--- wrapper data types, type classes, and pattern synonyms. So far it
--- requires a shit-ton of boiler plate, but the boilerplate is probably
--- straightforward to generate with template haskell.
+deriving instance (KVAble a, Read (KInt a), Read (KBool a), Read (KFloat a)
+  , Read (KString a), Read (KUID a), Read (KRecord a b), Read (KTop a)
+  , Read (KBottom a)) => Read (Kinded a b)
 
-data FBool
-data FInt
+-- | The typeclass that lets us
+class KVAble a where
+  type KInt    a :: *
+  type KBool   a :: *
+  type KFloat  a :: *
+  type KString a :: *
+  type KUID    a :: *
+  type KRecord a b :: *
+  type KTop    a :: *
+  type KBottom a :: *
 
-data Foo :: (* -> *) -> * where
-  VBool :: t FBool -> Foo t
-  VInt  :: t FInt  -> Foo t
 
-type family ValF a
-type instance ValF FBool = Bool
-type instance ValF FInt  = Int
+-- | This flag lets us define concrete instances of a kinded value, that
+--   hold specific instances of elements as needed.
+data Val
 
--- We need to wrap the type family in a datatype.
-data Val a where
-  Val :: ValF a -> Val a
+instance KVAble Val where
+  type KInt    Val   = Integer
+  type KBool   Val   = Bool
+  type KFloat  Val   = Float
+  type KString Val   = String
+  type KUID    Val   = UID'
+  type KRecord Val b = Record' b
+  type KTop    Val   = Void
+  type KBottom Val   = Void
 
-instance Newtype (Val FBool) (Bool) where
-  pack = Val
-  unpack (Val a) = a
+-- | This is the basic Value, which disambiguates between each of the types
+--   we have handy, each constructor can also act as a value level witness if
+--   we need one.
+type Value' = Kinded Val
 
--- The exact same implementations every time and
--- it should just require being able to see all the
--- instances in a typefamily.
-instance Newtype (Val FInt) (Int) where
-  pack = Val
-  unpack (Val a) = a
+-- | This is the fixed point we're going to be working with when we have a
+--   typed value lying aorund.
+newtype Value = Value { getVal :: Value' Value}
+  deriving (Eq, Show, Read)
 
-type family MetaF a
-type instance MetaF FBool = String
-type instance MetaF FInt  = String
+instance Newtype Value (Value' Value) where
+  pack   = Value
+  unpack = getVal
 
-data Meta a where
-  Meta :: MetaF a -> Meta a
+-- | This time we fill the type with unit so that we can use the flags
+--   themselves as markers for the kind of a value.
+data Knd
 
-instance Newtype (Meta FBool) (String) where
-  pack = Meta
-  unpack (Meta a) = a
+instance KVAble Knd where
+  type KInt    Knd   = ()
+  type KBool   Knd   = ()
+  type KFloat  Knd   = ()
+  type KString Knd   = ()
+  type KUID    Knd   = ()
+  type KRecord Knd b = Map String b
+  type KTop    Knd   = ()
+  type KBottom Knd   = ()
 
--- Again, everything is exactly the same.
-instance Newtype (Meta FInt) (String) where
-  pack = Meta
-  unpack (Meta a) = a
+type Kind' = Kinded Knd
 
-type family Unwrap (a :: * -> *) (b :: *)
-type instance Unwrap Val  b = ValF  b
-type instance Unwrap Meta b = MetaF b
+newtype Kind = Kind { getKnd :: Kind' Kind }
+  deriving (Show, Read, Eq)
 
--- Each value here is straightforward to design, and the newtype instances
--- allow haskell to do everything automatically.
-class B (t  :: * -> *) where
+instance Newtype Kind (Kind' Kind) where
+  pack = Kind
+  unpack = getKnd
 
-  mkFBool :: Unwrap t FBool -> Foo t
-  default mkFBool :: (Newtype (t FBool) (Unwrap t FBool)) => Unwrap t FBool -> Foo t
-  mkFBool = VBool . pack
+-- | This one is for defining constraints over Values, it pretty much just
+--   uses the corresponding constraints type whenever possible.
+data Cons
 
-  gtFBool :: Foo t -> Maybe (Unwrap t FBool)
-  default gtFBool :: (Newtype (t FBool) (Unwrap t FBool)) => Foo t -> Maybe (Unwrap t FBool)
-  gtFBool (VBool a) = Just . unpack $ a
-  gtFBool _ = Nothing
+instance KVAble Cons where
+  type KInt    Cons   = Constraints Integer
+  type KBool   Cons   = Constraints Bool
+  type KFloat  Cons   = Constraints Float
+  type KString Cons   = Constraints String
+  type KUID    Cons   = Constraints UID'
+  type KRecord Cons b = Constraints (Record' b)
+  type KTop    Cons   = ()
+  type KBottom Cons   = ()
 
-  mkFInt :: Unwrap t FInt -> Foo t
-  default mkFInt :: (Newtype (t FInt) (Unwrap t FInt)) => Unwrap t FInt -> Foo t
-  mkFInt = VInt . pack
+-- | And this is the corresponding type for the constraints over a TValue.
+--   Same deal with the parameterization.
+--
+--   I'm getting the constraints here rather that just typing it out because
+--   it prevents user error if we change the type of some constraint.
+--
+--   TODO :: Feh, I'm seriously hating having to put all these explicit bottoms
+--           and tops in all of our constraint dataTypes, they
+type Constrained' = Kinded Cons
 
-  gtFInt :: Foo t -> Maybe (Unwrap t FInt)
-  default gtFInt :: (Newtype (t FInt) (Unwrap t FInt)) => Foo t -> Maybe (Unwrap t FInt)
-  gtFInt (VInt a) = Just . unpack $ a
-  gtFInt _ = Nothing
+-- | Keep in mind that `Value' a` corresponds with `Constrained' a` not
+--   `Constrained' (Constraints a)`. Since we use the typeclass to pick the
+--   relevant constraint.
+--
+--   However we still need a newtype because otherwise our choice for predicate
+--   domain would leave us with a non-injective type family for the predicate
+--   domains.
+newtype Constrained = Constrained { getCons :: Constrained' Value}
+  deriving (Show, Read, Eq)
 
--- And some pattern synonyms as syntax sugar, approximating the constructors we actually want.
-pattern FBool b <- (gtFBool -> (Just b))
-  where FBool b = mkFBool b
+instance Newtype Constrained (Constrained' Value) where
+  pack = Constrained
+  unpack = getCons
 
-pattern FInt b <- (gtFInt -> (Just b))
-  where FInt b = mkFInt b
+-- | Convinience alias for the type of record that most people will actually
+--   be working with (Yes, there's a lot of extra `Fix` es whenever you try
+--   to pattern match.)
+type Record = Record' Value
 
--- Let the defaults fill out our instances
-instance B Val
-instance B Meta
+instance AsPredicate (Constrained' a) where
+  type PredicateDomain (Constrained' a) = (Value' a)
+  asPredicate (Int    c) (Int    v) = asPredicate c v
+  asPredicate (Bool   c) (Bool   v) = asPredicate c v
+  asPredicate (Float  c) (Float  v) = asPredicate c v
+  asPredicate (String c) (String v) = asPredicate c v
+  asPredicate (UID    c) (UID    v) = asPredicate c v
+  asPredicate (Record c) (Record v) = asPredicate c v
+  asPredicate (KVBot  _)  _         = True
+  asPredicate  _          _         = False
 
--- And this is identical to what i wanted in the first place.
-boing :: Foo Val -> Int
-boing (FBool b) = if b then 1 else 0
-boing (FInt  i) = i
+instance AsPredicate Constrained where
+  type PredicateDomain Constrained = Value
+  asPredicate (unpack -> c) (unpack -> v) = asPredicate c v
 
-boing2 :: Foo Meta -> String
-boing2 (FBool s) = s
-boing2 (FInt  s) = s
+instance SATAblePredicate (Constrained' a) where
+  isSAT (Int    c) = isSAT c
+  isSAT (Bool   c) = isSAT c
+  isSAT (Float  c) = isSAT c
+  isSAT (String c) = isSAT c
+  isSAT (UID    c) = isSAT c
+  isSAT (Record c) = isSAT c
+  isSAT (KVBot  _) = True
+  isSAT (KVTop  _) = False
 
-boing3 :: Foo Val -> Foo Meta
-boing3 (FBool _) = FBool "Is a Bool"
-boing3 (FInt  _) = FInt  "Is an Int"
+instance SATAblePredicate Constrained where
+  isSAT = isSAT . unpack
 
--- At the moment this is clearly more boiler plate than it's worth but it's at least
--- more straightforward to generate, in order to get the same effect.
+instance BottomPredicate (Constrained' a) where
+  isBottom (KVBot _) = True
+  -- | The idea here is that unless you've actually specified bottom, you've
+  --   still constrained the kind of the value. Even if the constraint is
+  --   bottom *for that Kind* it'll reject inputs of other kinds.
+  isBottom  _        = False
 
---data Val a b where
---  VInt    :: a Int         -> Val a b
---  VBool   :: a Bool        -> Val a b
---  VFloat  :: a Float       -> Val a b
---  VString :: a String      -> Val a b
---  VUID    :: a UID         -> Val a b
---  VRecord :: a (Record' b) -> Val a b
---
---class MKVal a b where
---  mkInt  :: a Int   -> Val a b
---  mkBool :: a VBool -> Val a b
---
---pattern Int :: (MKVal a b
+instance BottomPredicate Constrained where
+  isBottom = isBottom . unpack
 
---  -- | This is the basic TypeVal', which disambiguates between each of the types
---  --   we have handy, each constructor can also act as a value level witness if
---  --   we need one.
---  --
---  --   Like the record, this is parameterized so that we can get the fixed point
---  --   in EDG.Library.Types where all the neccesary information is lying around
---  --   in one place.
---  --
---  data TypeVal' a where
---    TVBool   :: Bool      -> TypeVal' a
---    TVFloat  :: Float     -> TypeVal' a
---    TVInt    :: Integer   -> TypeVal' a
---    TVString :: String    -> TypeVal' a
---    TVUID    :: UID       -> TypeVal' a
---    TVRecord :: Record' a -> TypeVal' a
---    deriving (Show,Read,Eq)
+instance CollapseablePredicate (Constrained' a) where
+  collapse (Int    c) = Int    <$> collapse c
+  collapse (Bool   c) = Bool   <$> collapse c
+  collapse (Float  c) = Float  <$> collapse c
+  collapse (String c) = String <$> collapse c
+  collapse (UID    c) = UID    <$> collapse c
+  collapse (Record c) = Record <$> collapse c
+  collapse (KVBot  _) = Nothing
+  collapse (KVTop  _) = Nothing
+
+instance CollapseablePredicate Constrained where
+  collapse = fmap pack . collapse . unpack
+
+instance (Eq a,Constrainable a) => LiftablePredicate (Constrained' a) where
+  liftPredicate (Int    v) = Int    $ liftPredicate v
+  liftPredicate (Bool   v) = Bool   $ liftPredicate v
+  liftPredicate (Float  v) = Float  $ liftPredicate v
+  liftPredicate (String v) = String $ liftPredicate v
+  liftPredicate (UID    v) = UID    $ liftPredicate v
+  liftPredicate (Record v) = Record $ liftPredicate v
+  liftPredicate (KVBot  v) = absurd v
+  liftPredicate (KVTop  v) = absurd v
+
+instance LiftablePredicate Constrained where
+  liftPredicate = pack . liftPredicate . unpack
+
+instance (Eq a, Constrainable a) => Constrainable (Value' a) where
+  type Constraints (Value' a) = Constrained' a
+
+instance Constrainable Value where
+  type Constraints Value = Constrained
+
+instance (Eq a,Constrainable a, PartialOrd (Constraints a)) => PartialOrd (Constrained' a) where
+  leq KVBot{} _ = True
+  leq _ KVBot{} = False
+  leq _ a | isSAT a = True
+  leq a _ | isSAT a = False
+  leq (Int    c) (Int    c') = c `leq` c'
+  leq (Bool   c) (Bool   c') = c `leq` c'
+  leq (Float  c) (Float  c') = c `leq` c'
+  leq (String c) (String c') = c `leq` c'
+  leq (UID    c) (UID    c') = c `leq` c'
+  leq (Record c) (Record c') = c `leq` c'
+  leq _ _ = False
+
+instance PartialOrd Constrained where
+  leq (unpack -> c) (unpack -> c') = c `leq` c'
+
+instance (Eq a,Constrainable a, JoinSemiLattice (Ambiguous a)) => JoinSemiLattice (Constrained' a) where
+  (\/) a _ | isSAT a = KVTop ()
+  (\/) _ a | isSAT a = KVTop ()
+  (\/) KVBot{} a = a
+  (\/) a KVBot{} = a
+  (\/) (Int    c) (Int    c') = Int    $ c \/ c'
+  (\/) (Bool   c) (Bool   c') = Bool   $ c \/ c'
+  (\/) (Float  c) (Float  c') = Float  $ c \/ c'
+  (\/) (String c) (String c') = String $ c \/ c'
+  (\/) (UID    c) (UID    c') = UID    $ c \/ c'
+  (\/) (Record c) (Record c') = Record $ c \/ c'
+  (\/) _ _ = KVTop ()
+
+instance JoinSemiLattice Constrained where
+  (\/) (unpack -> c) (unpack -> c') = pack $ c \/ c'
+
+-- TODO :: Remove constraint when you write meet instances for Ambiguous
+instance (Eq a,Constrainable a, MeetSemiLattice (Ambiguous a)) => MeetSemiLattice (Constrained' a) where
+  (/\) KVBot{} _ = KVBot ()
+  (/\) _ KVBot{} = KVBot ()
+  (/\) a b | isSAT a = b
+  (/\) b a | isSAT a = b
+  (/\) (Int    c) (Int    c') = Int    $ c /\ c'
+  (/\) (Bool   c) (Bool   c') = Bool   $ c /\ c'
+  (/\) (Float  c) (Float  c') = Float  $ c /\ c'
+  (/\) (String c) (String c') = String $ c /\ c'
+  (/\) (UID    c) (UID    c') = UID    $ c /\ c'
+  (/\) (Record c) (Record c') = Record $ c /\ c'
+  (/\) _ _ = KVBot ()
+
+
+-- TODO :: Remove constraint when you write meet instances for Ambiguous
+instance (MeetSemiLattice (Ambiguous Value)) => MeetSemiLattice Constrained where
+  (/\) (unpack -> c) (unpack -> c') = pack $ c /\ c'
+
+instance (Eq a,Constrainable a,JoinSemiLattice (Ambiguous a)) => BoundedJoinSemiLattice (Constrained' a) where
+  bottom = KVBot ()
+
+instance BoundedJoinSemiLattice Constrained where
+  bottom = pack bottom
+
+-- TODO :: Remove constraint when you write meet instances for Ambiguous
+instance (Eq a,Constrainable a,MeetSemiLattice (Ambiguous a)) => BoundedMeetSemiLattice (Constrained' a) where
+  top = KVTop ()
+
+-- TODO :: Remove constraint when you write meet instances for Ambiguous
+instance (MeetSemiLattice (Ambiguous Value)) => BoundedMeetSemiLattice Constrained where
+  top = pack top
+
+-- | This is where we start doing more interesting things with our RecordCons
+--   and all the nested types we've got lying around. This lets us present
+--   a much nicer interface to the user while preserving all the power in the
+--   backend.
 --
---  -- | This is the type alias that allows the TypeVal' to recurse as deep as
---  --   needed, with records all the way down.
---  type TypeVal = Fix TypeVal'
+--   TODO :: Make sure there's no sensible list interface for these things, at
+--           least insofar as pattern matching is concerned.
 --
---  -- | Convinience alias for the type of record that most people will actually
---  --   be working with (Yes, there's a lot of extra `Fix` es whenever you try
---  --   to pattern match.)
---  type Record = Record' TypeVal
+instance IsList (RecordCons Value) where
+  type Item (RecordCons Value) = (String,Ambiguous Value)
+
+  fromList = RCAmbig . Map.fromList
+  toList = error "Don't use list syntax in a pattern match"
+
+
+-- | This instance allows us to make sure that a single static record is
+--   actually treated as one, and collapsed into a single value. Problem is
+--   that it produces a runtime error rather than a compile time error.
 --
---  -- | And this is the corresponding type for the constraints over a TypedValue.
---  --   Same deal with the parameterization.
---  --
---  --   I'm getting the constraints here rather that just typing it out because
---  --   it prevents user error if we change the type of some constraint.
---  --
---  --   TODO :: Feh, I'm seriously hating having to put all these explicit bottoms
---  --           and tops in all of our constraint dataTypes, they
---  data TypeCons' a where
---    TCBool   :: (Constraints Bool       ) -> TypeCons' a
---    TCFloat  :: (Constraints Float      ) -> TypeCons' a
---    TCInt    :: (Constraints Integer    ) -> TypeCons' a
---    TCString :: (Constraints String     ) -> TypeCons' a
---    TCUID    :: (Constraints UID        ) -> TypeCons' a
---    TCRecord :: (Constraints (Record' a)) -> TypeCons' a
---    TCBottom :: TypeCons' a
---    TCTop    :: TypeCons' a
+--   TODO :: See if you can't get this to produce compile time errors, rather
+--           than a runtime error. There should be some typeclass trickery
+--           that allows you to use the same operator in multiple contexts.
 --
+instance IsList Record where
+  type Item Record = (String,Ambiguous Value)
+  fromList l = case collapse . RCAmbig . Map.fromList $ l of
+    Nothing -> error $ "This record isn't a single fixed value :" ++ show l
+    Just v  -> v
+  toList = error "Don't use list syntax in a pattern match"
+
+-- | This operator allows you to create a record field with a fixed concrete
+--   value. Each field is defined as:
 --
---  -- | Remember, A TypeCons' uses the same parameter as the TypeVal' it's using.
---  --   The chain of Ambiguous and Constrainable values in there actually unwrap
---  --   into the structure we want, we just have some extra Fix values lying
---  --   around.
---  --
---  --   The newtype here is nessesary to preserve the injectivity of the
---  --   Constrainable typeclass. Otherwise it's just identical to the standard
---  --   constructor you'd expect.
---  --
---  --   Most of the instances just unwrap and wrap this newtype and the Fix
---  --   around the TypeVal'. Don't worry about it too much, in practice it should
---  --   be pretty invisible.
---  newtype TypeCons = TypeCons (TypeCons' TypeVal)
---    deriving (Eq,Show,Read)
+--      ` <Name of Field> <:= <TV Constructor for field type> $ <field value>`
+--   or `(<Name of Field> <:= <TV Constructor for field type>)  <field value>`
 --
---  instance Newtype TypeCons (TypeCons' TypeVal) where
---    pack = TypeCons
---    unpack (TypeCons c) = c
+--   Note :: Yes I'm using the `$` operator to get vaguely mixfix notation for
+--           this, it's the best I can do at the moment for vaguely readable
+--           easy to write syntax.
 --
---  -- Again, this is where we need UndecidableInstances, because the
---  -- `Constraints t` is no smaller than `TypeCons' t`, but the cycle will
---  -- terminate once you hit the instance for the fixed point operator, since
---  -- that won't introduce any additional constraints.
---  deriving instance (Read (f (Fix f))) => Read (Fix f)
---  deriving instance (      Constrainable t, Eq   t,Eq   (Constraints t)) => Eq   (TypeCons' t)
---  deriving instance (Eq t, Constrainable t, Show t,Show (Constraints t)) => Show (TypeCons' t)
---  deriving instance (Eq t, Constrainable t, Read t,Read (Constraints t)) => Read (TypeCons' t)
+--  TODO :: There should be some typeclass trickery that allows the use of the
+--          same operator and type annotations for both ambiguous and
+--          unambiguous records, see if it's a good idea to implement it when
+--          you have time.
 --
+--  TODO :: Add a normal function version of the operator
 --
---  instance AsPredicate (TypeCons' a) where
---    type PredicateDomain (TypeCons' a) = TypeVal' a
+(<:=) :: String -> (t -> Value' Value) -> t -> (String,Ambiguous Value)
+(<:=) s c v = (s,Concrete . pack . c $ v)
+
+-- | This operator allows you define an ambiguous field, with a series of
+--   constraints on it. Each is defined as:
 --
---    asPredicate (TCBool   c) (TVBool   b) = asPredicate c b
---    asPredicate (TCFloat  c) (TVFloat  b) = asPredicate c b
---    asPredicate (TCInt    c) (TVInt    b) = asPredicate c b
---    asPredicate (TCString c) (TVString b) = asPredicate c b
---    asPredicate (TCUID    c) (TVUID    b) = asPredicate c b
---    asPredicate (TCRecord c) (TVRecord b) = asPredicate c b
---    asPredicate (TCBottom  ) _            = True
---    asPredicate _            _            = False
---
---  instance AsPredicate TypeCons where
---    type PredicateDomain TypeCons = TypeVal
---
---    asPredicate (TypeCons c) (Fix v) = asPredicate c v
---
---  instance SATAblePredicate (TypeCons' a) where
---    isSAT (TCBool   c) = isSAT c
---    isSAT (TCFloat  c) = isSAT c
---    isSAT (TCInt    c) = isSAT c
---    isSAT (TCString c) = isSAT c
---    isSAT (TCUID    c) = isSAT c
---    isSAT (TCRecord c) = isSAT c
---    isSAT TCBottom = True
---    isSAT TCTop = False
---
---  instance SATAblePredicate TypeCons where
---    isSAT (TypeCons c) = isSAT c
---
---  instance BottomPredicate (TypeCons' a) where
---    isBottom (TCBool   c) = isBottom c
---    isBottom (TCFloat  c) = isBottom c
---    isBottom (TCInt    c) = isBottom c
---    isBottom (TCString c) = isBottom c
---    isBottom (TCUID    c) = isBottom c
---    isBottom (TCRecord c) = isBottom c
---    isBottom TCBottom = True
---    isBottom TCTop = False
---
---  instance BottomPredicate TypeCons where
---    isBottom (TypeCons c) = isBottom c
---
---  instance CollapseablePredicate (TypeCons' a) where
---    collapse (TCBool   c) = TVBool   <$> collapse c
---    collapse (TCFloat  c) = TVFloat  <$> collapse c
---    collapse (TCInt    c) = TVInt    <$> collapse c
---    collapse (TCString c) = TVString <$> collapse c
---    collapse (TCUID    c) = TVUID    <$> collapse c
---    collapse (TCRecord c) = TVRecord <$> collapse c
---    collapse _ = Nothing
---
---  instance CollapseablePredicate TypeCons where
---    collapse (TypeCons c) = Fix <$> collapse c
---
---  instance (Eq a,Constrainable a) =>  LiftablePredicate (TypeCons' a) where
---    liftPredicate (TVBool   b) = TCBool   $ liftPredicate b
---    liftPredicate (TVFloat  b) = TCFloat  $ liftPredicate b
---    liftPredicate (TVInt    b) = TCInt    $ liftPredicate b
---    liftPredicate (TVString b) = TCString $ liftPredicate b
---    liftPredicate (TVUID    b) = TCUID    $ liftPredicate b
---    liftPredicate (TVRecord b) = TCRecord $ liftPredicate b
---
---  instance LiftablePredicate TypeCons where
---    liftPredicate (Fix v) = TypeCons $ liftPredicate v
---
---  instance (Eq a,Constrainable a) => Constrainable (TypeVal' a) where
---    type Constraints (TypeVal' a) = TypeCons' a
---
---  instance Constrainable TypeVal where
---    type Constraints TypeVal = TypeCons
---
---  instance (Eq a,Constrainable a, PartialOrd (Constraints a)) => PartialOrd (TypeCons' a) where
---    leq TCBottom _ = True
---    leq _ TCBottom = False
---    leq _ TCTop = True
---    leq TCTop _ = False
---    leq (TCBool   c) (TCBool   c') = c `leq` c'
---    leq (TCFloat  c) (TCFloat  c') = c `leq` c'
---    leq (TCInt    c) (TCInt    c') = c `leq` c'
---    leq (TCString c) (TCString c') = c `leq` c'
---    leq (TCUID    c) (TCUID    c') = c `leq` c'
---    leq (TCRecord c) (TCRecord c') = c `leq` c'
---    leq _ _ = False
---
---  instance PartialOrd TypeCons where
---    leq (TypeCons c) (TypeCons c') = c `leq` c
---
---  instance (Eq a,Constrainable a, JoinSemiLattice (Ambiguous a)) => JoinSemiLattice (TypeCons' a) where
---    (\/) TCTop _ = TCTop
---    (\/) _ TCTop = TCTop
---    (\/) TCBottom a = a
---    (\/) a TCBottom = a
---    (\/) (TCBool   c) (TCBool   c') = TCBool   $ c \/ c'
---    (\/) (TCFloat  c) (TCFloat  c') = TCFloat  $ c \/ c'
---    (\/) (TCInt    c) (TCInt    c') = TCInt    $ c \/ c'
---    (\/) (TCString c) (TCString c') = TCString $ c \/ c'
---    (\/) (TCUID    c) (TCUID    c') = TCUID    $ c \/ c'
---    (\/) (TCRecord c) (TCRecord c') = TCRecord $ c \/ c'
---    (\/) _ _ = TCTop
---
---  instance JoinSemiLattice TypeCons where
---    (\/) (TypeCons c) (TypeCons c') = TypeCons $ c \/ c'
---
---  -- TODO :: Remove constraint when you write meet instances for Ambiguous
---  instance (Eq a,Constrainable a, MeetSemiLattice (Ambiguous a)) => MeetSemiLattice (TypeCons' a) where
---    (/\) TCBottom _ = TCBottom
---    (/\) _ TCBottom = TCBottom
---    (/\) a TCTop = a
---    (/\) TCTop a = a
---    (/\) (TCBool   c) (TCBool   c') = TCBool   $ c /\ c'
---    (/\) (TCFloat  c) (TCFloat  c') = TCFloat  $ c /\ c'
---    (/\) (TCInt    c) (TCInt    c') = TCInt    $ c /\ c'
---    (/\) (TCString c) (TCString c') = TCString $ c /\ c'
---    (/\) (TCUID    c) (TCUID    c') = TCUID    $ c /\ c'
---    (/\) (TCRecord c) (TCRecord c') = TCRecord $ c /\ c'
---    (/\) _ _ = TCBottom
---
---  -- TODO :: Remove constraint when you write meet instances for Ambiguous
---  instance (MeetSemiLattice (Ambiguous TypeVal)) => MeetSemiLattice TypeCons where
---    (/\) (TypeCons c) (TypeCons c') = TypeCons $ c /\ c'
---
---  instance (Eq a,Constrainable a,JoinSemiLattice (Ambiguous a)) => BoundedJoinSemiLattice (TypeCons' a) where
---    bottom = TCBottom
---
---  instance BoundedJoinSemiLattice TypeCons where
---    bottom = TypeCons $ bottom
---
---  -- TODO :: Remove constraint when you write meet instances for Ambiguous
---  instance (Eq a,Constrainable a,MeetSemiLattice (Ambiguous a)) => BoundedMeetSemiLattice (TypeCons' a) where
---    top = TCTop
---
---  -- TODO :: Remove constraint when you write meet instances for Ambiguous
---  instance (MeetSemiLattice (Ambiguous TypeVal)) => BoundedMeetSemiLattice TypeCons where
---    top = TypeCons $ top
---
---  -- | This is where we start doing more interesting things with our RecordCons
---  --   and all the nested types we've got lying around. This lets us present
---  --   a much nicer interface to the user while preserving all the power in the
---  --   backend.
---  --
---  --   TODO :: Make sure there's no sensible list interface for these things, at
---  --           least insofar as pattern matching is concerned.
---  --
---  instance IsList (RecordCons TypeVal) where
---    type Item (RecordCons TypeVal) = (String,Ambiguous TypeVal)
---
---    fromList = RCAmbig . Map.fromList
---    toList = error "Don't use list syntax in a pattern match"
---
---  -- | This instance allows us to make sure that a single static record is
---  --   actually treated as one, and collapsed into a single value. Problem is
---  --   that it produces a runtime error rather than a compile time error.
---  --
---  --   TODO :: See if you can't get this to produce compile time errors, rather
---  --           than a runtime error. There should be some typeclass trickery
---  --           that allows you to use the same operator in multiple contexts.
---  --
---  instance IsList Record where
---    type Item Record = (String,Ambiguous TypeVal)
---
---    fromList l = case collapse . RCAmbig . Map.fromList $ l of
---      Nothing -> error $ "This record isn't a single fixed value :" ++ show l
---      Just v  -> v
---    toList = error "Don't use list syntax in a pattern match"
---
---
---  -- | This operator allows you to create a record field with a fixed concrete
---  --   value. Each field is defined as:
---  --
---  --      ` <Name of Field> <:= <TV Constructor for field type> $ <field value>`
---  --   or `(<Name of Field> <:= <TV Constructor for field type>)  <field value>`
---  --
---  --   Note :: Yes I'm using the `$` operator to get vaguely mixfix notation for
---  --           this, it's the best I can do at the moment for vaguely readable
---  --           easy to write syntax.
---  --
---  --  TODO :: There should be some typeclass trickery that allows the use of the
---  --          same operator and type annotations for both ambiguous and
---  --          unambiguous records, see if it's a good idea to implement it when
---  --          you have time.
---  --
---  --  TODO :: Add a normal function version of the operator
---  --
---  (<:=) :: String -> (t -> TypeVal' TypeVal) -> t -> (String,Ambiguous TypeVal)
---  (<:=) s c v = (s,Concrete . Fix      . c $ v)
---
---
---  -- | This operator allows you define an ambiguous field, with a series of
---  --   constraints on it. Each is defined as:
---  --
---  --      ` <Name of Field> <~= <TC Constructor for field type> $ <Constraint over field>`
---  --   or `(<Name of Field> <~= <TC Constructor for field type>)  <Constraint over field>`
---  (<~=) :: String -> (Constraints t -> TypeCons' TypeVal) -> Constraints t -> (String,Ambiguous TypeVal)
---  (<~=) s c v = (s,Abstract . TypeCons . c $ v)
---
---  -- This is just an example of the Record definition syntax, it's mediocre at
---  -- best, but it gets the job dome without having to write out a huge number
---  -- of constructors and wrappers for each element.
---  exampleRecord :: RecordCons TypeVal
---  exampleRecord
---    = ["Number"  <:= TVInt    $ 3
---      ,"Name"    <~= TCString $ oneOf ["a","b","c"]
---      ,"record1" <~= TCRecord $
---        [ "par1"   <:= TVFloat  $ 2
---        , "pas2"   <~= TCInt    $ lessThan 3
---        , "pas3"   <~= TCInt    $ [lessThanEq 3, greaterThan 1, oneOf [2,3,4]]
---        ]
---      ,"record2" <:= TVRecord $
---        [ "foo1"   <:= TVInt    $ 1
---        , "foo2"   <:= TVString $ "test"
---        ]
---      ]
+--      ` <Name of Field> <~= <TC Constructor for field type> $ <Constraint over field>`
+--   or `(<Name of Field> <~= <TC Constructor for field type>)  <Constraint over field>`
+(<~=) :: String -> (Constraints t -> Constrained' Value) -> Constraints t -> (String,Ambiguous Value)
+(<~=) s c v = (s,flattenAmbig . Abstract . pack . c $ v)
+
+-- This is just an example of the Record definition syntax, it's mediocre at
+-- best, but it gets the job dome without having to write out a huge number
+-- of constructors and wrappers for each element.
+exampleRecord :: RecordCons Value
+exampleRecord
+  = ["Number"  <:= Int    $ 3
+    ,"Name"    <~= String $ oneOf ["a","b","c"]
+    ,"record1" <~= Record $
+      [ "par1"   <:= Float  $ 2
+      , "pas2"   <~= Int    $ lessThan 3
+      , "pas3"   <~= Int    $ [lessThanEq 3, greaterThan 1, oneOf [2,3,4]]
+      ]
+    ,"record2" <:= Record $
+      [ "foo1"   <:= Int    $ 1
+      , "foo2"   <:= String $ "test"
+      ]
+    ]
 --
 --  --  testPort :: Port
 --  --  testPort = makePort "portName" do
