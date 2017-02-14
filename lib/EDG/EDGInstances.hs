@@ -15,8 +15,10 @@ import qualified EDG.EDGInstances.String  as EDG
 import qualified EDG.EDGInstances.Float   as EDG
 import qualified EDG.EDGInstances.UID     as EDG
 import qualified EDG.EDGInstances.Integer as EDG
+import qualified EDG.EDGInstances.Record  as EDG
 
 import EDG.EDGMonad
+import EDG.EDGDatatype
 import Control.Monad.MonadSymbolic
 import Control.Monad.Scribe
 

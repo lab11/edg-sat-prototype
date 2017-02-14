@@ -69,6 +69,17 @@ deriving instance (KVAble a, Read (KInt a), Read (KBool a), Read (KFloat a)
   , Read (KString a), Read (KUID a), Read (KRecord a b), Read (KTop a)
   , Read (KBottom a)) => Read (Kinded a b)
 
+-- | Gets a separate integer for each constructor
+getKindNum :: Kinded a b -> Integer
+getKindNum KVTop{}  = 0
+getKindNum KVBot{}  = 1
+getKindNum Int{}    = 2
+getKindNum Bool{}   = 3
+getKindNum Float{}  = 4
+getKindNum String{} = 5
+getKindNum UID{}    = 6
+getKindNum Record{} = 7
+
 -- | The typeclass that lets us
 class KVAble a where
   type KInt    a :: *
@@ -79,7 +90,6 @@ class KVAble a where
   type KRecord a b :: *
   type KTop    a :: *
   type KBottom a :: *
-
 
 -- | This flag lets us define concrete instances of a kinded value, that
 --   hold specific instances of elements as needed.
@@ -174,6 +184,8 @@ instance Newtype Constrained (Constrained' Value) where
 --   be working with (Yes, there's a lot of extra `Fix` es whenever you try
 --   to pattern match.)
 type Record = Record' Value
+
+type RecCons = RecordCons Value
 
 instance AsPredicate (Constrained' a) where
   type PredicateDomain (Constrained' a) = (Value' a)

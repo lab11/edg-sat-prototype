@@ -35,6 +35,7 @@ import Algebra.AsPredicate
 import EDG.Library.Types
 import EDG.Predicates
 import EDG.EDGMonad
+import EDG.EDGDatatype
 
 -- * Instances for Bool
 

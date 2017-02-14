@@ -10,6 +10,7 @@ import qualified Data.Set as Set
 import Data.Bimap (Bimap)
 import qualified Data.Bimap as Bimap
 
+import Data.Void
 
 import Control.Newtype
 
@@ -42,94 +43,242 @@ import EDG.EDGInstances.Bool
 import EDG.SBVWrap
 import EDG.EDGDatatype
 
+import EDG.EDGInstances.Bool
+import EDG.EDGInstances.String
+import EDG.EDGInstances.Float
+import EDG.EDGInstances.UID
+import EDG.EDGInstances.Integer
+
+-- Mark that the kinds of these two values are equal, unifiying them as
+-- neccesary.
+assertValKindEq :: Ref Value -> Ref Value -> EDGMonad ()
+assertValKindEq = undefined
+
 instance SBVAble Value where
 
-  type SBVType Value = ValSBV
+  type SBVType Value = ValueSBV
 
-  type RefType Value = ValRef
+  type RefType Value = Ref Value
 
-  ref :: String -> EDGMonad (ValRef)
-  ref = undefined
+  ref :: String -> EDGMonad (Ref Value)
+  ref name = throw $ "Cannot create a bare value reference : " ++ name
 
-  refConcrete :: String -> Value -> EDGMonad ValRef
-  refConcrete = undefined
+  refConcrete :: String -> Value -> EDGMonad (Ref Value)
+  refConcrete n (unpack -> v)
+    | Int    i <- v = refSingleton Int    Int    (Int    ()) i v
+    | Bool   b <- v = refSingleton Bool   Bool   (Bool   ()) b v
+    | Float  f <- v = refSingleton Float  Float  (Float  ()) f v
+    | String s <- v = refSingleton String String (String ()) s v
+    | UID    u <- v = refSingleton UID    UID    (UID    ()) u v
+    | Record r <- v = undefined
+    -- I love Void. Because it's an uninhabited type, using that value in your
+    -- code consitutes a proof that that portion of your code is unreachable.
+    | KVTop a <- v = absurd a
+    | KVBot a <- v = absurd a
+      where
+        -- We have to duplicat parameters a bit here, since the type
+        -- system can't handle complex polymorphism like the constructors.
+        -- Multiple instances here just specialize to the correct type easily.
+        refSingleton :: (SBVAble f)
+                     => (RefType f -> ValRef)
+                     -> (SBVType f -> ValSBV)
+                     -> Kind' EqClassID
+                     -> f
+                     -> Value' Value
+                     -> EDGMonad (Ref Value)
+        refSingleton c1 c2 kind i v = do
+          let oref  = Ref n
+              orig  = Concrete . pack $ v
+              vname = n ++ ".val"
+              kname = n ++ ".kind"
+              knum  = getKindNum v
+          vref <- refConcrete vname i
+          kref <- refConcrete kname knum
+          eqcl <- newEqClass
+          let vinfo = ValInfo{viEqClass  = eqcl
+                             ,viOriginal = orig
+                             ,viValRef   = c1 vref
+                             ,viKindRef  = kref
+                             }
+          exists <- uses @GS valInfo $ Map.member oref
+          when exists (throw $ "Value `" ++ show oref ++ "` already exists.")
+          valInfo   @GS %= Map.insert oref vinfo
+          classKind @GS %= Map.insert eqcl kind
+          returnAnd oref $ do
+            kv <- sbv kref
+            vv <- sbv vref
+            add oref ValueSBV{vsKindSBV = kv, vsValSBV = c2 vv}
 
-  refAbstract :: String -> Constrained -> EDGMonad ValRef
-  refAbstract = undefined
+  refAbstract :: String -> Constrained -> EDGMonad (Ref Value)
+  refAbstract n (unpack -> v)
+    | Int    i <- v = refSingleton Int    Int    (Int    ()) i v
+    | Bool   b <- v = refSingleton Bool   Bool   (Bool   ()) b v
+    | Float  f <- v = refSingleton Float  Float  (Float  ()) f v
+    | String s <- v = refSingleton String String (String ()) s v
+    | UID    u <- v = refSingleton UID    UID    (UID    ()) u v
+    | Record r <- v = undefined
+    -- I love Void. Because it's an uninhabited type, using that value in your
+    -- code consitutes a proof that that portion of your code is unreachable.
+    | KVTop a <- v = throw $ "Attempted to create a ref for unstaisfiable value `"
+                     ++ n ++ "`. Make sure every value is satisfiable."
+    | KVBot a <- v = throw $ "Attempted to create a ref for value `" ++ n
+                     ++ "` with no kind specified. Make sure every value/field has a kind."
+      where
+        -- We have to duplicat parameters a bit here, since the type
+        -- system can't handle complex polymorphism like the constructors.
+        -- Multiple instances here just specialize to the correct type easily.
+        refSingleton :: (SBVAble f)
+                     => (RefType f -> ValRef)
+                     -> (SBVType f -> ValSBV)
+                     -> Kind' EqClassID
+                     -> Constraints f
+                     -> Constrained' Value
+                     -> EDGMonad (Ref Value)
+        refSingleton c1 c2 kind i v = do
+          let oref  = Ref n
+              orig  = Abstract . pack $ v
+              vname = n ++ ".val"
+              kname = n ++ ".kind"
+              knum  = getKindNum v
+          vref <- refAbstract vname i
+          kref <- refConcrete kname knum
+          eqcl <- newEqClass
+          let vinfo = ValInfo{viEqClass  = eqcl
+                             ,viOriginal = orig
+                             ,viValRef   = c1 vref
+                             ,viKindRef  = kref
+                             }
+          exists <- uses @GS valInfo $ Map.member oref
+          when exists (throw $ "Value `" ++ show oref ++ "` already exists.")
+          valInfo   @GS %= Map.insert oref vinfo
+          classKind @GS %= Map.insert eqcl kind
+          returnAnd oref $ do
+            kv <- sbv kref
+            vv <- sbv vref
+            add oref ValueSBV{vsKindSBV = kv, vsValSBV = c2 vv}
 
-  sbv :: ValRef -> SBVMonad ValSBV
-  sbv = undefined
+  sbv :: Ref Value -> SBVMonad ValueSBV
+  sbv r = do
+    val <- uses @SBVS valueRef (Map.lookup r)
+    case val of
+      Nothing -> throw $ "No ref to value `" ++ show r ++ "` found, cannot continue."
+      Just v  -> return v
 
-  lit :: Value -> SBVMonad ValSBV
-  lit = undefined
+  lit :: Value     -> SBVMonad ValueSBV
+  lit v = error "There is no notion of a literal for values."
 
-  add :: ValRef -> ValSBV -> SBVMonad ()
-  add = undefined
-
-  getName :: ValRef -> String
-  getName = undefined
+  add :: Ref Value -> ValueSBV -> SBVMonad ()
+  add r s = do
+    val <- uses @SBVS valueRef (Map.member r)
+    case val of
+      True  -> throw $ "Reference to value `" ++ show r ++ "` already exists."
+      False -> valueRef @SBVS %= (Map.insert r s)
 
   fixConcrete :: Value -> EDGMonad Value
-  fixConcrete = undefined
+  fixConcrete (unpack -> Record r) = pack . Record <$> fixConcrete r
+  fixConcrete (unpack -> UID    u) = pack . UID    <$> fixConcrete u
+  fixConcrete i = return i
 
   fixAbstract :: Constrained -> EDGMonad Constrained
-  fixAbstract = undefined
+  fixAbstract (unpack -> Record r) = pack . Record <$> fixAbstract r
+  fixAbstract (unpack -> UID    u) = pack . UID    <$> fixAbstract u
+  -- We don't explicity catch instances of (KVTop ()) here since other
+  -- locations have more context for us to use when creating an error message.
+  fixAbstract i = return i
 
-class InvertSBV Value where
+instance InvertSBV Value where
 
-  extract :: Modelable a => DecodeState -> a -> ValRef -> Maybe Value
+  extract :: Modelable a => DecodeState -> a -> Ref Value -> Maybe Value
   extract = undefined
 
-class EDGEquals Value where
+instance EDGEquals Value where
 
-  equalE :: ValRef -> ValRef -> String -> EDGMonad (Ref Bool)
-  equalE = undefined
+  equalE :: Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)
+  equalE a b name = do
+    n <- ref name
+    assertValKindEq a b
+    returnAnd n $ do
+      akind <- getValueKind a
+      bkind <- getValueKind b
+      case (akind,bkind) of
+        (Int     (), Int     ()) -> undefined
+        (Bool    (), Bool    ()) -> undefined
+        (Float   (), Float   ()) -> undefined
+        (String  (), String  ()) -> undefined
+        (UID     (), UID     ()) -> undefined
+        (Record aeq, Record beq) -> undefined
+        -- TODO :: Add error catching for KVTop and KVBot. Those should never
+        --         ever get this far, but you know how it goes.
+        --
+        -- Kinds don't match, therefore cannot be equal. :V
+        _ -> do nv <- sbv n
+                lv <- lit False
+                constrain $ nv S..== lv
 
-  unequalE :: ValRef -> ValRef -> String -> EDGMonad (Ref Bool)
-  unequalE = undefined
+
+
+  unequalE :: Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)
+  unequalE a b name = do
+    n <- ref name
+    assertValKindEq a b
+    returnAnd n $ do
+      akind <- getValueKind a
+      bkind <- getValueKind b
+      case (akind,bkind) of
+        (Int     (), Int     ()) -> undefined
+        (Bool    (), Bool    ()) -> undefined
+        (Float   (), Float   ()) -> undefined
+        (String  (), String  ()) -> undefined
+        (UID     (), UID     ()) -> undefined
+        (Record aeq, Record beq) -> undefined
+        -- TODO :: Add error catching for KVTop and KVBot. Those should never
+        --         ever get this far, but you know how it goes.
+        --
+        -- Kinds don't match, therefore cannot be equal. :V
+        _ -> do nv <- sbv n
+                lv <- lit True
+                constrain $ nv S..== lv
+
 
 instance SBVAble Record where
 
   type SBVType Record = RecSBV
 
-  type RefType Record = RecRef
+  type RefType Record = (Ref Record)
 
-  ref :: String -> EDGMonad (RrcRef)
+  ref :: String -> EDGMonad (Ref Record)
   ref = undefined
 
-  refConcrete :: String -> Record -> EDGMonad ValRef
+  refConcrete :: String -> Record -> EDGMonad (Ref Record)
   refConcrete = undefined
 
-  refAbstract :: String -> RecCons -> EDGMonad ValRef
+  refAbstract :: String -> RecCons -> EDGMonad (Ref Record)
   refAbstract = undefined
 
-  sbv :: RecRef -> SBVMonad RecSBV
+  sbv :: Ref Record -> SBVMonad RecSBV
   sbv = undefined
 
-  lit :: Record -> SBVMonad RecordSBV
+  lit :: Record -> SBVMonad RecSBV
   lit = undefined
 
-  add :: RecRef -> RrcSBV -> SBVMonad ()
+  add :: Ref Record -> RecSBV -> SBVMonad ()
   add = undefined
 
-  getName :: RecRef -> String
-  getName = undefined
-
-  fixConcrete :: Record -> EDGMonad Record
-  fixConcrete = undefined
+  getName :: Ref Record -> String
+  getName = unpack
 
   fixAbstract :: RecCons -> EDGMonad RecCons
   fixAbstract = undefined
 
-class InvertSBV Record where
+instance InvertSBV Record where
 
-  extract :: Modelable a => DecodeState -> a -> RecRef -> Maybe Record
+  extract :: Modelable a => DecodeState -> a -> (Ref Record) -> Maybe Record
   extract = undefined
 
-class EDGEquals Value where
+instance EDGEquals Record where
 
-  equalE :: RecRef -> RecRef -> String -> EDGMonad (Ref Bool)
+  equalE :: Ref Record -> Ref Record -> String -> EDGMonad (Ref Bool)
   equalE = undefined
 
-  unequalE :: RecRef -> RecRef -> String -> EDGMonad (Ref Bool)
+  unequalE :: Ref Record -> Ref Record -> String -> EDGMonad (Ref Bool)
   unequalE = undefined

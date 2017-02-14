@@ -38,6 +38,7 @@ import Algebra.AsPredicate
 import EDG.Library.Types
 import EDG.Predicates
 import EDG.EDGMonad
+import EDG.EDGDatatype
 import EDG.EDGInstances.Bool
 import EDG.SBVWrap
 

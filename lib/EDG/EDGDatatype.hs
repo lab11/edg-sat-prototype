@@ -11,6 +11,8 @@ import qualified Data.Bimap as Bimap
 
 import Control.Newtype
 
+import Data.Void
+
 import Control.Monad.Ether.Implicit
 import Control.Monad.MonadSymbolic
 import Data.SBV (
@@ -36,22 +38,72 @@ import Algebra.AsPredicate
 import EDG.Library.Types
 import EDG.Predicates
 
-data ValRef = ValRef {
+-- | Tagged type we'll be using as references that can cross the Gather/SBV
+--   boundary.
+newtype Ref a = Ref {unRef :: String}
+  deriving (Show, Read, Eq, Ord)
+
+instance Newtype (Ref a) String where
+  pack = Ref
+  unpack = unRef
+
+-- | This time we fill the type with unit so that we can use the flags
+--   themselves as markers for the kind of a value.
+data VRef
+
+instance KVAble VRef where
+  type KInt    VRef   = Ref Integer
+  type KBool   VRef   = Ref Bool
+  type KFloat  VRef   = Ref Float
+  type KString VRef   = Ref String
+  type KUID    VRef   = Ref UID'
+  type KRecord VRef b = Ref Record
+  type KTop    VRef   = Void
+  type KBottom VRef   = ()
+
+type ValRef = Kinded VRef ()
+
+data VSBV
+
+instance KVAble VSBV where
+  type KInt    VSBV   = SBV Integer
+  type KBool   VSBV   = SBV Bool
+  type KFloat  VSBV   = SBV Float
+  type KString VSBV   = SBV String
+  type KUID    VSBV   = SBV UID'
+  type KRecord VSBV b = Void
+  type KTop    VSBV   = Void
+  type KBottom VSBV   = ()
+
+type ValSBV = Kinded VSBV ()
+
+-- | We use these as names for equality classes for kinds.
+type EqClassID = Integer
+
+-- | Information we have about each equality class.
+data ValInfo = ValInfo {
+    viEqClass  :: EqClassID
+  , viOriginal :: Ambiguous Value
+  , viValRef   :: ValRef
+  , viKindRef  :: Ref Integer
 } deriving (Show, Read, Eq)
 
-makeLensesWith abbreviatedFields ''ValRef
+makeLensesWith abbreviatedFields ''ValInfo
 
-data ValSBV = ValSBV {
-} deriving (Show, Read, Eq)
+data ValueSBV = ValueSBV {
+    vsKindSBV :: SBV Integer
+  , vsValSBV  :: ValSBV
+} deriving (Show, Eq)
 
-makeLensesWith abbreviatedFields ''ValSBV
+makeLensesWith abbreviatedFields ''ValueSBV
 
-data RecRef = RecRef {
-} deriving (Show, Read, Eq)
-
-makeLensesWith abbreviatedFields ''RecRef
+-- | Reference to each record used
+-- data RecRef = RecRef {
+-- } deriving (Show, Read, Eq)
+--
+-- makeLensesWith abbreviatedFields ''RecRef
 
 data RecSBV = RecSBV {
-} deriving (Show, Read, Eq)
+} deriving (Show, Eq)
 
 makeLensesWith abbreviatedFields ''RecSBV

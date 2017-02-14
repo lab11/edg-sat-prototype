@@ -49,15 +49,6 @@ import EDG.EDGDatatype
 -- import Debug.Trace
 trace _ b = b
 
--- | Tagged type we'll be using as references that can cross the Gather/SBV
---   boundary.
-newtype Ref a = Ref {unRef :: String}
-  deriving (Show, Read, Eq, Ord)
-
-instance Newtype (Ref a) String where
-  pack = Ref
-  unpack = unRef
-
 -- | The first pass monad, where we gather instructions on how to build the
 --   SMT problem.
 type GatherMonad = StateT GatherState (ExceptT String  Identity)
@@ -65,7 +56,10 @@ type GatherMonad = StateT GatherState (ExceptT String  Identity)
 -- | The state datatype with all the various pieces of info we care about.
 data GatherState = GatherState {
   -- Counter for assigning UIDs to things
-    gsUidCounter :: Integer
+    gsUidCounter     :: Integer
+  , gsEqClassCounter :: Integer
+  , gsValInfo  :: Map (Ref Value) ValInfo         -- For each value, stores information about it.
+  , gsClassKind :: Map EqClassID (Kind' EqClassID) -- For each equality class, stores the kind.
   } deriving (Show,Read)
 
 -- Sigh, this TH splice has to come after all the types used in the datatype
@@ -77,7 +71,10 @@ type GS = GatherState
 -- | The starting state we're going to use when constructing an EDG problem.
 initialGatherState :: GatherState
 initialGatherState = GatherState {
-    gsUidCounter = 0
+    gsUidCounter     = 0
+  , gsEqClassCounter = 0
+  , gsValInfo   = Map.empty
+  , gsClassKind = Map.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard
@@ -89,8 +86,10 @@ data SBVState = SBVState {
     ssBoolRef    :: Map (Ref Bool)    (SBV Bool)
   , ssStringRef  :: Map (Ref String)  (SBV String)
   , ssFloatRef   :: Map (Ref Float)   (SBV Float)
-  , ssUidRef     :: Map (Ref UID')     (SBV UID')
+  , ssUidRef     :: Map (Ref UID')    (SBV UID')
   , ssIntegerRef :: Map (Ref Integer) (SBV Integer)
+  , ssValueRef   :: Map (Ref Value)   (ValueSBV)
+  , ssRecordRef  :: Map (Ref Record)  (RecSBV)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
@@ -108,6 +107,8 @@ transformState _ = SBVState {
   , ssFloatRef = Map.empty
   , ssUidRef = Map.empty
   , ssIntegerRef = Map.empty
+  , ssValueRef = Map.empty
+  , ssRecordRef = Map.empty
   , ssStringDecode = Bimap.empty
   }
 
@@ -120,6 +121,14 @@ type EDGMonad = ScribeT SBVMonad GatherMonad
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
 newUID = uidCounter @(GatherState) <+= 1
+
+-- | Get a new EqClassID and increment the counter.
+newEqClass :: EDGMonad EqClassID
+newEqClass = eqClassCounter @(GatherState) <+= 1
+
+-- | Given a valueSBV, get the kind of that value
+getValueKind :: Ref Value -> SBVMonad (Kind' EqClassID)
+getValueKind = undefined
 
 -- | The class for contrianable types that can be written as an element in an
 --   SMT problem. Mainly gives us a way to construct an SBV representation of
@@ -168,6 +177,8 @@ class Constrainable t => SBVAble t where
 
   -- | Gets the name out of the Ref, mostly just internal.
   getName :: RefType t -> String
+  default getName :: Newtype (RefType t) String => RefType t -> String
+  getName = unpack
 
   -- | Takes the version of a type used by the library and converts it into
   --   one that can be used during the evaluation process. This is mostly for
