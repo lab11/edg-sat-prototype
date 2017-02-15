@@ -1,0 +1,131 @@
+// The protocol buffer schema needed to represent library types in an EDG 
+// design, concrete output elements of those types, useful metadata, and 
+// final output graph for elements. 
+syntax = "proto3";
+
+enum Unit { UNIT = 0; } 
+
+message IntVal {
+  
+  message IVOneOf {
+    repeated int32 oneof = 1; // Int is in this set of numbers
+  }
+  
+  // Type of element we use to represent more complex bounded sets of 
+  // integers
+  message IVBounds {
+    int32 lowerbound = 1; // Int is >= this
+    int32 upperbound = 2; // Int is <= this
+    repeated int32 noneof = 3; // Int is not in this set of numbers
+  }
+
+  oneof ivopts { 
+    Unit any = 1; 
+    int32    single = 2; 
+    IVOneOf  oneof  = 3; // This Integer is one of these values
+    IVBounds bounds = 4;
+  }
+}
+
+message FloatVal {
+  message FVOneOf { 
+    repeated float oneof = 1;
+  }
+
+  message FVBound { 
+    float value     = 1; // required
+    bool  inclusive = 2; // required 
+  }
+
+  message FVBounds { 
+    FVBound lowerbound = 1; 
+    FVBound upperbound = 2; 
+    repeated float noneof = 3; 
+  } 
+
+  oneof fltopts {
+    Unit     any    = 1; 
+    float    single = 2; 
+    FVOneOf  oneof  = 3;
+    FVBounds bounds = 4;
+  }
+}
+
+message StringVal {
+  message FVOneOf { 
+    repeated string oneof = 1;
+  } 
+
+  message FVBounds {
+    repeated string noneof = 1; 
+  }
+
+  oneof fvopts { 
+    Unit any = 1;
+    float    single = 2; 
+    FVOneOf  oneof  = 3; 
+    FVBounds bounds = 4;
+  }
+} 
+
+message BoolVal {
+  oneof bvopts {
+    Unit any    = 1; 
+    bool single = 2;
+  }
+}
+
+message UIDVal { 
+  oneof uvopts { 
+    Unit  any    = 1; // could be anything 
+    int32 single = 2; // a specific value
+    Unit  new    = 3; // a new UID to be assigned
+  }
+}
+
+message RecordVal {
+  message RecFields { 
+    map<string,Value> fields = 1; 
+  }
+
+  oneof rvopts { 
+    Unit      any    = 1; 
+    RecFields fields = 2;
+  }
+} 
+
+message Value { 
+  oneof vopts { 
+    IntVal    int = 1; 
+    FloatVal  flt = 2; 
+    StringVal str = 3; 
+    BoolVal   bl  = 4; 
+    RecordVal rec = 5; 
+  }
+}
+
+message Constraint {
+  
+}
+
+message Port { 
+  string              name        = 1; 
+  RecordVal           type        = 2;
+  repeated Constraint constraints = 3;
+} 
+
+message Link { 
+  string              name        = 1; 
+  RecordVal           type        = 2; 
+  map<string,Port>    ports       = 3; 
+  repeated Constraint constraints = 4; 
+} 
+
+message Module { 
+  string              name        = 1; 
+  RecordVal           type        = 2; 
+  map<string,Port>    ports       = 3; 
+  repeated Constraint constraints = 4; 
+} 
+
+
