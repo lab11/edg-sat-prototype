@@ -90,6 +90,9 @@ data SBVState = SBVState {
   , ssIntegerRef :: Map (Ref Integer) (SBV Integer)
   , ssValueRef   :: Map (Ref Value)   (ValueSBV)
   , ssRecordRef  :: Map (Ref Record)  (RecSBV)
+  -- Information to get the kinds of values
+  , ssValInfo    :: Map (Ref Value) ValInfo
+  , ssClassKind  :: Map EqClassID (Kind' EqClassID)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
@@ -101,7 +104,7 @@ type SBVS = SBVState
 -- | Transform the ending state from the Gather pass into the start state for
 --   the SBV pass.
 transformState :: GatherState -> SBVState
-transformState _ = SBVState {
+transformState GatherState{..} = SBVState {
     ssBoolRef = Map.empty
   , ssStringRef = Map.empty
   , ssFloatRef = Map.empty
@@ -109,6 +112,8 @@ transformState _ = SBVState {
   , ssIntegerRef = Map.empty
   , ssValueRef = Map.empty
   , ssRecordRef = Map.empty
+  , ssValInfo = gsValInfo
+  , ssClassKind = gsClassKind
   , ssStringDecode = Bimap.empty
   }
 
@@ -128,7 +133,17 @@ newEqClass = eqClassCounter @(GatherState) <+= 1
 
 -- | Given a valueSBV, get the kind of that value
 getValueKind :: Ref Value -> SBVMonad (Kind' EqClassID)
-getValueKind = undefined
+getValueKind v = do
+  vi <- uses @SBVS valInfo (Map.lookup v)
+  ec <- case vi of
+    Nothing -> throw $ "Could not get kind of value `" ++ show v ++ "`."
+    Just ValInfo{..} -> return viEqClass
+  mk <- uses @SBVS classKind (Map.lookup ec)
+  case mk of
+    Nothing -> throw $ "No kind found for value `" ++ show v ++ "` with eq class `" ++ show ec ++ "`."
+    Just k -> return k
+
+
 
 -- | The class for contrianable types that can be written as an element in an
 --   SMT problem. Mainly gives us a way to construct an SBV representation of
@@ -145,8 +160,13 @@ class Constrainable t => SBVAble t where
   type RefType t = j | j -> t
 
   -- | Given a name, gets you the external reference for an SBV value of that
-  --   type, and the setup code in the SBVMonad
+  --   type, and the setup code in the SBVMonad. Generally only meaningful for
+  --   non-recursive values that don't need global information to use.
   ref :: String -> EDGMonad (RefType t)
+
+  -- | Will convert a literal into the corresponding SBVType. Again, mostly
+  --   useful for types that have simple non-recursive literal representations.
+  lit :: t -> SBVMonad (SBVType t)
 
   -- | Given a concrete value, it'll give you the corresponding reference and
   --   make sure the SBV tool things it's the right value.
@@ -168,8 +188,6 @@ class Constrainable t => SBVAble t where
   -- | Will retrive the SBV elem given a reference
   sbv :: RefType t -> SBVMonad (SBVType t)
 
-  -- | Will convert a literal into the corresponding SBVType
-  lit :: t -> SBVMonad (SBVType t)
 
   -- | Sets the stored internal ref map to the correct value, basically
   --   just for internal use. Don't push too hard with this one.

@@ -63,6 +63,9 @@ instance SBVAble Value where
   ref :: String -> EDGMonad (Ref Value)
   ref name = throw $ "Cannot create a bare value reference : " ++ name
 
+  lit :: Value     -> SBVMonad ValueSBV
+  lit v = error "There is no notion of a literal for values."
+
   refConcrete :: String -> Value -> EDGMonad (Ref Value)
   refConcrete n (unpack -> v)
     | Int    i <- v = refSingleton Int    Int    (Int    ()) i v
@@ -164,8 +167,6 @@ instance SBVAble Value where
       Nothing -> throw $ "No ref to value `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
 
-  lit :: Value     -> SBVMonad ValueSBV
-  lit v = error "There is no notion of a literal for values."
 
   add :: Ref Value -> ValueSBV -> SBVMonad ()
   add r s = do
@@ -239,6 +240,37 @@ instance EDGEquals Value where
                 lv <- lit True
                 constrain $ nv S..== lv
 
+-- | The EDGLogic instances for Value all assert kind equality and error on
+--   kind mismation or use on a kind which is doesn't have an EDGLogic instance
+instance EDGLogic Value where
+
+  notE     :: Ref Value ->              String -> EDGMonad (RefType Bool)
+  notE = undefined
+
+  andE     :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  andE = undefined
+
+  orE      :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  orE = undefined
+
+  impliesE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  impliesE = undefined
+
+-- | The EDGOrd instances for Value all assert kind equality and error on
+--   kind mismation or use on a kind which doesn't have an EDGLogic instance
+instance EDGOrd Value where
+
+  gtE  :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  gtE = undefined
+
+  gteE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  gteE = undefined
+
+  ltE  :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  ltE = undefined
+
+  lteE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+  lteE = undefined
 
 instance SBVAble Record where
 
