@@ -184,7 +184,7 @@ message Library {
 message Graph {
   message Connection { 
     string modname      = 1; // name of the modules as in the map below
-    string modport      = 2; // name of the port within the above module
+    string modportname  = 2; // name of the port within the above module
     string linkname     = 3; // likewise but for links
     string linkportname = 4; // likewise but for links
   }
