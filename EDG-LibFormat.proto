@@ -104,28 +104,79 @@ message Value {
   }
 }
 
-message Constraint {
+message Resource {
+  string resource = 1; 
+} 
+
+message ConstraintExp {
+  enum ConstraintOp { 
+    // Basic Ops
+    EQ = 1; // [any] -> bool  (are all equal)
+    NEQ = 2; // [any] -> bool (are all mutually unequal, i.e no two are the same)
+    // Boolean Math
+    AND = 10; // [bool] -> bool (and all of the booleans in the list
+    OR = 11; // [bool] -> bool (or of all booleans in the list) 
+    NOT = 12; // bool -> bool
+    XOR = 13; // [bool] -> bool (parity mod 2 of elements in the list) 
+    IMPLIES = 14; // bool -> bool -> bool 
+    // Ordering 
+    GT = 20; //  num -> num -> bool
+    GTE = 21; // num -> num -> bool 
+    LT = 22; // num -> num -> bool 
+    LTE = 23; // num -> num -> bool 
+    // Numerical ops 
+    SUM = 30; // [num] -> num (sum of all numbers in list)
+    MULT = 31; // [num] -> num (all numbers in list multipled together) 
+    NEGATE = 32; // num -> num (negate the single number) 
+    INVERT = 33; // num -> num (take the reciprocal of a single number)
+    // Other ops
+    IF = 100; // Bool -> a -> a -> a (If the first value, return second, else third) 
+    COUNT = 101; // [Bool] -> Int (The count of booleans in that list equal to true)
+  }
   
+  message COp {
+    ContraintOp op = 1; 
+    repeated ConstraintExp a = 2; 
+  }
+
+  oneof { 
+    Value literal = 1;
+    string ref = 2; // a reference to the variable in the given context.
+    COp Op = 3; 
+  }
+}
+
+message Constraint { 
+  message CResourceUse { 
+    ConstraintExp flag = 1; // bool (if flag is true, then resources are used)
+    map<string,Resource> = 2; // map of name tag to resource used
+  }
+
+  message CAssert { 
+    ConstraintExp flag = 1; // bool (assert that this expression is true) 
+  }
 }
 
 message Port { 
   string              name        = 1; 
   RecordVal           type        = 2;
-  repeated Constraint constraints = 3;
+  repeated Constraint constraints = 5;
 } 
 
 message Link { 
   string              name        = 1; 
   RecordVal           type        = 2; 
-  map<string,Port>    ports       = 3; 
-  repeated Constraint constraints = 4; 
+  map<string,Port>    ports       = 3;
+  repeated Resource   resources   = 4;
+  repeated Constraint constraints = 5; 
 } 
 
 message Module { 
   string              name        = 1; 
   RecordVal           type        = 2; 
   map<string,Port>    ports       = 3; 
-  repeated Constraint constraints = 4; 
+  repeated Resource   resources   = 4;
+  repeated Constraint constraints = 5; 
 } 
 
 
