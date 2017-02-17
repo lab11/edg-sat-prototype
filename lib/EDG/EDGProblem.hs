@@ -16,6 +16,8 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import Text.Show.Pretty hiding (Value,Float,String)
+
 import Control.Newtype
 
 import Control.Monad.Ether.Implicit
@@ -96,11 +98,10 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --   TODO ;: Change this interface so it's easier to get the RefType values
 --           back out once you're done. Not sure how that'll look either.
 --
-testProblem :: EDGMonad (Ref Float, Ref Float, Ref Bool)
 testProblem = do
-  b1 <- refAbstract @Float "b1" [greaterThan 3.2, lessThan 12.4]
-  b2 <- refAbstract @Float "b2" [greaterThan 10.2, lessThan 15.4]
-  b3 <- b1 .== b2
+  b1 <- refAbstract @Value "b1" (pack . Int $ bottom)
+  b2 <- refAbstract @Value "b2" (pack . Int $ lessThan 30)
+  b3 <- b1 .<= b2
   constrain $ b3
   return (b1,b2,b3)
 
@@ -109,82 +110,14 @@ runTestProblem :: IO ()
 runTestProblem = do
   ss <- newIORef (undefined :: SBVState)
   let (symb,gs,(b1,b2,b3)) = runEDGMonad (Just ss) testProblem
-  sol <- S.satWith S.defaultSMTCfg{S.verbose = False} symb
-  print sol
+  sol <- S.satWith S.defaultSMTCfg{S.verbose = True} symb
+  pPrint sol
   ss' <- readIORef ss
-  print ss'
+  pPrint ss'
   let decSt = buildDecodeState gs ss'
   print $ extract decSt sol b1
   print $ extract decSt sol b2
   print $ extract decSt sol b3
 
-
--- TODO :: Everything below this point is bullshit that i'm using to make
---         sure I've got the broad sketch of the design right, and there's no
---         major holes.
-
--- type FirstPassMonad = StateT FirstPassS Identity
---
--- type SecondPassMonad = StateT SecondPassS Symbolic
---
--- type EDGMonad = ScribeT SecondPassMonad FirstPassMonad
---
--- type ElemName = String
---
--- newtype StringID    = StringID    String deriving (Show, Read, Eq)
-
--- newtype PredicateID = PredicateID String deriving (Show, Read, Eq)
-
--- class Constrainable t => SATAbleType t where
---   type SATID  t = i | i -> t
---   type SBVRef t = j
---
---   makeVar          :: ElemName ->                  EDGMonad (SATID t)
---   makeConcreteVar  :: ElemName ->             t -> EDGMonad (SATID t,PredicateID t)
---   makeAbstractVar  :: ElemName -> Constraints t -> EDGMonad (SATID t,PredicateID t)
---   makeAmbiguousVar :: ElemName -> Ambiguous   t -> EDGMonad (SATID t,PredicateID t)
---
---   makeSBVVar       :: SATID t  -> SecondPassMonad (SBVRef t)
---   makeSBVLit       :: t        -> SecondPassMonad (SBVRef t)
-
--- newPredicateID  :: String      -> EDGMonad PredicateID
--- getSBVPredicate :: PredicateID -> SecondPassMonad (SBV Bool)
---
--- makeStringVar :: ElemName -> EDGMonad StringID
--- makeStringVar n = do
---   id <- makeNewStringID n
---   returnAnd id $ do
---     makeNewSBVInt id
---
--- addConstantString :: String -> EDGMonad StringID
--- addConstantString s = do
---   id <- makeStringVar
---   addToStringDB s
---   returnAnd id $ do
---     sbvVar <- getStringVar id
---     let cInt = getStringDBID s
---     constraint $ sbvVar .== literal cInt
---
--- addAbstractString :: (Constraints String) -> EDGMonad StringID
--- addAbstractString v = do
---   id <- makeStringVar
---   mapM_ addToStringDB $ getAllStrings v
---   returnAnd id $ do
---     sbvVar <- getStringVar id
---     case v of
---       SCBottom -> return ()
---       SCOneOf (OneOf s) -> do
---         ids   <- mapM getStringDBID s
---         terms <- mapM (\ i -> sbvVar .== literal i) ids
---         constraint $ foldl (.||) terms
---       SCNoneOf (NoneOf s) -> do
---         ids   <- mapM getStringDBID s
---         terms <- mapM (\ i -> sbvVar ./= literal i) ids
---         constraint $ foldl (.&&) terms
---
--- addAmbiguousString :: Ambiguous String -> EDGMonad StringID
--- addAmbiguousString Impossible = error "should not happen"
--- addAmbiguousString (Abstract c) = addAbstractString c
--- addAmbiguousString (Concrete v) = addConcreteString v
 
 

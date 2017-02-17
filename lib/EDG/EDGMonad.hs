@@ -314,29 +314,29 @@ class (SBVAble t,SBVAble Bool) => EDGEquals t where
 --   requre that we're working with Booleans. Other implementations would have
 --   to be custom. So we just have a boolean implementation.
 class (SBVAble t, SBVAble Bool) => EDGLogic t where
-  notE     :: RefType t ->              String -> EDGMonad (RefType Bool)
-  andE     :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  orE      :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  impliesE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+  notE     :: RefType t ->              String -> EDGMonad (RefType t)
+  andE     :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  orE      :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  impliesE :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
 
 -- | Same as `notE` but chooses its own name, usually just something
 --   pretty obvious.
-notE'    :: EDGLogic t => RefType t            -> EDGMonad (RefType Bool)
+notE'    :: EDGLogic t => RefType t -> EDGMonad (RefType t)
 notE' a = notE a ("notE (" ++ getName a ++ ")")
 
 -- | Same as `andE` but chooses its own name, usually just something
 --   pretty obvious.
-(.&&)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.&&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.&&) a b = andE a b ("andE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `orE` but chooses its own name, usually just something
 --   pretty obvious.
-(.||)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.||)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.||) a b = andE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `impliesE` but chooses its own name, usually just something
 --   pretty obvious.
-(.=>)    :: EDGLogic t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.=>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | And some constraints for ordered values

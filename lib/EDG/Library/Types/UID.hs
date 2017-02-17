@@ -61,7 +61,7 @@ instance Eq a => AsPredicate (UIDNewtypeCons a) where
   asPredicate UCNew     = error "Can't perform ops on a UCNew"
 
 instance Eq a => SATAblePredicate (UIDNewtypeCons a) where
-  isSAT UCNew =  error "Can't perform ops on a UCNew"
+  isSAT UCNew = True
   isSAT UCTop = False
   isSAT _     = True
 

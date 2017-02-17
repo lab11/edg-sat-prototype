@@ -80,6 +80,10 @@ getKindNum String{} = 5
 getKindNum UID{}    = 6
 getKindNum Record{} = 7
 
+
+getKindNum' :: Kind' () -> Integer
+getKindNum' = getKindNum
+
 -- | The typeclass that lets us
 class KVAble a where
   type KInt    a :: *
