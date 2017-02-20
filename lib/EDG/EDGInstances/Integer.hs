@@ -48,7 +48,7 @@ instance SBVAble Integer where
   type RefType Integer = Ref Integer
 
   ref :: String -> EDGMonad (Ref Integer)
-  ref name = let n = Ref name in returnAnd n (sInteger name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sbvNoDup "Integer" integerRef n)
 
   refConcrete :: String -> Integer -> EDGMonad (Ref Integer)
   refConcrete name' s = do
@@ -98,8 +98,11 @@ instance SBVAble Integer where
   sbv r = do
     val <- uses @SBVS integerRef (Map.lookup r)
     case val of
-      Nothing -> throw $ "No ref to integer `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
+      Nothing -> do
+        s <- sInteger . unpack $ r
+        add r s
+        return s
 
   lit :: Integer     -> SBVMonad (SBV Integer)
   lit = return . S.literal

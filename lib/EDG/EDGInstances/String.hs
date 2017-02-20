@@ -51,7 +51,7 @@ instance SBVAble String where
   type RefType String = Ref String
 
   ref :: String -> EDGMonad (Ref String)
-  ref name = let n = Ref name in returnAnd n (sString name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sbvNoDup "String" stringRef n)
 
   refConcrete :: String -> String -> EDGMonad (Ref String)
   refConcrete name' s = do
@@ -85,8 +85,11 @@ instance SBVAble String where
   sbv r = do
     val <- uses @SBVS stringRef (Map.lookup r)
     case val of
-      Nothing -> throw $ "No ref to string `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
+      Nothing -> do
+        s <- sString . unpack $ r
+        add r s
+        return s
 
   lit :: String     -> SBVMonad (SBV String)
   lit str = do

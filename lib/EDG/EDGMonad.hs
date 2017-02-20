@@ -185,7 +185,8 @@ class Constrainable t => SBVAble t where
   --   should be decently constrained.
   refAbstract :: String -> Constraints t -> EDGMonad (RefType t)
 
-  -- | Will retrive the SBV elem given a reference
+  -- | Will retrive the SBV elem given a reference, if no such element exists
+  --   will create a new one and return that.
   sbv :: RefType t -> SBVMonad (SBVType t)
 
 
@@ -225,6 +226,19 @@ fixAmbiguous :: SBVAble t => Ambiguous t -> EDGMonad (Ambiguous t)
 fixAmbiguous Impossible   = return Impossible
 fixAmbiguous (Concrete v) = Concrete <$> fixConcrete v
 fixAmbiguous (Abstract c) = Abstract <$> fixAbstract c
+
+-- | Like the usual `sbv` but errors when a duplicate element is created.
+--   Also take in a typename for error messagesa
+sbvNoDup :: (SBVAble t, Show (RefType t), Ord (RefType t))
+         => String
+         -> Lens' SBVS (Map (RefType t) (SBVType t))
+         -> RefType t -> SBVMonad (SBVType t)
+sbvNoDup typeName lens ref = do
+    val <- uses @SBVS lens (Map.lookup ref)
+    case val of
+      Just v  -> throw $ "SBV Var `"++ show ref ++ "` of type " ++
+        typeName ++ " already exists."
+      Nothing -> sbv ref
 
 -- | Can we, given a reference to a particular element in a SatModel to
 --   retrieve, retrieve it? Well, if we have the particular context, which

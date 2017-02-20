@@ -49,7 +49,7 @@ instance SBVAble Float where
   type RefType Float = Ref Float
 
   ref :: String -> EDGMonad (Ref Float)
-  ref name = let n = Ref name in returnAnd n (sFloat name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sbvNoDup "Float" floatRef n)
 
   refConcrete :: String -> Float -> EDGMonad (Ref Float)
   refConcrete name' s = do
@@ -96,8 +96,11 @@ instance SBVAble Float where
   sbv r = do
     val <- uses @SBVS floatRef (Map.lookup r)
     case val of
-      Nothing -> throw $ "No ref to float `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
+      Nothing -> do
+        s <- sFloat . unpack $ r
+        add r s
+        return s
 
   lit :: Float     -> SBVMonad (SBV Float)
   lit = return . S.literal

@@ -83,7 +83,6 @@ type EqClassID = Integer
 -- | Information we have about each equality class.
 data ValInfo = ValInfo {
     viEqClass  :: EqClassID
-  , viOriginal :: Ambiguous Value
   , viValRef   :: ValRef
   , viKindRef  :: Ref Integer
 } deriving (Show, Read, Eq)

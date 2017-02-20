@@ -49,7 +49,7 @@ instance SBVAble UID' where
   type RefType UID' = Ref UID'
 
   ref :: String -> EDGMonad (Ref UID')
-  ref name = let n = Ref name in returnAnd n (sUID' name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sbvNoDup "UID" uidRef n)
 
   refConcrete :: String -> UID' -> EDGMonad (Ref UID')
   refConcrete name' s = do
@@ -76,8 +76,11 @@ instance SBVAble UID' where
   sbv r = do
     val <- uses @SBVS uidRef (Map.lookup r)
     case val of
-      Nothing -> throw $ "No ref to UID' `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
+      Nothing -> do
+        s <- sUID' . unpack $ r
+        add r s
+        return s
 
   lit :: UID'     -> SBVMonad (SBV UID')
   lit = return . reWrap . S.literal . unpack

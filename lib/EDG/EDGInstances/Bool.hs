@@ -46,7 +46,7 @@ instance SBVAble Bool where
   -- TODO :: see if we really need to keep track of the names in GatherMonad
   --         so that we can assign them UIDs or something.
   ref :: String -> EDGMonad (Ref Bool)
-  ref name = let n = Ref name in returnAnd n (sBool name >>= add n)
+  ref name = let n = Ref name in returnAnd n (sbvNoDup "Bool" boolRef n)
 
   refConcrete :: String -> Bool -> EDGMonad (Ref Bool)
   refConcrete name' v = do
@@ -70,10 +70,14 @@ instance SBVAble Bool where
 
   sbv :: Ref Bool -> SBVMonad (SBV Bool)
   sbv r = do
-    val <- uses @SBVS boolRef (\ m -> trace (show m) $ Map.lookup r m)
+    val <- uses @SBVS boolRef $ Map.lookup r
     case val of
-      Nothing -> throw $ "No ref to bool `" ++ show r ++ "` found, cannot continue."
       Just v  -> return v
+      Nothing -> do
+        s <- sBool . unpack $ r
+        add r s
+        return s
+
 
   lit :: Bool -> SBVMonad (SBV Bool)
   lit = return . S.literal

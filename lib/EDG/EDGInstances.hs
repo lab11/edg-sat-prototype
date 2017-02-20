@@ -22,11 +22,6 @@ import EDG.EDGDatatype
 import Control.Monad.MonadSymbolic
 import Control.Monad.Scribe
 
--- | No other good place to keep this instance for now.
---
---   TODO :: Find better location for this instance
-instance MonadConstrain EDGMonad (Ref Bool) where
-  constrain s = returnAnd () $ sbv s >>= constrain
 
 -- Default starting stuff for an EDGInstance :
 --
