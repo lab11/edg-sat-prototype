@@ -99,8 +99,8 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --           back out once you're done. Not sure how that'll look either.
 --
 testProblem = do
-  b1 <- refAbstract @Value "b1" (pack . Int $ bottom)
-  b2 <- refAbstract @Value "b2" (pack . Int $ lessThan 30)
+  b1 <- refAbstract @Value "b1" (pack . KVBot $ ())
+  b2 <- refAbstract @Value "b2" (pack . Float $ lessThan 30)
   b3 <- b1 .<= b2
   constrain $ b3
   return (b1,b2,b3)
@@ -111,13 +111,14 @@ runTestProblem = do
   ss <- newIORef (undefined :: SBVState)
   let (symb,gs,(b1,b2,b3)) = runEDGMonad (Just ss) testProblem
   sol <- S.satWith S.defaultSMTCfg{S.verbose = True} symb
-  pPrint sol
+  putStrLn $ ppShow sol
   ss' <- readIORef ss
-  pPrint ss'
+  putStrLn $ ppShow ss'
   let decSt = buildDecodeState gs ss'
   print $ extract decSt sol b1
   print $ extract decSt sol b2
   print $ extract decSt sol b3
+
 
 
 

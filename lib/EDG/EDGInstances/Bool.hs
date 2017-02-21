@@ -113,3 +113,11 @@ instance EDGLogic Bool where
   impliesE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
   impliesE = mkBinOp (==>)
 
+  nandE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  nandE = mkBinOp (~&)
+
+  norE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  norE = mkBinOp (~|)
+
+  xorE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
+  xorE = mkBinOp (<+>)

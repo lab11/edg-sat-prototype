@@ -58,8 +58,13 @@ data GatherState = GatherState {
   -- Counter for assigning UIDs to things
     gsUidCounter     :: Integer
   , gsEqClassCounter :: Integer
-  , gsValInfo  :: Map (Ref Value) ValInfo         -- For each value, stores information about it.
-  , gsClassKind :: Map EqClassID (Kind' EqClassID) -- For each equality class, stores the kind.
+  -- For each value, stores information about it.
+  , gsValInfo  :: Map (Ref Value) ValInfo
+  -- TODO :: Yeah, I should find a better way to do this, and generally
+  --         minimize the meccesary amount of updating.
+  , gsRecInfo  :: Map (Ref Record) RecInfo
+  -- For each equality class, stores the kind.
+  , gsClassKind :: Map EqClassID (Kind' EqClassID)
   } deriving (Show,Read)
 
 -- Sigh, this TH splice has to come after all the types used in the datatype
@@ -74,6 +79,7 @@ initialGatherState = GatherState {
     gsUidCounter     = 0
   , gsEqClassCounter = 0
   , gsValInfo   = Map.empty
+  , gsRecInfo   = Map.empty
   , gsClassKind = Map.empty
   }
 
@@ -92,6 +98,7 @@ data SBVState = SBVState {
   , ssRecordRef  :: Map (Ref Record)  (RecSBV)
   -- Information to get the kinds of values
   , ssValInfo    :: Map (Ref Value) ValInfo
+  , ssRecInfo    :: Map (Ref Record) RecInfo
   , ssClassKind  :: Map EqClassID (Kind' EqClassID)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
@@ -113,6 +120,7 @@ transformState GatherState{..} = SBVState {
   , ssValueRef = Map.empty
   , ssRecordRef = Map.empty
   , ssValInfo = gsValInfo
+  , ssRecInfo = gsRecInfo
   , ssClassKind = gsClassKind
   , ssStringDecode = Bimap.empty
   }
@@ -332,6 +340,10 @@ class (SBVAble t, SBVAble Bool) => EDGLogic t where
   andE     :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
   orE      :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
   impliesE :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  nandE    :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  norE     :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  xorE     :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+
 
 -- | Same as `notE` but chooses its own name, usually just something
 --   pretty obvious.
@@ -352,6 +364,21 @@ notE' a = notE a ("notE (" ++ getName a ++ ")")
 --   pretty obvious.
 (.=>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `nandE` but chooses its own name, usually just something
+--   pretty obvious.
+(.~&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
+(.~&) a b = nandE a b ("nandE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `norE` but chooses its own name, usually just something
+--   pretty obvious.
+(.~|)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
+(.~|) a b = norE a b ("norE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- | Same as `xorE` but chooses its own name, usually just something
+--   pretty obvious.
+(.<+>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
+(.<+>) a b = xorE a b ("xorE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | And some constraints for ordered values
 class (SBVAble t, SBVAble Bool) => EDGOrd t where

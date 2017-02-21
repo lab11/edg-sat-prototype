@@ -96,13 +96,16 @@ data ValueSBV = ValueSBV {
 
 makeLensesWith abbreviatedFields ''ValueSBV
 
--- | Reference to each record used
--- data RecRef = RecRef {
--- } deriving (Show, Read, Eq)
---
--- makeLensesWith abbreviatedFields ''RecRef
+data RecInfo = RecInfo {
+    -- | known and assigned fields of the record.
+    riFields  :: Map String (Ref Value)
+  , riEqClass :: EqClassID
+} deriving (Show, Eq, Read)
+
+makeLensesWith abbreviatedFields ''RecInfo
 
 data RecSBV = RecSBV {
+    rsFields :: Map String ValueSBV
 } deriving (Show, Eq)
 
 makeLensesWith abbreviatedFields ''RecSBV

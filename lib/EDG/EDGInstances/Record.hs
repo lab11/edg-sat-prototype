@@ -55,62 +55,93 @@ import EDG.EDGInstances.Integer
 instance MonadConstrain EDGMonad (Ref Bool) where
   constrain s = returnAnd () $ sbv s >>= constrain
 
+-- TODO :: Replace this with more generic versions that use the constraint
+--         on the existence of a field in the state. So that we don't make a
+--         separate function for each monad.
+
+-- | Get the equality class from the ref to a value
+getValEqClassEDG :: Ref Value -> EDGMonad EqClassID
+getValEqClassEDG a = do
+  meca <- uses @GS valInfo (Map.lookup a)
+  case meca of
+    Nothing -> throw $ "No Equality class found for Value `" ++ show a ++ "`."
+    Just (ValInfo{..}) -> return viEqClass
+
+-- | Get the equality class from the ref to a record
+getRecEqClassEDG :: Ref Record -> EDGMonad EqClassID
+getRecEqClassEDG a = do
+  meca <- uses @GS recInfo (Map.lookup a)
+  case meca of
+    Nothing -> throw $ "No Equality class found for Record `" ++ show a ++ "`."
+    Just (RecInfo{..}) -> return riEqClass
+
+-- | Get the equality class from the ref to a record
+getRecEqClassSBV :: Ref Record -> SBVMonad EqClassID
+getRecEqClassSBV a = do
+  meca <- uses @SBVS recInfo (Map.lookup a)
+  case meca of
+    Nothing -> throw $ "No Equality class found for Record `" ++ show a ++ "`."
+    Just (RecInfo{..}) -> return riEqClass
+
+-- | Get kind from the equality class
+getEqClKindEDG :: String -> EqClassID -> EDGMonad (Kind' EqClassID)
+getEqClKindEDG context ec = do
+  mk <- uses @GS classKind (Map.lookup ec)
+  case mk of
+    Just v -> return v
+    Nothing -> throw $ "Could not find kind for eqclass `" ++ show ec
+      ++ "` within context: " ++ context ++ "."
+
+-- | Get kind from the equality class
+getEqClKindSBV :: String -> EqClassID -> SBVMonad (Kind' EqClassID)
+getEqClKindSBV context ec = do
+  mk <- uses @SBVS classKind (Map.lookup ec)
+  case mk of
+    Just v -> return v
+    Nothing -> throw $ "Could not find kind for eqclass `" ++ show ec
+      ++ "` within context: " ++ context ++ "."
+
+-- | Update the various relevant records with a change of eqclass
+replaceEqClass :: EqClassID -> EqClassID -> EDGMonad (EqClassID)
+replaceEqClass old new = do
+  valInfo @GS %= (Map.map updateVIMap)
+  return new
+  where
+    -- | Function used to update the ValInfo map with new eqclasses
+    updateVIMap e@ValInfo{..}
+      = if old == viEqClass then e{viEqClass = new} else e
+
+    -- | Function used to update the Reconfo Map with new eqClasses
+
 -- Mark that the kinds of these two values are equal, unifiying them as
 -- neccesary.
---
--- TODO :: This is pretty inelegant, I should probably just use a cheap
---         MaybeT to do this.
 assertValKindEq :: String -> Ref Value -> Ref Value -> EDGMonad ()
 assertValKindEq context a b = do
   -- | Get the equality classes of both refs
-  meca <- uses @GS valInfo (Map.lookup a)
-  mecb <- uses @GS valInfo (Map.lookup b)
-  (ValInfo eca _ _, ValInfo ecb _ _) <- case (meca,mecb) of
-    (Just a,Just b) -> return (a,b)
-    _ -> throwKindErr context a b meca mecb
+  eca <- getValEqClassEDG a
+  ecb <- getValEqClassEDG b
   if | eca == ecb -> return ()
      | otherwise  -> do
           assertEQCKindEq context eca ecb
           return ()
   where
-    -- | Function used to update the map with new eqclasses
-    updateEC eca ecb e@ValInfo{..} = if eca == viEqClass then e{viEqClass = ecb} else e
     -- | Given two equality classes, assert that they are equal.
     assertEQCKindEq context eca ecb = do
-      mka <- uses @GS classKind (Map.lookup eca)
-      mkb <- uses @GS classKind (Map.lookup ecb)
-      (ka,kb) <- case (mka,mkb) of
-        (Just a,Just b) -> return (a,b)
-        _ -> throwKindErr context a b mka mkb
+      ka <- getEqClKindEDG (show a) eca
+      kb <- getEqClKindEDG (show b) ecb
       case (ka,kb) of
         (KVTop (),_) -> throw $ "Value `" ++ show a ++ "` has kind `" ++ show ka ++
           "` when trying to unify kinds in context \"" ++ context ++ "\"."
         (_,KVTop ()) -> throw $ "Value `" ++ show b ++ "` has kind `" ++ show kb ++
           "` when trying to unify kinds in context \"" ++ context ++ "\"."
-        (KVBot (), KVBot ()) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
-        (KVBot (), kb) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
-        (ka, KVBot ()) -> do
-          valInfo @GS %= (Map.map $ updateEC ecb eca) -- This one is flipped on purpose
-          return eca
-        (Int (), Int ()) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
-        (Bool (), Bool ()) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
-        (Float (), Float ()) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
-        (String (), String ()) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
-        (UID (), UID ()) -> do
-          valInfo @GS %= (Map.map $ updateEC eca ecb)
-          return ecb
+        (KVBot  (), KVBot  ()) -> replaceEqClass eca ecb
+        (KVBot  (), kb       ) -> replaceEqClass eca ecb
+        (ka       , KVBot  ()) -> replaceEqClass ecb eca -- flipped
+        (Int    (), Int    ()) -> replaceEqClass eca ecb
+        (Bool   (), Bool   ()) -> replaceEqClass eca ecb
+        (Float  (), Float  ()) -> replaceEqClass eca ecb
+        (String (), String ()) -> replaceEqClass eca ecb
+        (UID    (), UID    ()) -> replaceEqClass eca ecb
         -- TODO :: Make sure this asserts that each field has an identical
         --         kind join the kinds as needed, and whatnot.
         --
@@ -122,47 +153,77 @@ assertValKindEq context a b = do
         --         add that to the classKind and then ensure both records
         --           and any that share their kind are using that new kind.
         (Record ma, Record mb) -> undefined
-        _ -> throwKindErr context a b mka mkb
-    throwKindErr context a b mka mkb = throw $ "Attempting to look up current "
+        _ -> throwKindErr context a b ka kb
+    throwKindErr context a b ka kb = throw $ "Attempting to look up current "
       ++ "kind of " ++
-      "\n`" ++ show a ++ "` returned kind `" ++ show mka ++ "` and " ++
-      "\n`" ++ show b ++ "` returned kind `" ++ show mkb ++ "`" ++
+      "\n`" ++ show a ++ "` returned kind `" ++ show ka ++ "` and " ++
+      "\n`" ++ show b ++ "` returned kind `" ++ show kb ++ "`" ++
       "\nin context \"" ++ context ++ "\" while trying to assert kind equality."
 
 -- | Set the kind of the value to the given one, as needed
 assertValKind :: String -> Ref Value -> Kind' EqClassID -> EDGMonad ()
 assertValKind context ref kind = do
   -- | Get the equality classes of both refs
-  mvi <- uses @GS valInfo (Map.lookup ref)
-  vi <- case mvi of
-    Nothing -> throw $ "No Value `" ++ show ref ++ "` exists, so cannot set "
-      ++ "its kind."
-    Just v -> return v
-  let ec = viEqClass vi
-  mk <- uses @GS classKind (Map.lookup ec)
-  k <- case mk of
-    Nothing -> throw $ "Value `" ++ show ref ++ "` has no kind specified."
-    Just v -> return v
+  ec <- getValEqClassEDG ref
+  k <- getEqClKindEDG (show ref) ec
   case (k,kind) of
     (KVTop (),_) -> throw $ "Value `"++ show ref ++"` has unsatisfiable kind."
       ++ " Cannot set new kind."
-    (KVBot (),a) ->
-      classKind @GS %= (Map.insert ec a)
-    (Int (),Int ()) -> return ()
-    (Bool (),Bool ()) -> return ()
-    (Float (),Float ()) -> return ()
+    (KVBot  (),a        ) -> classKind @GS %= (Map.insert ec a)
+    (Int    (),Int    ()) -> return ()
+    (Bool   (),Bool   ()) -> return ()
+    (Float  (),Float  ()) -> return ()
     (String (),String ()) -> return ()
-    (UID (),UID ()) -> return ()
+    (UID    (),UID    ()) -> return ()
     (Record ma,Record mb) -> undefined
     _ -> throw $ "Kind of Value `"++show ref++"` is `"++show k++"` and could "
       ++ "not be set to `" ++ show kind ++ "`."
 
+-- | Creates a value from a kind, adds it to the list of things.
+valFromKind :: Ref Value -> Kind' EqClassID -> SBVMonad ValueSBV
+valFromKind r k =
+  case k of
+    KVTop () -> throw $ "Value `" ++ show r ++ "` has "
+      ++ "an unrealizable kind of `KVTop ()`."
+    KVBot () -> throw $ "Value `" ++ show r ++ "` has "
+      ++ "an ambiguous kind and we cannnot choose a specific realization"
+      ++ " for it. Ensure that it is related to something with a fixed"
+      ++ " kind at some point in the build process."
+    Int    () -> sbvSingleton r k Int
+    Bool   () -> sbvSingleton r k Bool
+    Float  () -> sbvSingleton r k Float
+    String () -> sbvSingleton r k String
+    UID    () -> sbvSingleton r k UID
+    Record rm -> undefined
+  where
+    -- | Create the relevant variable with the correct constructor
+    sbvSingleton r k c = do
+      let kref = Ref . kname' . unpack $ r
+          vref = Ref . vname' . unpack $ r
+          knum = getKindNum k
+      -- | Create the kind variable and ensure it's set correctly
+      kv <- sbv kref
+      kl <- lit knum
+      constrain $ kv S..== kl
+      -- | Create the value variable
+      vv <- sbv vref
+      let vs = ValueSBV{vsKindSBV = kv, vsValSBV = c vv}
+      -- | Add the new combined thing to the map and return the newly
+      --   created variable.
+      add r vs
+      return vs
 
 -- | Given a name for a Value Reference gives the name for the data reference
+vname' :: String -> String
 vname' = (++ ".data")
 
 -- | Given a name for a Value Reference gives the name for the kind reference
+kname' :: String -> String
 kname' = (++ ".kind")
+
+-- | given a record name and a field name gives you the record value name
+rvname' :: String -> String -> String
+rvname' rn fn = rn ++ "." ++ fn
 
 instance SBVAble Value where
 
@@ -207,39 +268,12 @@ instance SBVAble Value where
         -- | ensure there's a kind
         mkind <- uses @SBVS classKind (Map.lookup eqcl)
         case mkind of
-          Nothing -> throw $ "No kind information for Value `" ++ show r ++ "`."
-          Just (KVTop ()) -> throw $ "Value `" ++ show r ++ "` has "
-            ++ "an unrealizable kind of `KVTop ()`."
-          Just (KVBot ()) -> throw $ "Value `" ++ show r ++ "` has "
-            ++ "an ambiguous kind and we cannnot choose a specific realization"
-            ++ " for it. Ensure that it is set equal to something with a fixed"
-            ++ " kind at some point in the build process."
-          Just k@(Int    ()) -> sbvSingleton r k Int
-          Just k@(Bool   ()) -> sbvSingleton r k Bool
-          Just k@(Float  ()) -> sbvSingleton r k Float
-          Just k@(String ()) -> sbvSingleton r k String
-          Just k@(UID    ()) -> sbvSingleton r k UID
-          Just k@(Record fm) -> undefined -- sbvSingleton r k Record
-    where
-      -- | Create the relevant variable with the correct constructor
-      sbvSingleton r k c = do
-        let kref = Ref . kname' . unpack $ r
-            vref = Ref . vname' . unpack $ r
-            knum = getKindNum k
-        -- | Create the kind variable and ensure it's set correctly
-        kv <- sbv kref
-        kl <- lit knum
-        constrain $ kv S..== kl
-        -- | Create the value variable
-        vv <- sbv vref
-        let vs = ValueSBV{vsKindSBV = kv, vsValSBV = c vv}
-        -- | Add the new combined thing to the map and return the newly
-        --   created variable.
-        add r vs
-        return vs
+          Just k -> valFromKind r k
+          Nothing -> throw $ "No kind found for value `" ++ show r ++ "`, "
+            ++ "cannot create the variables needed."
 
   lit :: Value     -> SBVMonad ValueSBV
-  lit v = error "There is no notion of a literal for Values."
+  lit v = throw $ "There is no notion of a literal for Values. " ++ show v
 
   refConcrete :: String -> Value -> EDGMonad (Ref Value)
   refConcrete n (unpack -> v)
@@ -361,258 +395,151 @@ instance InvertSBV Value where
        | otherwise -> fail "no valid element"
 
 
+allEqOp ::  (forall a. S.EqSymbolic a => a -> a -> SBV Bool)
+        -> Bool -> Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)
+allEqOp op def a b name = do
+  n <- ref name
+  assertValKindEq name a b
+  returnAnd n $ do
+    akind <- getValueKind a
+    bkind <- getValueKind b
+    case (akind,bkind) of
+      (Int     (), Int     ()) -> do
+        (ValueSBV _ (Int aiv)) <- sbv a
+        (ValueSBV _ (Int biv)) <- sbv b
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      (Bool    (), Bool    ()) -> do
+        (ValueSBV _ (Bool aiv)) <- sbv a
+        (ValueSBV _ (Bool biv)) <- sbv b
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      (Float   (), Float   ()) -> do
+        (ValueSBV _ (Float aiv)) <- sbv a
+        (ValueSBV _ (Float biv)) <- sbv b
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      (String  (), String  ()) -> do
+        (ValueSBV _ (String aiv)) <- sbv a
+        (ValueSBV _ (String biv)) <- sbv b
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      (UID     (), UID     ()) -> do
+        (ValueSBV _ (UID aiv)) <- sbv a
+        (ValueSBV _ (UID biv)) <- sbv b
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      (Record aeq, Record beq) -> undefined
+      -- TODO :: Add error catching for KVTop and KVBot. Those should never
+      --         ever get this far, but you know how it goes.
+      _ -> do nv <- sbv n
+              lv <- lit def
+              constrain $ nv S..== lv
+
 instance EDGEquals Value where
 
   equalE :: Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)
-  equalE a b name = do
-    n <- ref name
-    assertValKindEq name a b
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind,bkind) of
-        (Int     (), Int     ()) -> do
-          (ValueSBV _ (Int aiv)) <- sbv a
-          (ValueSBV _ (Int biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..== biv)
-        (Bool    (), Bool    ()) -> do
-          (ValueSBV _ (Bool aiv)) <- sbv a
-          (ValueSBV _ (Bool biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..== biv)
-        (Float   (), Float   ()) -> do
-          (ValueSBV _ (Float aiv)) <- sbv a
-          (ValueSBV _ (Float biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..== biv)
-        (String  (), String  ()) -> do
-          (ValueSBV _ (String aiv)) <- sbv a
-          (ValueSBV _ (String biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..== biv)
-        (UID     (), UID     ()) -> do
-          (ValueSBV _ (UID aiv)) <- sbv a
-          (ValueSBV _ (UID biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..== biv)
-        (Record aeq, Record beq) -> undefined
-        -- TODO :: Add error catching for KVTop and KVBot. Those should never
-        --         ever get this far, but you know how it goes.
-        --
-        -- Kinds don't match, therefore cannot be equal. :V
-        _ -> do nv <- sbv n
-                lv <- lit False
-                constrain $ nv S..== lv
+  equalE = allEqOp (S..==) False
 
   unequalE :: Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)
-  unequalE a b name = do
-    n <- ref name
-    assertValKindEq name a b
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind,bkind) of
-        (Int     (), Int     ()) -> do
-          (ValueSBV _ (Int aiv)) <- sbv a
-          (ValueSBV _ (Int biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S../= biv)
-        (Bool    (), Bool    ()) -> do
-          (ValueSBV _ (Bool aiv)) <- sbv a
-          (ValueSBV _ (Bool biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S../= biv)
-        (Float   (), Float   ()) -> do
-          (ValueSBV _ (Float aiv)) <- sbv a
-          (ValueSBV _ (Float biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S../= biv)
-        (String  (), String  ()) -> do
-          (ValueSBV _ (String aiv)) <- sbv a
-          (ValueSBV _ (String biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S../= biv)
-        (UID     (), UID     ()) -> do
-          (ValueSBV _ (UID aiv)) <- sbv a
-          (ValueSBV _ (UID biv)) <- sbv b
-          ov <- sbv n
-          constrain $ ov S..== (aiv S../= biv)
-        (Record aeq, Record beq) -> undefined
-        -- TODO :: Add error catching for KVTop and KVBot. Those should never
-        --         ever get this far, but you know how it goes.
-        --
-        -- Kinds don't match, therefore cannot be equal. :V
-        _ -> do nv <- sbv n
-                lv <- lit True
-                constrain $ nv S..== lv
+  unequalE = allEqOp (S../=) True
+
+boolUnOp :: (SBV Bool -> SBV Bool)
+          -> Ref Value -> String -> EDGMonad (Ref Value)
+boolUnOp op r name = do
+  n <- refAbstract @Value name (pack $ Bool bottom)
+  returnAnd n $ do
+    rkind <- getValueKind r
+    case rkind of
+      Bool{} -> do
+        (ValueSBV _ (Bool riv)) <- sbv r
+        (ValueSBV _ (Bool niv)) <- sbv n
+        constrain $ riv S..== (op niv)
+      _ -> throw $ "Could not create `" ++ show n ++ "` because `" ++ show r
+        ++ "` does not have kind of Bool."
+
+boolBinOp :: (SBV Bool -> SBV Bool -> SBV Bool)
+          -> Ref Value -> Ref Value -> String -> EDGMonad (Ref Value)
+boolBinOp op a b name = do
+  n <- refAbstract @Value name (pack $ Bool bottom)
+  returnAnd n $ do
+    akind <- getValueKind a
+    bkind <- getValueKind b
+    case (akind, bkind) of
+      (Bool (),Bool ()) -> do
+        (ValueSBV _ (Bool aiv)) <- sbv a
+        (ValueSBV _ (Bool biv)) <- sbv b
+        (ValueSBV _ (Bool niv)) <- sbv n
+        constrain $ niv S..== (op aiv biv)
+      _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
+           "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
+           "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
+           "at least one of which is not Bool."
 
 -- | The EDGLogic instances for Value all assert kind equality and error on
 --   kind mismation or use on a kind which is doesn't have an EDGLogic instance
 instance EDGLogic Value where
 
   notE :: Ref Value ->  String -> EDGMonad (RefType Value)
-  notE r name = do
-    n <- refAbstract @Value name (pack $ Bool bottom)
-    returnAnd n $ do
-      rkind <- getValueKind r
-      case rkind of
-        Bool{} -> do
-          (ValueSBV _ (Bool riv)) <- sbv r
-          (ValueSBV _ (Bool niv)) <- sbv n
-          constrain $ riv S../= niv
-        _ -> throw $ "Could not create `" ++ show n ++ "` because `" ++ show r
-          ++ "` does not have kind of Bool."
+  notE = boolUnOp (S.bnot)
 
   andE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Value)
-  andE a b name = do
-    n <- refAbstract @Value name (pack $ Bool bottom)
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind, bkind) of
-        (Bool (),Bool ()) -> do
-          (ValueSBV _ (Bool aiv)) <- sbv a
-          (ValueSBV _ (Bool biv)) <- sbv b
-          (ValueSBV _ (Bool niv)) <- sbv n
-          constrain $ niv S..== (aiv S.&&& biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             "at least one of which is not Bool."
+  andE = boolBinOp (S.&&&)
 
   orE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Value)
-  orE a b name = do
-    n <- refAbstract @Value name (pack $ Bool bottom)
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind, bkind) of
-        (Bool (),Bool ()) -> do
-          (ValueSBV _ (Bool aiv)) <- sbv a
-          (ValueSBV _ (Bool biv)) <- sbv b
-          (ValueSBV _ (Bool niv)) <- sbv n
-          constrain $ niv S..== (aiv S.||| biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             "at least one of which is not Bool."
+  orE = boolBinOp (S.|||)
 
   impliesE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Value)
-  impliesE a b name = do
-    n <- refAbstract @Value name (pack $ Bool bottom)
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind, bkind) of
-        (Bool (),Bool ()) -> do
-          (ValueSBV _ (Bool aiv)) <- sbv a
-          (ValueSBV _ (Bool biv)) <- sbv b
-          (ValueSBV _ (Bool niv)) <- sbv n
-          constrain $ niv S..== (aiv S.==> biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             "at least one of which is not Bool."
+  impliesE = boolBinOp (S.==>)
+
+  nandE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Value)
+  nandE = boolBinOp (S.~&)
+
+  norE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Value)
+  norE = boolBinOp (S.~|)
+
+  xorE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Value)
+  xorE = boolBinOp (S.<+>)
+
+ordBinOp :: (forall a. S.OrdSymbolic a => a -> a -> SBV Bool)
+         -> Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+ordBinOp op a b name = do
+  n <- ref name
+  assertValKindEq name a b
+  returnAnd n $ do
+    akind <- getValueKind a
+    bkind <- getValueKind b
+    case (akind,bkind) of
+      (Int     (), Int     ()) -> do
+        (ValueSBV _ (Int aiv)) <- sbv a
+        (ValueSBV _ (Int biv)) <- sbv a
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      (Float   (), Float   ()) -> do
+        (ValueSBV _ (Float aiv)) <- sbv a
+        (ValueSBV _ (Float biv)) <- sbv a
+        ov <- sbv n
+        constrain $ ov S..== (op aiv biv)
+      _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
+           "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
+           "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
+           ", both kinds must be identical and numeric."
 
 -- | The EDGOrd instances for Value all assert kind equality and error on
 --   kind mismation or use on a kind which doesn't have an EDGLogic instance
 instance EDGOrd Value where
 
   gtE  :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
-  gtE a b name = do
-    n <- ref name
-    assertValKindEq name a b
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind,bkind) of
-        (Int     (), Int     ()) -> do
-          (ValueSBV _ (Int aiv)) <- sbv a
-          (ValueSBV _ (Int biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..> biv)
-        (Float   (), Float   ()) -> do
-          (ValueSBV _ (Float aiv)) <- sbv a
-          (ValueSBV _ (Float biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..> biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             ", both kinds must be identical and numeric."
+  gtE = ordBinOp (S..>)
 
   gteE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
-  gteE a b name = do
-    n <- ref name
-    assertValKindEq name a b
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind,bkind) of
-        (Int     (), Int     ()) -> do
-          (ValueSBV _ (Int aiv)) <- sbv a
-          (ValueSBV _ (Int biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..>= biv)
-        (Float   (), Float   ()) -> do
-          (ValueSBV _ (Float aiv)) <- sbv a
-          (ValueSBV _ (Float biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..>= biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             ", both kinds must be identical and numeric."
-
+  gteE = ordBinOp (S..>=)
 
   ltE  :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
-  ltE a b name = do
-    n <- ref name
-    assertValKindEq name a b
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind,bkind) of
-        (Int     (), Int     ()) -> do
-          (ValueSBV _ (Int aiv)) <- sbv a
-          (ValueSBV _ (Int biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..< biv)
-        (Float   (), Float   ()) -> do
-          (ValueSBV _ (Float aiv)) <- sbv a
-          (ValueSBV _ (Float biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..< biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             ", both kinds must be identical and numeric."
-
+  ltE = ordBinOp (S..<)
 
   lteE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
-  lteE a b name = do
-    n <- ref name
-    assertValKindEq name a b
-    returnAnd n $ do
-      akind <- getValueKind a
-      bkind <- getValueKind b
-      case (akind,bkind) of
-        (Int     (), Int     ()) -> do
-          (ValueSBV _ (Int aiv)) <- sbv a
-          (ValueSBV _ (Int biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..<= biv)
-        (Float   (), Float   ()) -> do
-          (ValueSBV _ (Float aiv)) <- sbv a
-          (ValueSBV _ (Float biv)) <- sbv a
-          ov <- sbv n
-          constrain $ ov S..== (aiv S..<= biv)
-        _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
-             "`" ++ show a ++ "` has kind `" ++ show akind ++ "` and" ++
-             "`" ++ show b ++ "` has kind `" ++ show bkind ++ "` and" ++
-             ", both kinds must be identical and numeric."
-
+  lteE = ordBinOp (S..<=)
 
 instance SBVAble Record where
 
@@ -621,7 +548,46 @@ instance SBVAble Record where
   type RefType Record = (Ref Record)
 
   ref :: String -> EDGMonad (Ref Record)
-  ref = undefined
+  ref name = do
+    let oref = Ref name
+        kind = Record Map.empty
+    eqcl <- newEqClass
+    exists <- uses @GS recInfo $ Map.member oref
+    when exists (throw $ "Record '" ++ show oref ++ "` already exists.")
+    recInfo   @GS %= Map.insert oref RecInfo{riFields=Map.empty,riEqClass=eqcl}
+    classKind @GS %= Map.insert eqcl kind
+    returnAnd oref (sbvNoDup "Record" recordRef oref)
+
+  sbv :: Ref Record -> SBVMonad RecSBV
+  sbv r = undefined
+    -- val <- uses @SBVS recordRef (Map.lookup r)
+    -- case val of
+    --   Just v -> return v
+    --   Nothing -> do
+    --     -- | See whether we have an equality class for this record
+    --     eqcl <- getRecEqClassSBV r
+    --     -- | If we do, check the kind
+    --     kind <- getEqClKindSBV ("Looking up kind to create Record `" ++ show r
+    --       ++ "`.") eqcl
+    --     case kind of
+    --       KVTop () -> throw $ "Record `" ++ show r ++ "` has unrealizable kind"
+    --         ++ ". Please look for and eliminate any kind conflicts that arise."
+    --       KVBot () -> throw $ "Record `" ++ show r ++ "` has ambiguous kind. "
+    --         ++ "Please relate it to something with a known kind."
+    --       Record m -> RecSBV <$> Map.traverseWithKey makeRecField m
+    --       _ -> throw $ "Record `" ++ show r ++ "` has a non Record kind of `"
+    --         ++ show kind ++ "`, this should be impossible."
+    -- where
+    --   rname = unpack r
+    --   makeRecField fname' fkind = do
+    --     let rvname = rvname' rname fname'
+    --         rv = Ref rvname
+    --     exists <- uses @SBVS valueRef (Map.member rv)
+    --     when exists (throw $ "Record field `" ++ rv ++ "` already exists.")
+    --     valFromKind rv fkind
+
+  lit :: Record -> SBVMonad RecSBV
+  lit r = throw $ "There is no notion of a literal for record : " ++ show r
 
   refConcrete :: String -> Record -> EDGMonad (Ref Record)
   refConcrete = undefined
@@ -629,11 +595,6 @@ instance SBVAble Record where
   refAbstract :: String -> RecCons -> EDGMonad (Ref Record)
   refAbstract = undefined
 
-  sbv :: Ref Record -> SBVMonad RecSBV
-  sbv = undefined
-
-  lit :: Record -> SBVMonad RecSBV
-  lit = undefined
 
   add :: Ref Record -> RecSBV -> SBVMonad ()
   add = undefined
