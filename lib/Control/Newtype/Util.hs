@@ -40,3 +40,10 @@ joinMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
 joinMaybe f (Just a) (Just b) = Just $ f a b
 joinMaybe _ a b = a <|> b
 
+-- | Splits a list up into segments delineated by a separator element.
+split :: Eq a => a -> [a] -> [[a]]
+split e = (\ (a,b) -> b:a) . foldr accumSeg ([],[])
+  where
+    accumSeg a (x,l)
+      | a == e = (l:x,[])
+      | otherwise = (x,a:l)

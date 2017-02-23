@@ -221,11 +221,13 @@ class Constrainable t => SBVAble t where
 
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
-refAmbiguous :: SBVAble t => String -> Ambiguous t -> EDGMonad (RefType t)
-refAmbiguous name Impossible = throw $ "Ambiguous Value \"" ++ name ++ "\" is unsatisfiable."
+refAmbiguous :: (SBVAble t, Show (Constraints t))
+             => String -> Ambiguous t -> EDGMonad (RefType t)
+refAmbiguous name Impossible = throw $ "Ambiguous Value \"" ++ name ++ "\" is unsatisfiable after collapse."
 refAmbiguous name (Concrete v) = refConcrete name v
 refAmbiguous name (Abstract c)
-  | unSAT c   = throw $ "Ambiguous Value \"" ++ name ++ "\" is unsatisfiable."
+  | unSAT c   = throw $ "Ambiguous Value \"" ++ name ++ "\" with value \""
+    ++ show c ++ "\" is unsatisfiable."
   | otherwise = refAbstract name c
 
 -- | Given an ambiguous value, return the corresponding Reference, throwing

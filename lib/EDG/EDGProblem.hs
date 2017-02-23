@@ -100,14 +100,20 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --
 testProblem = do
   b1 <- refAbstract @Value "b1" (pack . KVBot $ ())
-  b2 <- refAbstract @Value "b2" (pack . Float $ lessThan 30)
-  b3 <- b1 .<= b2
+  b2 <- refAbstract @Value "b2" (pack . Record $ [
+      "field1" <~= Int $ [lessThan 12, greaterThan 5]
+    , "field2" <~= String $ oneOf ["a","b","c"]
+    ])
+  b3 <- b1 .== b2
   constrain $ b3
   return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
 runTestProblem :: IO ()
 runTestProblem = do
+  let i = pack $ Int $ [lessThan 12, greaterThan 5]
+  print @(Constrained) i
+  print (unSAT (Abstract i))
   ss <- newIORef (undefined :: SBVState)
   let (symb,gs,(b1,b2,b3)) = runEDGMonad (Just ss) testProblem
   sol <- S.satWith S.defaultSMTCfg{S.verbose = True} symb

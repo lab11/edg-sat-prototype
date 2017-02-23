@@ -71,7 +71,7 @@ instance KVAble VSBV where
   type KFloat  VSBV   = SBV Float
   type KString VSBV   = SBV String
   type KUID    VSBV   = SBV UID'
-  type KRecord VSBV b = Void
+  type KRecord VSBV b = RecSBV
   type KTop    VSBV   = Void
   type KBottom VSBV   = ()
 
@@ -87,14 +87,12 @@ data ValInfo = ValInfo {
   , viKindRef  :: Ref Integer
 } deriving (Show, Read, Eq)
 
-makeLensesWith abbreviatedFields ''ValInfo
 
 data ValueSBV = ValueSBV {
     vsKindSBV :: SBV Integer
   , vsValSBV  :: ValSBV
 } deriving (Show, Eq)
 
-makeLensesWith abbreviatedFields ''ValueSBV
 
 data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
@@ -102,10 +100,15 @@ data RecInfo = RecInfo {
   , riEqClass :: EqClassID
 } deriving (Show, Eq, Read)
 
-makeLensesWith abbreviatedFields ''RecInfo
 
 data RecSBV = RecSBV {
     rsFields :: Map String ValueSBV
 } deriving (Show, Eq)
 
+-- NOTE :: These template haskell things have to be at the end of the
+--         file so that we don't mess up the code generation and typing
+--         processes.
+makeLensesWith abbreviatedFields ''ValInfo
+makeLensesWith abbreviatedFields ''ValueSBV
+makeLensesWith abbreviatedFields ''RecInfo
 makeLensesWith abbreviatedFields ''RecSBV

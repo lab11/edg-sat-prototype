@@ -95,7 +95,7 @@ data Ambiguous t where
 --   representation.
 flattenAmbig :: (Constrainable t) => Ambiguous t -> Ambiguous t
 flattenAmbig a@(Abstract c) | Just v <- collapse c = Concrete v
-                            | False  <- unSAT c    = Impossible
+                            | True  <- unSAT c    = Impossible
                             | otherwise            = a
 flattenAmbig a = a
 
@@ -110,9 +110,6 @@ instance (Constrainable t, Show t, Show (Constraints t)) => Show (Ambiguous t) w
   showsPrec d (Impossible)
     = showParen (d > app_prec) $ showString "Impossible"
       where app_prec = 10
-
-
-
 
 -- | Read instance for ambiguous values
 instance (Constrainable t, Read t, Read (Constraints t)) => Read (Ambiguous t) where
