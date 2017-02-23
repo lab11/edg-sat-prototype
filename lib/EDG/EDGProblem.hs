@@ -99,12 +99,19 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --           back out once you're done. Not sure how that'll look either.
 --
 testProblem = do
-  b1 <- refAbstract @Value "b1" (pack . KVBot $ ())
+  b1 <- refAbstract @Value "b1" (pack . Record $ [
+      "field1" <~= Int $ oneOf [1,8,15]
+    , "field3" <~= Float $ [lessThan 12, greaterThan 3]
+    ])
   b2 <- refAbstract @Value "b2" (pack . Record $ [
       "field1" <~= Int $ [lessThan 12, greaterThan 5]
     , "field2" <~= String $ oneOf ["a","b","c"]
+    , "field4" <~= Record $ [
+        "field1" <:= Int $ 4
+      , "field2" <~= String $ oneOf ["a","b"]
+      ]
     ])
-  b3 <- b1 .== b2
+  b3 <- refConcrete @Bool "b3" True-- b1 .== b2
   constrain $ b3
   return (b1,b2,b3)
 
