@@ -46,7 +46,7 @@ import EDG.Predicates
 import EDG.SBVWrap
 import EDG.EDGDatatype
 
--- import Debug.Trace
+import qualified Debug.Trace as T
 trace _ b = b
 
 
@@ -54,7 +54,7 @@ trace _ b = b
 type ValKind = Kind' RecEqClass
 
 -- | Kinds for Records in the EDG context
-type RecKind = Map String (Kind' RecEqClass)
+type RecKind = Map String ValKind
 
 -- | The first pass monad, where we gather instructions on how to build the
 --   SMT problem.
@@ -88,8 +88,8 @@ type GS = GatherState
 initialGatherState :: GatherState
 initialGatherState = GatherState {
     gsUidCounter     = 0
-  , gsValEqClassCounter = 0
-  , gsRecEqClassCounter = 0
+  , gsValEqClassCounter = pack 0
+  , gsRecEqClassCounter = pack 0
   , gsValInfo     = Map.empty
   , gsRecInfo     = Map.empty
   , gsRecordKinds = Map.empty
@@ -144,24 +144,56 @@ transformState GatherState{..} = SBVState {
 --   build the final SMT problem.
 type EDGMonad = ScribeT SBVMonad GatherMonad
 
+class Monad m => NamedMonad m where
+  monadName :: m String
+
+instance NamedMonad EDGMonad where
+  monadName = return "EDG"
+
+instance NamedMonad GatherMonad where
+  monadName = return "Gather"
+
+instance NamedMonad SBVMonad where
+  monadName = return "SBV"
+
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
 newUID = uidCounter @(GatherState) <+= 1
 
 -- | Get a new EqClassID and increment the counter.
 newValEqClass :: EDGMonad ValEqClass
-newValEqClass = valEqClassCounter @(GatherState) <+= 1
+newValEqClass = do
+  n <- uses @GS valEqClassCounter (pack . (+ 1) . unpack)
+  valEqClassCounter @GS .= n
+  return n
 
 -- | Get a new EqClassID and increment the counter.
-newRecEqClass :: EDGMonad ValEqClass
-newRecEqClass = recEqClassCounter @(GatherState) <+= 1
+newRecEqClass :: EDGMonad RecEqClass
+newRecEqClass = do
+  n <- uses @GS recEqClassCounter  (pack . (+ 1) . unpack)
+  recEqClassCounter @GS .= n
+  return n
 
-
+-- | Catch an expcetion and append a string to it, so that we can have better
+--   knowledge of what's actually happening.
+errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
+errContext s e = do
+  n <- monadName
+  T.trace (n ++ ": " ++ s) $ catch e appendContext
+  where
+    appendContext = throw . unlines
+      . (\ e -> ["In Context : " ++ s] ++ e )
+      . map ("  " ++) . lines
 
 -- | The class for contrianable types that can be written as an element in an
 --   SMT problem. Mainly gives us a way to construct an SBV representation of
 --   the particular type.
-class (S.EqSymbolic (SBVType t),Constrainable t) => SBVAble t where
+class (S.EqSymbolic (SBVType t)
+  ,Constrainable t
+  ,Show t
+  ,Show (Constraints t)
+  ,Show (SBVType t)
+  ,Show (RefType t)) => SBVAble t where
 
   -- | The type of the particular variable in SBV land, in a way that allows us
   --   to get to the particular `SBV _` of the components making it up.
@@ -184,7 +216,6 @@ class (S.EqSymbolic (SBVType t),Constrainable t) => SBVAble t where
   -- | Will retrive the SBV elem given a reference, if no such element exists
   --   will create a new one and return that.
   sbv :: RefType t -> SBVMonad (SBVType t)
-
 
   -- | Sets the stored internal ref map to the correct value, basically
   --   just for internal use. Don't push too hard with this one.
@@ -250,26 +281,32 @@ class (S.EqSymbolic (SBVType t),Constrainable t) => SBVAble t where
   fixAbstract = return
 
 defaultIsConcrete :: SBVAble t => t -> SBVType t -> SBVMonad (SBV Bool)
-defaultIsConcrete v s = do
+defaultIsConcrete v s = errContext context $ do
   lv <- lit v
   return $ s S..== lv
+  where
+    context = "default is concrete `" ++ show v ++ "' `" ++ show s ++ "'"
 
 defaultRefConcrete :: SBVAble t => String -> t -> EDGMonad (RefType t)
-defaultRefConcrete name' v = do
+defaultRefConcrete name' v = errContext ("egd:" ++ context) $ do
   n <- ref name'
-  returnAnd n $ do
+  returnAnd n $ errContext ("sbv:"++context) $ do
     nv <- sbv n
     constrain =<< isConcrete v nv
+  where
+    context = "defaultRefConcrete `" ++ name' ++ "` `" ++ show v ++ "`"
 
 defaultRefAbstract :: SBVAble t
                    => String -> Constraints t -> EDGMonad (RefType t)
 defaultRefAbstract name' c
   | unSAT c = error $ "Variable `" ++ name' ++ "` is unsatisfiable."
-  | otherwise = do
+  | otherwise = errContext context $  do
     n <- ref name'
     returnAnd n $ do
       nv <- sbv n
       constrain =<< isAbstract c nv
+  where
+      context = "defaultRefAbstract `" ++ name' ++ "` `" ++ show c ++ "`"
 
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
@@ -303,12 +340,17 @@ sbvNoDup :: (SBVAble t, Show (RefType t), Ord (RefType t))
          => String
          -> Lens' SBVS (Map (RefType t) (SBVType t))
          -> RefType t -> SBVMonad (SBVType t)
-sbvNoDup typeName lens ref = do
-    val <- uses @SBVS lens (Map.lookup ref)
-    case val of
-      Just v  -> throw $ "SBV Var `"++ show ref ++ "` of type " ++
-        typeName ++ " already exists."
-      Nothing -> sbv ref
+sbvNoDup typeName lens ref = errContext context $ sbv ref
+  -- do
+  --   val <- uses @SBVS lens (Map.lookup ref)
+  --   case val of
+  --     Just v  -> do
+  --       s <- get @SBVS
+  --       throw $ "SBV Var `"++ show ref ++ "` of type " ++
+  --         typeName ++ " already exists. \n\n" ++ show s
+  --     Nothing -> sbv ref
+  where
+    context = "sbvNoDup `" ++ show ref ++ "` `" ++ typeName ++ "`"
 
 -- | Can we, given a reference to a particular element in a SatModel to
 --   retrieve, retrieve it? Well, if we have the particular context, which
@@ -336,6 +378,11 @@ buildDecodeState = (,)
 -- | Get the string Decoder from the decodeState
 getStringDecode :: DecodeState -> Bimap Integer String
 getStringDecode d = d ^. _2 . stringDecode
+
+-- | Get the map of value information from the decode state.
+getValInfo :: DecodeState -> Map (Ref Value) ValInfo
+getValInfo s = s ^. _2 . valInfo
+
 
 -- | ease of se internal funtion that allow us to easily generate a binary
 --   operator on refs from an operator on sbv values

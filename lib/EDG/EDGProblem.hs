@@ -99,19 +99,21 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --           back out once you're done. Not sure how that'll look either.
 --
 testProblem = do
-  b1 <- refAbstract @Value "b1" (pack . Record $ [
-      "field1" <~= Int $ oneOf [1,8,15]
-    , "field3" <~= Float $ [lessThan 12, greaterThan 3]
-    ])
-  b2 <- refAbstract @Value "b2" (pack . Record $ [
-      "field1" <~= Int $ [lessThan 12, greaterThan 5]
-    , "field2" <~= String $ oneOf ["a","b","c"]
-    , "field4" <~= Record $ [
-        "field1" <:= Int $ 4
-      , "field2" <~= String $ oneOf ["a","b"]
-      ]
-    ])
-  b3 <- refConcrete @Bool "b3" True-- b1 .== b2
+  b1 <- refAbstract @Value "b1" (pack $ Int $ greaterThan 5)
+  --b1 <- refAbstract @Value "b1" (pack . Record $ [
+  --    "field1" <~= Int $ oneOf [1,8,15]
+  --  , "field3" <~= Float $ [lessThan 12, greaterThan 3]
+  --  ])
+  b2 <- refAbstract @Value "b2" (pack . Int $ oneOf[3,4,5,6])
+  -- b2 <- refAbstract @Value "b2" (pack . Record $ [
+  --     "field1" <~= Int $ [lessThan 12, greaterThan 5]
+  --   , "field2" <~= String $ oneOf ["a","b","c"]
+  --   , "field4" <~= Record $ [
+  --       "field1" <:= Int $ 4
+  --     , "field2" <~= String $ oneOf ["a","b"]
+  --     ]
+  --   ])
+  b3 <- b1 .== b2
   constrain $ b3
   return (b1,b2,b3)
 
@@ -128,6 +130,7 @@ runTestProblem = do
   ss' <- readIORef ss
   putStrLn $ ppShow ss'
   let decSt = buildDecodeState gs ss'
+  putStrLn $ ppShow decSt
   print $ extract decSt sol b1
   print $ extract decSt sol b2
   print $ extract decSt sol b3

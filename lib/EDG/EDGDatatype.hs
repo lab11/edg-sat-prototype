@@ -85,10 +85,20 @@ type ValSBV = Kinded VSBV ()
 
 -- | We use these as names for equality classes for values that
 --   have an unfixed kind.
-type ValEqClass = Integer
+newtype ValEqClass = ValEqClass Integer
+  deriving (Show, Read, Eq, Ord)
+
+instance Newtype ValEqClass Integer where
+  pack = ValEqClass
+  unpack (ValEqClass i) = i
 
 -- | We use these as the names for equality classes for records
-type RecEqClass = Integer
+newtype RecEqClass = RecEqClass Integer
+  deriving (Show, Read, Eq, Ord)
+
+instance Newtype RecEqClass Integer where
+  pack = RecEqClass
+  unpack (RecEqClass i) = i
 
 data ValInfo = ValInfo {
     -- Reference to the integer in which we store kinds for

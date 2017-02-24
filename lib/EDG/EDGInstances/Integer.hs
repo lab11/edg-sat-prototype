@@ -48,7 +48,10 @@ instance SBVAble Integer where
   type RefType Integer = Ref Integer
 
   ref :: String -> EDGMonad (Ref Integer)
-  ref name = let n = Ref name in returnAnd n (sbvNoDup "Integer" integerRef n)
+  ref name = let n = Ref name in errContext context $
+      returnAnd n (errContext context $ sbvNoDup "Integer" integerRef n)
+    where
+      context = "(ref :: Integer) `" ++ name ++ "`"
 
   isAbstract :: IntCons -> SBV Integer -> SBVMonad (SBV Bool)
   isAbstract ICBottom _ = return $ S.literal True
@@ -58,7 +61,7 @@ instance SBVAble Integer where
       ts -> S.bAny ((S..==) s) ts
     where
       lvs = map S.literal (Set.toList . unpack $ m)
-  isAbstract ICOther{..} s = do
+  isAbstract ICOther{..} s = errContext context $ do
     n <- noCons
     let l = lbCons
         u = ubCons
@@ -80,9 +83,10 @@ instance SBVAble Integer where
         Just (UpperBound Inclusive    val) -> (S.literal val) S..>= s
         Just (UpperBound NonInclusive val) -> (S.literal val) S..>  s
         _ -> error "Impossible State"
+      context = "isAbstract :: Integer `" ++ show s ++ "'"
 
   sbv :: Ref Integer -> SBVMonad (SBV Integer)
-  sbv r = do
+  sbv r = errContext ("SBV:" ++ context) $ do
     val <- uses @SBVS integerRef (Map.lookup r)
     case val of
       Just v  -> return v
@@ -90,6 +94,8 @@ instance SBVAble Integer where
         s <- sInteger . unpack $ r
         add r s
         return s
+    where
+      context = "(sbv :: Integer) `" ++ show r ++ "`"
 
   lit :: Integer     -> SBVMonad (SBV Integer)
   lit = return . S.literal
