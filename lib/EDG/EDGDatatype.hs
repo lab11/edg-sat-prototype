@@ -52,14 +52,20 @@ instance Newtype (Ref a) String where
 data VRef
 
 instance KVAble VRef where
+  -- If you have an actual value then just store the reference to it
+  -- once the type is at least this determined, then you'll never
+  -- be able to safely constrain it more.
   type KInt    VRef   = Ref Integer
   type KBool   VRef   = Ref Bool
   type KFloat  VRef   = Ref Float
   type KString VRef   = Ref String
   type KUID    VRef   = Ref UID'
   type KRecord VRef b = Ref Record
+  -- If you don't have a concrete type yet, then you're in a class
+  -- of elements that share the same (as yet unknown) type.
+  type KBottom VRef   = ValEqClass
+  -- Unused Constructors
   type KTop    VRef   = Void
-  type KBottom VRef   = ()
 
 type ValRef = Kinded VRef ()
 
@@ -77,32 +83,42 @@ instance KVAble VSBV where
 
 type ValSBV = Kinded VSBV ()
 
--- | We use these as names for equality classes for kinds.
-type EqClassID = Integer
+-- | We use these as names for equality classes for values that
+--   have an unfixed kind.
+type ValEqClass = Integer
 
--- | Information we have about each equality class.
+-- | We use these as the names for equality classes for records
+type RecEqClass = Integer
+
 data ValInfo = ValInfo {
-    viEqClass  :: EqClassID
-  , viValRef   :: ValRef
-  , viKindRef  :: Ref Integer
+    -- Reference to the integer in which we store kinds for
+    -- disambiguation.
+    viKindRef :: Ref Integer
+    -- Reference to the actual stored value.
+  , viValRef  :: ValRef
 } deriving (Show, Read, Eq)
 
-
 data ValueSBV = ValueSBV {
+  -- The stored integer
     vsKindSBV :: SBV Integer
+  -- The stored value
   , vsValSBV  :: ValSBV
+  -- Possibly a name (only for debugging purposes)
+  , vsRefName :: Maybe (Ref Value)
 } deriving (Show, Eq)
 
 
 data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
     riFields  :: Map String (Ref Value)
-  , riEqClass :: EqClassID
+  , riEqClass :: RecEqClass
 } deriving (Show, Eq, Read)
 
 
 data RecSBV = RecSBV {
-    rsFields :: Map String ValueSBV
+  -- the elems are (<is field used in the record?>,<value of field>)
+    rsFields :: Map String (SBV Bool,ValueSBV)
+  , rsRefName :: Maybe (Ref Record)
 } deriving (Show, Eq)
 
 -- NOTE :: These template haskell things have to be at the end of the

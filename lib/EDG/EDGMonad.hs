@@ -49,6 +49,13 @@ import EDG.EDGDatatype
 -- import Debug.Trace
 trace _ b = b
 
+
+-- | Kinds for values in the EDG context
+type ValKind = Kind' RecEqClass
+
+-- | Kinds for Records in the EDG context
+type RecKind = Map String (Kind' RecEqClass)
+
 -- | The first pass monad, where we gather instructions on how to build the
 --   SMT problem.
 type GatherMonad = StateT GatherState (ExceptT String  Identity)
@@ -57,14 +64,18 @@ type GatherMonad = StateT GatherState (ExceptT String  Identity)
 data GatherState = GatherState {
   -- Counter for assigning UIDs to things
     gsUidCounter     :: Integer
-  , gsEqClassCounter :: Integer
+  , gsValEqClassCounter :: ValEqClass
+  , gsRecEqClassCounter :: RecEqClass
   -- For each value, stores information about it.
   , gsValInfo  :: Map (Ref Value) ValInfo
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
   , gsRecInfo  :: Map (Ref Record) RecInfo
-  -- For each equality class, stores the kind.
-  , gsClassKind :: Map EqClassID (Kind' EqClassID)
+  -- For each equality class over a record stores the kind for each field.
+  , gsRecordKinds :: Map RecEqClass RecKind
+  -- Stores the integer representations of each string
+  -- TODO :: Gather all the data for this in the correct spot.
+  -- ,gsStringDecode :: Bimap Integer String
   } deriving (Show,Read)
 
 -- Sigh, this TH splice has to come after all the types used in the datatype
@@ -77,10 +88,11 @@ type GS = GatherState
 initialGatherState :: GatherState
 initialGatherState = GatherState {
     gsUidCounter     = 0
-  , gsEqClassCounter = 0
-  , gsValInfo   = Map.empty
-  , gsRecInfo   = Map.empty
-  , gsClassKind = Map.empty
+  , gsValEqClassCounter = 0
+  , gsRecEqClassCounter = 0
+  , gsValInfo     = Map.empty
+  , gsRecInfo     = Map.empty
+  , gsRecordKinds = Map.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard
@@ -89,17 +101,19 @@ initialGatherState = GatherState {
 type SBVMonad = StateT SBVState (ExceptT String Symbolic)
 
 data SBVState = SBVState {
-    ssBoolRef    :: Map (Ref Bool)    (SBV Bool)
-  , ssStringRef  :: Map (Ref String)  (SBV String)
-  , ssFloatRef   :: Map (Ref Float)   (SBV Float)
-  , ssUidRef     :: Map (Ref UID')    (SBV UID')
-  , ssIntegerRef :: Map (Ref Integer) (SBV Integer)
-  , ssValueRef   :: Map (Ref Value)   (ValueSBV)
-  , ssRecordRef  :: Map (Ref Record)  (RecSBV)
+  -- The grand store that we use to get the SBV values for a given reference
+  -- Is basically useless outside of the actual Symbolic monad.
+    ssBoolRef     :: Map (Ref Bool)    (SBV Bool)
+  , ssStringRef   :: Map (Ref String)  (SBV String)
+  , ssFloatRef    :: Map (Ref Float)   (SBV Float)
+  , ssUidRef      :: Map (Ref UID')    (SBV UID')
+  , ssIntegerRef  :: Map (Ref Integer) (SBV Integer)
+  , ssValueRef    :: Map (Ref Value)   (ValueSBV)
+  , ssRecordRef   :: Map (Ref Record)  (RecSBV)
   -- Information to get the kinds of values
-  , ssValInfo    :: Map (Ref Value) ValInfo
-  , ssRecInfo    :: Map (Ref Record) RecInfo
-  , ssClassKind  :: Map EqClassID (Kind' EqClassID)
+  , ssValInfo     :: Map (Ref Value)  ValInfo
+  , ssRecInfo     :: Map (Ref Record) RecInfo
+  , ssRecordKinds :: Map RecEqClass RecKind
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
@@ -121,7 +135,7 @@ transformState GatherState{..} = SBVState {
   , ssRecordRef = Map.empty
   , ssValInfo = gsValInfo
   , ssRecInfo = gsRecInfo
-  , ssClassKind = gsClassKind
+  , ssRecordKinds = gsRecordKinds
   , ssStringDecode = Bimap.empty
   }
 
@@ -130,33 +144,24 @@ transformState GatherState{..} = SBVState {
 --   build the final SMT problem.
 type EDGMonad = ScribeT SBVMonad GatherMonad
 
-
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
 newUID = uidCounter @(GatherState) <+= 1
 
 -- | Get a new EqClassID and increment the counter.
-newEqClass :: EDGMonad EqClassID
-newEqClass = eqClassCounter @(GatherState) <+= 1
+newValEqClass :: EDGMonad ValEqClass
+newValEqClass = valEqClassCounter @(GatherState) <+= 1
 
--- | Given a valueSBV, get the kind of that value
-getValueKind :: Ref Value -> SBVMonad (Kind' EqClassID)
-getValueKind v = do
-  vi <- uses @SBVS valInfo (Map.lookup v)
-  ec <- case vi of
-    Nothing -> throw $ "Could not get kind of value `" ++ show v ++ "`."
-    Just ValInfo{..} -> return viEqClass
-  mk <- uses @SBVS classKind (Map.lookup ec)
-  case mk of
-    Nothing -> throw $ "No kind found for value `" ++ show v ++ "` with eq class `" ++ show ec ++ "`."
-    Just k -> return k
+-- | Get a new EqClassID and increment the counter.
+newRecEqClass :: EDGMonad ValEqClass
+newRecEqClass = recEqClassCounter @(GatherState) <+= 1
 
 
 
 -- | The class for contrianable types that can be written as an element in an
 --   SMT problem. Mainly gives us a way to construct an SBV representation of
 --   the particular type.
-class Constrainable t => SBVAble t where
+class (S.EqSymbolic (SBVType t),Constrainable t) => SBVAble t where
 
   -- | The type of the particular variable in SBV land, in a way that allows us
   --   to get to the particular `SBV _` of the components making it up.
@@ -176,6 +181,25 @@ class Constrainable t => SBVAble t where
   --   useful for types that have simple non-recursive literal representations.
   lit :: t -> SBVMonad (SBVType t)
 
+  -- | Will retrive the SBV elem given a reference, if no such element exists
+  --   will create a new one and return that.
+  sbv :: RefType t -> SBVMonad (SBVType t)
+
+
+  -- | Sets the stored internal ref map to the correct value, basically
+  --   just for internal use. Don't push too hard with this one.
+  add :: RefType t -> SBVType t -> SBVMonad ()
+
+  -- | For a given value and a symbolic value will
+  --   give you a symbolic Bool for if they match.
+  --
+  --   This is actually a pretty good implementation whenever a literal
+  --   exists for this sort of element. There's not many instances where you'd
+  --   need to change it, even for recursive SBVAble types.
+  isConcrete :: t -> SBVType t -> SBVMonad (SBV Bool)
+  default isConcrete :: t -> SBVType t -> SBVMonad (SBV Bool)
+  isConcrete = defaultIsConcrete
+
   -- | Given a concrete value, it'll give you the corresponding reference and
   --   make sure the SBV tool things it's the right value.
   --
@@ -185,22 +209,28 @@ class Constrainable t => SBVAble t where
   --   its own, albeit one that should be caught when we're assembling a
   --   component.
   --
-  --   TODO :: Reconsider the above decision.
+  --   NOTE :: This default is to be overridden when we need to keep track
+  --           of some additional metadata or do some transformation to the
+  --           constraints on the first pass.
   refConcrete :: String -> t -> EDGMonad (RefType t)
+  default refConcrete :: String -> t -> EDGMonad (RefType t)
+  refConcrete = defaultRefConcrete
+
+  -- | For a given set of constraints, and a symbolic value, will give you
+  --   a bool to ensure that the constraints are satisfied.
+  isAbstract :: Constraints t -> SBVType t -> SBVMonad (SBV Bool)
 
   -- | Given a set of constraints over a value, it'll give you the
   --   corresponding reference and make sure SBV knows that the reference
   --   should be decently constrained.
+  --
+  --   NOTE :: This default is to be overridden when we need to keep track
+  --           of some additional metadata or do some transformation to the
+  --           constraints on the first pass.
   refAbstract :: String -> Constraints t -> EDGMonad (RefType t)
+  default refAbstract :: String -> Constraints t -> EDGMonad (RefType t)
+  refAbstract = defaultRefAbstract
 
-  -- | Will retrive the SBV elem given a reference, if no such element exists
-  --   will create a new one and return that.
-  sbv :: RefType t -> SBVMonad (SBVType t)
-
-
-  -- | Sets the stored internal ref map to the correct value, basically
-  --   just for internal use. Don't push too hard with this one.
-  add :: RefType t -> SBVType t -> SBVMonad ()
 
   -- | Gets the name out of the Ref, mostly just internal.
   getName :: RefType t -> String
@@ -219,6 +249,28 @@ class Constrainable t => SBVAble t where
   fixAbstract :: Constraints t -> EDGMonad (Constraints t)
   fixAbstract = return
 
+defaultIsConcrete :: SBVAble t => t -> SBVType t -> SBVMonad (SBV Bool)
+defaultIsConcrete v s = do
+  lv <- lit v
+  return $ s S..== lv
+
+defaultRefConcrete :: SBVAble t => String -> t -> EDGMonad (RefType t)
+defaultRefConcrete name' v = do
+  n <- ref name'
+  returnAnd n $ do
+    nv <- sbv n
+    constrain =<< isConcrete v nv
+
+defaultRefAbstract :: SBVAble t
+                   => String -> Constraints t -> EDGMonad (RefType t)
+defaultRefAbstract name' c
+  | unSAT c = error $ "Variable `" ++ name' ++ "` is unsatisfiable."
+  | otherwise = do
+    n <- ref name'
+    returnAnd n $ do
+      nv <- sbv n
+      constrain =<< isAbstract c nv
+
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
 refAmbiguous :: (SBVAble t, Show (Constraints t))
@@ -236,6 +288,14 @@ fixAmbiguous :: SBVAble t => Ambiguous t -> EDGMonad (Ambiguous t)
 fixAmbiguous Impossible   = return Impossible
 fixAmbiguous (Concrete v) = Concrete <$> fixConcrete v
 fixAmbiguous (Abstract c) = Abstract <$> fixAbstract c
+
+-- | given an anbiguous value, and a symbolic value gives you a symbolic bool
+--   for if they match.
+isAmbiguous :: SBVAble t => Ambiguous t -> SBVType t -> SBVMonad (SBV Bool)
+isAmbiguous Impossible   _ = return $ S.literal False
+isAmbiguous (Concrete v) s = isConcrete v s
+isAmbiguous (Abstract c) s = isAbstract c s
+
 
 -- | Like the usual `sbv` but errors when a duplicate element is created.
 --   Also take in a typename for error messagesa

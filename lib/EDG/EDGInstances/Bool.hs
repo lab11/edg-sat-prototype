@@ -48,25 +48,13 @@ instance SBVAble Bool where
   ref :: String -> EDGMonad (Ref Bool)
   ref name = let n = Ref name in returnAnd n (sbvNoDup "Bool" boolRef n)
 
-  refConcrete :: String -> Bool -> EDGMonad (Ref Bool)
-  refConcrete name' v = do
-    n <- ref name'
-    returnAnd n $ do
-      nv <- sbv n
-      lv <- lit v
-      -- And now we assert that the value we created with `ref` has the
-      -- correct concrete result.
-      constrain $ (S..==) nv lv
-
-  refAbstract :: String -> BoolCons -> EDGMonad (Ref Bool)
-  refAbstract name' (BoolCons (OneOf s)) = do
-    n <- ref name'
-    returnAnd n $ do
-      nv  <- sbv n
-      lvs <- mapM lit (Set.toList s)
-      case lvs of
-        [] -> throw $ "Constraints for bool `" ++ show name' ++ "` insoluble."
-        (ts) -> constrain $ S.bAny ((S..==) nv) lvs
+  isAbstract :: BoolCons -> SBV Bool -> SBVMonad (SBV Bool)
+  isAbstract (BoolCons (OneOf sb)) s = do
+    return $ case lvs of
+      []   -> S.literal False
+      (ts) -> S.bAny ((S..==) s) lvs
+    where
+      lvs = map S.literal (Set.toList sb)
 
   sbv :: Ref Bool -> SBVMonad (SBV Bool)
   sbv r = do

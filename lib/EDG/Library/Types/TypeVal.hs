@@ -46,7 +46,10 @@ import EDG.Library.Types.Record
 
 import Data.Void
 
--- Value that captures the various types of things with an assiciated kind.
+-- | Value that captures the various types of things with an assiciated kind.
+--   first param tells us how to disambiguate the types for each constructor
+--   second param contains information about the type of the Record constructor
+--   exactly what that means is up to the term
 data Kinded a b where
   Int    :: (KVAble a) => KInt    a   -> Kinded a b
   Bool   :: (KVAble a) => KBool   a   -> Kinded a b
@@ -133,16 +136,16 @@ instance KVAble Knd where
   type KFloat  Knd   = ()
   type KString Knd   = ()
   type KUID    Knd   = ()
-  type KRecord Knd b = Map String b
+  type KRecord Knd b = b
   type KTop    Knd   = ()
   type KBottom Knd   = ()
 
 type Kind' = Kinded Knd
 
-newtype Kind = Kind { getKnd :: Kind' Kind }
+newtype Kind = Kind { getKnd :: Kind' (Map String Kind)}
   deriving (Show, Read, Eq)
 
-instance Newtype Kind (Kind' Kind) where
+instance Newtype Kind (Kind' (Map String Kind)) where
   pack = Kind
   unpack = getKnd
 

@@ -51,26 +51,17 @@ instance SBVAble UID' where
   ref :: String -> EDGMonad (Ref UID')
   ref name = let n = Ref name in returnAnd n (sbvNoDup "UID" uidRef n)
 
-  refConcrete :: String -> UID' -> EDGMonad (Ref UID')
-  refConcrete name' s = do
-    n <- ref name'
-    returnAnd n $ do
-      nv <- sbv n
-      lv <- lit s
-      constrain $ nv S..== lv
+  isAbstract :: UIDCons -> SBV UID' -> SBVMonad (SBV Bool)
+  isAbstract UCTop     _ = return $ S.literal False
+  isAbstract UCBottom  _ = return $ S.literal True
+  isAbstract (UCVal v) s = isConcrete v s
+  isAbstract UCNew     _ = error $ "Unfixed UCNew slipped through "
+    ++ "to the second pass"
 
   refAbstract :: String -> UIDCons -> EDGMonad (Ref UID')
   refAbstract name' c
-    | unSAT c       = throw $ "No valid solution for UID' " ++ show name' ++ "."
-    | UCTop    <- c = throw $ "No valid solution for UID' " ++ show name' ++ "."
-    | UCBottom <- c = ref name'
     | UCNew    <- c = fixAbstract UCNew >>= refAbstract name'
-    | UCVal u <- c = do
-      n   <- ref name'
-      returnAnd n $ do
-        nv <- sbv n
-        lv <- lit u
-        constrain $ nv S..== lv
+    | otherwise = defaultRefAbstract name' c
 
   sbv :: Ref UID' -> SBVMonad (SBV UID')
   sbv r = do

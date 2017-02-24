@@ -53,33 +53,18 @@ instance SBVAble String where
   ref :: String -> EDGMonad (Ref String)
   ref name = let n = Ref name in returnAnd n (sbvNoDup "String" stringRef n)
 
-  refConcrete :: String -> String -> EDGMonad (Ref String)
-  refConcrete name' s = do
-    n <- ref name'
-    returnAnd n $ do
-      nv <- sbv n
-      lv <- lit s
-      constrain $ nv S..== lv
-
-  refAbstract :: String -> StringCons -> EDGMonad (Ref String)
-  refAbstract name' c
-    | unSAT c = throw $ "No valid solution for string " ++ show name' ++ "."
-    | otherwise = do
-      n <- ref name'
-      returnAnd n $ case c of
-        SCBottom -> return ()
-        (SCOneOf (OneOf m)) -> do
-          nv  <- sbv n
-          lvs <- mapM lit (Set.toList m)
-          case lvs of
-            [] -> throw $ "Constraints for string `" ++ show name' ++ "` insoluble."
-            ts -> constrain $ S.bAny ((S..==) nv) ts
-        (SCNoneOf (NoneOf m)) -> do
-          nv <- sbv n
-          lvs <- mapM lit (Set.toList m)
-          case lvs of
-            [] -> return ()
-            ts -> constrain $ S.bAll ((S../=) nv) ts
+  isAbstract :: StringCons -> SBV String -> SBVMonad (SBV Bool)
+  isAbstract SCBottom _ = return $ S.literal True
+  isAbstract (SCOneOf (OneOf os)) s = do
+    lvs <- mapM lit (Set.toList os)
+    return $ case lvs of
+      [] -> S.literal False
+      ts -> S.bAny ((S..==) s) ts
+  isAbstract (SCNoneOf (NoneOf ns)) s = do
+    lvs <- mapM lit (Set.toList ns)
+    return $ case lvs of
+      [] -> S.literal True
+      ts -> S.bAll ((S../=) s) ts
 
   sbv :: Ref String -> SBVMonad (SBV String)
   sbv r = do
@@ -91,12 +76,13 @@ instance SBVAble String where
         add r s
         return s
 
-  lit :: String     -> SBVMonad (SBV String)
+  lit :: String -> SBVMonad (SBV String)
   lit str = do
     empty <- uses @SBVS stringDecode (Bimap.null)
     case empty of
       -- If the Bimap is empty just insert with an index of 0
-      True -> (stringDecode @SBVS %= Bimap.insert 0 str) >> (return . reWrap $ S.literal 0)
+      True -> (stringDecode @SBVS %= Bimap.insert 0 str)
+        >> (return . reWrap $ S.literal 0)
       False -> do
         exists <- uses @SBVS stringDecode (Bimap.lookupR str)
         case exists of
@@ -122,7 +108,6 @@ instance SBVAble String where
   getName = unpack
 
 instance InvertSBV String where
-
 
   -- TODO :: Change the entire implementation so that you can decode with only
   --         the gather state. This means that all of those literal invocations

@@ -196,6 +196,8 @@ library
     ether >= 0.4.0.2, 
     mtl >= 2.2.1,
     transformers >= 0.4.2,
+    -- Generics 
+    syb >= 0.6,
     -- -- Provides tagged monads, so that we can remove all those 
     -- --   fucking `(lift . lift)`s
     -- ether >= 0.3.0.0,

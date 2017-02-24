@@ -51,46 +51,26 @@ instance SBVAble Float where
   ref :: String -> EDGMonad (Ref Float)
   ref name = let n = Ref name in returnAnd n (sbvNoDup "Float" floatRef n)
 
-  refConcrete :: String -> Float -> EDGMonad (Ref Float)
-  refConcrete name' s = do
-    n <- ref name'
-    returnAnd n $ do
-      nv <- sbv n
-      lv <- lit s
-      constrain $ nv S..== lv
-
-  refAbstract :: String -> FloatCons -> EDGMonad (Ref Float)
-  refAbstract name' c
-    | unSAT c = throw $ "No valid solution for float " ++ show name' ++ "."
-    | otherwise = do
-      n <- ref name'
-      returnAnd n $ case c of
-        FCBottom -> return ()
-        FCOneOf (OneOf m) -> do
-          nv <- sbv n
-          lvs <- mapM lit (Set.toList m)
-          case lvs of
-            [] -> throw $ "Contraints for float `" ++ show n ++ "` insoluble."
-            ts -> constrain $ S.bAny ((S..==) nv) ts
-        FCRange (Range lb ub) -> do
-          case lb of
-            Nothing -> return ()
-            Just (LowerBound inc val) -> do
-              nv <- sbv n
-              lv <- lit val
-              case inc of
-                Inclusive    -> constrain $ lv S..<= nv
-                NonInclusive -> constrain $ lv S..<  nv
-                _            -> error "This should never happen"
-          case ub of
-            Nothing -> return ()
-            Just (UpperBound inc val) -> do
-              nv <- sbv n
-              lv <- lit val
-              case inc of
-                Inclusive    -> constrain $ lv S..>= nv
-                NonInclusive -> constrain $ lv S..>  nv
-                _            -> error "This should never happen"
+  isAbstract :: FloatCons -> SBV Float -> SBVMonad (SBV Bool)
+  isAbstract FCBottom _ = return $ S.literal True
+  isAbstract (FCOneOf (OneOf m)) s
+    = return $ case lvs of
+      [] -> S.literal False
+      ts -> S.bAny ((S..==) s) ts
+    where
+      lvs = map S.literal (Set.toList m)
+  isAbstract (FCRange (Range lb ub)) s = return $ lbCons S.&&& ubCons
+    where
+      lbCons = case lb of
+        Nothing -> S.literal True
+        Just (LowerBound Inclusive    val) -> (S.literal val) S..<= s
+        Just (LowerBound NonInclusive val) -> (S.literal val) S..<  s
+        _ -> error "Impossible State"
+      ubCons = case ub of
+        Nothing -> S.literal True
+        Just (UpperBound Inclusive    val) -> (S.literal val) S..>= s
+        Just (UpperBound NonInclusive val) -> (S.literal val) S..>  s
+        _ -> error "Impossible State"
 
   sbv :: Ref Float -> SBVMonad (SBV Float)
   sbv r = do

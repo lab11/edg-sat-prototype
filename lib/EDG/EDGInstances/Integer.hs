@@ -50,49 +50,36 @@ instance SBVAble Integer where
   ref :: String -> EDGMonad (Ref Integer)
   ref name = let n = Ref name in returnAnd n (sbvNoDup "Integer" integerRef n)
 
-  refConcrete :: String -> Integer -> EDGMonad (Ref Integer)
-  refConcrete name' s = do
-    n <- ref name'
-    returnAnd n $ do
-      nv <- sbv n
-      lv <- lit s
-      constrain $ nv S..== lv
-
-  refAbstract :: String -> IntCons -> EDGMonad (Ref Integer)
-  refAbstract name' c
-    | unSAT c = throw $ "No valid solution for Integer " ++ show name' ++ "."
-    | ICBottom    <- c = ref name'
-    | ICOneOf m   <- c = do
-      n <- ref name'
-      returnAnd n $ do
-        nv  <- sbv n
-        lvs <- mapM lit (Set.toList . unpack $ m)
-        case lvs of
-          [] -> throw $ "Contraints for Integer `" ++ show n ++ "` insoluble."
-          ts -> constrain $ S.bAny ((S..==) nv) ts
-    | ICOther{..} <- c = do
-      n <- ref name'
-      returnAnd n $ do
-        flip mapM_ none $ \ (NoneOf m) -> do
-          nv  <- sbv n
-          lvs <- mapM lit (Set.toList m)
-          case lvs of
-            [] -> return ()
-            ts -> constrain $ S.bAll ((S../=) nv) ts
-        flip mapM_ lower $ \ (LowerBound inc val) -> do
-          nv <- sbv n
-          lv <- lit val
-          case inc of
-            Inclusive    -> constrain $ lv S..<= nv
-            NonInclusive -> constrain $ lv S..<  nv
-            _            -> error "This should never happen"
-        flip mapM_ upper $ \ (UpperBound inc val) -> do
-          nv <- sbv n
-          lv <- lit val
-          case inc of
-            Inclusive    -> constrain $ lv S..>= nv
-            NonInclusive -> constrain $ lv S..>  nv
-            _            -> error "This should never happen"
+  isAbstract :: IntCons -> SBV Integer -> SBVMonad (SBV Bool)
+  isAbstract ICBottom _ = return $ S.literal True
+  isAbstract (ICOneOf m) s = do
+    return $ case lvs of
+      [] -> S.literal False
+      ts -> S.bAny ((S..==) s) ts
+    where
+      lvs = map S.literal (Set.toList . unpack $ m)
+  isAbstract ICOther{..} s = do
+    n <- noCons
+    let l = lbCons
+        u = ubCons
+    return $ S.bAnd [n,l,u]
+    where
+      noCons = case none of
+        Nothing -> return $ S.literal True
+        Just m -> let lvs = map S.literal (Set.toList . unpack $ m) in
+          return $ case lvs of
+            [] -> S.literal True
+            ts -> S.bAll ((S../=) s) ts
+      lbCons = case lower of
+        Nothing -> S.literal True
+        Just (LowerBound Inclusive    val) -> (S.literal val) S..<= s
+        Just (LowerBound NonInclusive val) -> (S.literal val) S..<  s
+        _ -> error "Impossible State"
+      ubCons = case upper of
+        Nothing -> S.literal True
+        Just (UpperBound Inclusive    val) -> (S.literal val) S..>= s
+        Just (UpperBound NonInclusive val) -> (S.literal val) S..>  s
+        _ -> error "Impossible State"
 
   sbv :: Ref Integer -> SBVMonad (SBV Integer)
   sbv r = do
