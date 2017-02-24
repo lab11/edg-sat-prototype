@@ -16,6 +16,7 @@ import Control.Newtype
 
 import Control.Monad (foldM)
 import Control.Monad.Ether.Implicit
+import qualified Control.Monad.Ether.State.Class
 import Control.Monad.MonadSymbolic
 import Data.SBV (
     Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
@@ -157,14 +158,6 @@ getValueKind v = errContext context $ do
   where
     context = "getting kind for value with reference `" ++ show v ++ "`"
 
--- | get the recinfo for a record
-getRecInfo :: Ref Record -> SBVMonad RecInfo
-getRecInfo r = do
-  mri <- uses @SBVS recInfo (Map.lookup r)
-  case mri of
-    Just ri -> return ri
-    Nothing -> throw $ "could not find info for record `" ++ show r ++ "`"
-
 -- | Get the kind of a value reference
 valRefKind :: ValRef -> SBVMonad ValKind
 valRefKind (Int    _) = return $ Int ()
@@ -178,6 +171,18 @@ valRefKind (Record r) = errContext context $ do
   return $ Record req
   where
     context = "getting the kind of a valueRef to `" ++ show r ++ "`"
+
+    -- | Get the information for a record.
+    getRecInfo :: Ref Record -> SBVMonad RecInfo
+    getRecInfo r = errContext context $ do
+      -- Get the record info
+      mri <- uses @SBVS recInfo (Map.lookup r)
+      case mri of
+        Just ri -> return ri
+        Nothing -> throw $ "No recordInfo for record `" ++ show r ++ "`"
+      where
+        context = "getRecInfo `" ++ show r ++ "`"
+
 valRefKind (KVBot _) = return $ KVBot ()
 valRefKind (KVTop v) = absurd v
 
@@ -249,7 +254,13 @@ recConsKind ra@RCAmbig{..} = errContext context $ mapM ambigValKind rcMap
 
 -- | Ensure that a value has a given kind
 assertValKind :: Ref Value -> ValKind -> EDGMonad ()
-assertValKind v k = errContext context $ do
+assertValKind = assertValKind' 0
+
+-- | Ensure that a value has a given kind
+--
+--   TODO :: change to assertValueKind to make the naming a bit more consistent
+assertValKind' :: Int -> Ref Value -> ValKind -> EDGMonad ()
+assertValKind' d v k = errContext context $ do
   mvi <- uses @GS valInfo (Map.lookup v)
   vi <- case mvi of
     Nothing -> throw $ "No info found for value at ref `" ++ show v ++ "`"
@@ -273,13 +284,13 @@ assertValKind v k = errContext context $ do
     (UID    (), KVBot eq) -> generateDatum eq ref UID
     -- Even if we already have records, we need to make sure they update
     -- properly with any possible new fields.
-    (Record rc, Record r) -> assertRecordEqCl r rc
+    (Record rc, Record r) -> assertRecordEqCl' d r rc
     -- If we're creating a new record, we've got to both create new ValRer
     -- and make sure the fields are setup right, we do this by punting to
     -- ourselves.
     (Record rc, KVBot eq) -> do
       generateDatum eq ref Record
-      assertValKind v k
+      assertValKind' d v k
     -- IF there's no contraint, there's no contraint
     (KVBot (),_) -> return ()
     (KVTop (),_) -> throw $ "Tried to assert that kind of `" ++ show v ++ "` "
@@ -313,10 +324,13 @@ assertValKind v k = errContext context $ do
             context = "updating `" ++ show i ++ "` with new kind `" ++ show k
               ++ "`"
 
-
 -- | Ensure that two values have the same kind
 assertValKindEq :: Ref Value -> Ref Value -> EDGMonad ()
-assertValKindEq a b = errContext context $ do
+assertValKindEq = assertValKindEq' 0
+
+-- | Ensure that two values have the same kind
+assertValKindEq' :: Int ->  Ref Value -> Ref Value -> EDGMonad ()
+assertValKindEq' d a b = errContext context $ do
   avi <- getVI a
   bvi <- getVI b
   let avr = avi ^. valRef
@@ -338,9 +352,17 @@ assertValKindEq a b = errContext context $ do
     (UID    _,  _        ) -> assertBoth $ UID ()
     (_        , UID    _ ) -> assertBoth $ UID ()
     --
-    (Record a, Record b) -> undefined
-    (Record a, _) -> undefined
-    (_, Record b) -> undefined
+    (Record ar, Record br) -> do
+      eqa <- getRecEqCl ar
+      eqb <- getRecEqCl br
+      joinRecordEqCl' d eqa eqb
+      return ()
+    (Record ar, _) -> do
+      aeq <- getRecEqCl ar
+      assertValKind' d b (Record aeq)
+    (_, Record br) -> do
+      beq <- getRecEqCl br
+      assertValKind' d a (Record beq)
     --
     (KVTop v,_) -> absurd v
     (_,KVTop v) -> absurd v
@@ -348,8 +370,8 @@ assertValKindEq a b = errContext context $ do
     (KVBot eqo, KVBot eqn) -> replaceEqClass eqo eqn
   where
     assertBoth k = do
-      assertValKind a k
-      assertValKind b k
+      assertValKind' d a k
+      assertValKind' d b k
 
     context = "assertValKindEq `" ++ show a ++ "` `" ++ show b ++ "`"
 
@@ -372,66 +394,261 @@ assertValKindEq a b = errContext context $ do
           | KVBot eqv <- viValRef, eqv == eqo = return i{viValRef = KVBot eqn}
           | otherwise = return $ i
 
--- | Given two record equality classes get their join, replace both original
---   classes with the new one, and create all the variables as needed.
-joinRecordEqCl :: RecEqClass -> RecEqClass -> EDGMonad ()
-joinRecordEqCl eqa eqb = do
-  ka <- getRecKind eqa
-  kb <- getRecKind eqb
-  eqn <- combineKinds ka kb
-  replaceKind eqa eqn
-  replaceKind eqa eqn
+-- Join two record equivalence classes.
+joinRecordEqCl :: RecEqClass -> RecEqClass -> EDGMonad RecEqClass
+joinRecordEqCl = joinRecordEqCl' 0
+
+-- Join two record equivalence classes.
+joinRecordEqCl' :: Int -> RecEqClass -> RecEqClass -> EDGMonad RecEqClass
+joinRecordEqCl' d eqa eqb
+  -- Depth check
+  | d > maxDepth = errContext context $ throw $ "recursion depth of "
+    ++ show d ++ "reached. Aborting due to likely cycle in record field "
+    ++ "instantiations."
+  -- Combine the two EqClasses, merging the neccesary fields, and
+  -- set all records with the original eqClasses to the new one.
+  | otherwise = errContext context $ do
+    let d' = d + 1
+    -- Get the kinds
+    ka <- getRecKind eqa
+    kb <- getRecKind eqb
+    -- Get the new combined eqclass
+    eqn <- combineKinds' d' ka kb
+    -- Replace the elements with that new eqclass
+    replaceKind' d' eqa eqn
+    replaceKind' d' eqa eqn
+    -- return the new eqclass
+    return eqn
   where
     context = "joinRecordEqCl `" ++ show eqa ++ "` `" ++ show eqb ++ "`"
+    -- The maximum allowed recursive depth.
+    maxDepth = 20
 
-    -- | gets the kind of a record given the eq class
-    getRecKind eq = do
-      mk <- uses @GS recordKinds (Map.lookup eq)
-      case mk of
-        Nothing -> throw $ "could not find kind for Equality class `"
-          ++ show eq ++ "`"
-        Just k -> return k
+-- | gets the kind of a record given the eq class
+getRecKind :: RecEqClass -> EDGMonad RecKind
+getRecKind eq = errContext context $ do
+  mk <- uses @GS recordKinds (Map.lookup eq)
+  case mk of
+    Nothing -> throw $ "could not find kind for Equality class `"
+      ++ show eq ++ "`"
+    Just k -> return k
+  where
+    context = "gerRecKind `" ++ show eq ++ "`"
 
-    -- | given two kinds calculates a new combined kind for them
-    combineKinds :: RecKind -> RecKind -> EDGMonad RecEqClass
-    combineKinds ka kb = errContext context $ do
-      let ufa = Map.difference ka kb
-          ufb = Map.difference kb ka
-          uf = Map.union ufa ufb
-          sp = Map.intersectionWith (,) ka kb -- :: Map String (ValKind,ValKind)
-      undefined
+-- | Get the information for a record.
+getRecInfo :: Ref Record -> EDGMonad RecInfo
+getRecInfo r = errContext context $ do
+  -- Get the record info
+  mri <- uses @GS recInfo (Map.lookup r)
+  case mri of
+    Just ri -> return ri
+    Nothing -> throw $ "No recordInfo for record `" ++ show r ++ "`"
+  where
+    context = "getRecInfo `" ++ show r ++ "`"
+
+-- | get equality class.
+getRecEqCl :: Ref Record -> EDGMonad RecEqClass
+getRecEqCl r = errContext context $ (^. eqClass) <$> getRecInfo r
+  where
+    context = "getRecEqCl `" ++ show r ++ "`"
+
+-- gets the kind for a record from a reference
+getRecKindFromRef :: Ref Record -> EDGMonad RecKind
+getRecKindFromRef r = errContext context $ do
+  RecInfo{..} <- getRecInfo r
+  getRecKind riEqClass
+  where
+    context = "getRecKindFromRef `" ++ show r ++ "`"
+
+-- | given two kinds calculates a new combined kind for them
+combineKinds :: RecKind -> RecKind -> EDGMonad RecEqClass
+combineKinds = combineKinds' 0
+
+-- | given two kinds calculates a new combined kind for them
+combineKinds' :: Int -> RecKind -> RecKind -> EDGMonad RecEqClass
+combineKinds' d ka kb = errContext context $ do
+      -- Unique fields in a
+  let ufa = Map.difference ka kb
+      -- Unique fields in b
+      ufb = Map.difference kb ka
+      -- Fields in only one kind
+      uf = Map.union ufa ufb
+      -- Pairs of types for keys in both kinds.
+      sp = Map.intersectionWith (,) ka kb -- :: Map String (ValKind,ValKind)
+  -- Make sure all the fields are added together and grab the new kind
+  sf <- Map.traverseWithKey (\ k v -> errContext ("Field `" ++ k ++ "`") $
+          (uncurry $ intersectKinds' d) v) sp
+  -- add the new kind to the map and return the new eqClass
+  addRecordKind sf
+  where
+    context = "combineKinds d:`" ++ show d ++ "` ka:`" ++ show ka ++ "` kb:`"
+      ++ show kb ++ "`"
+
+-- | combine two ValKinds to get a third, with all the needed changes to
+--   the existing set of types. Should be fine if types are non-recursive.
+intersectKinds :: ValKind -> ValKind -> EDGMonad ValKind
+intersectKinds = intersectKinds' 0
+
+-- | combine two ValKinds to get a third, with all the needed changes to
+--   the existing set of types. Should be fine if types are non-recursive.
+intersectKinds' :: Int -> ValKind -> ValKind -> EDGMonad ValKind
+intersectKinds' d vka vkb
+  -- Error cases for KVTop
+  | KVTop () <- vka = errContext context . throw $ "Found an invalid "
+    ++ "KVTop () when checking kind for ka `" ++ show vka ++ "`"
+  | KVTop () <- vkb = errContext context . throw $ "Found an invalid "
+    ++ "KVTop () when checking kind for kb `" ++ show vkb ++ "`"
+  -- Simple ones, where we're just checking equality
+  | Int    () <- vka, Int    () <- vkb = return $ Int    ()
+  | Bool   () <- vka, Bool   () <- vkb = return $ Bool   ()
+  | Float  () <- vka, Float  () <- vkb = return $ Float  ()
+  | String () <- vka, String () <- vkb = return $ String ()
+  | UID    () <- vka, UID    () <- vkb = return $ UID    ()
+  -- The record combination forces us to recurse and make sure we're
+  -- doing it right.
+  | Record reqa <- vka, Record reqb <- vkb = errContext context $
+    Record <$> joinRecordEqCl' d reqa reqb
+  -- When one of the elements is a bottom use the other kind.
+  | KVBot () <- vka = return vkb
+  | KVBot () <- vkb = return vka
+  -- Remaining is cases where there is a kind mismatch.
+  | otherwise = errContext context $ throw $ "kinds `" ++ show vka
+    ++ "` and `" ++ show vkb ++ "` don't match."
+  where
+    context = "intersectKinds `" ++ show d ++ "` `" ++ show vka ++ "` `"
+      ++ show vkb ++ "`"
+
+-- | Goes through all records, and if a record has the old kind, replaces
+--   it with the new kind, and run checks to make sure all values are
+--   initialized correctly.
+replaceKind :: RecEqClass -> RecEqClass -> EDGMonad ()
+replaceKind = replaceKind' 0
+
+-- | Goes through all records, and if a record has the old kind, replaces
+--   it with the new kind, and run checks to make sure all values are
+--   initialized correctly.
+replaceKind' :: Int -> RecEqClass -> RecEqClass -> EDGMonad ()
+replaceKind' d eqo eqn = errContext context $ do
+  recInfo @GS %= Map.mapWithKey repSingleRecInfo
+  ris <- use @GS recInfo
+  Map.traverseWithKey (condCreateFields d) ris
+  return ()
+  where
+    context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
+      ++ show eqn ++ "`"
+
+    -- | if the recInfo points to our old element, replace it with the new
+    --   one.
+    repSingleRecInfo :: Ref Record -> RecInfo -> RecInfo
+    repSingleRecInfo r ri@RecInfo{..}
+      | riEqClass == eqo = ri{riEqClass=eqn}
+      | otherwise = ri
+
+    -- | if the record has the new eqClass then make create the fields
+    --   if needed.
+    condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
+    condCreateFields d r ri@RecInfo{..}
+      | riEqClass == eqn = createFields' d r
+      | otherwise = return ()
+
+-- | makes sure all the variables are correctly initialise for a given
+--   record. Recursively verifies that the kinds of things are correct.
+createFields :: Ref Record -> EDGMonad ()
+createFields = createFields' 0
+
+-- | makes sure all the variables are correctly initialise for a given
+--   record. Recursively verifies that the kinds of things are correct.
+createFields' :: Int -> Ref Record -> EDGMonad ()
+createFields' d r = errContext context $ do
+  -- Get info and kind
+  ri <- getRecInfo r
+  rk <- getRecKind $ ri ^. eqClass
+  -- and the fields that are initialized
+  let rf = ri ^. fields
+      rd = Map.difference rf rk
+  -- Make sure that there are no initialized fields that don't actually
+  -- appear in the new kind. We should only ever be gaining fields.
+  when (not $ Map.null rd) $ throw $ "Record `" ++ show r ++ "` has fields"
+    ++ " " ++ show (Map.keys rd) ++ " that are not in the kind `"
+    ++ show rk ++ "`, this should never happen."
+  -- Go through fields in the kind, and if the value exists ensure it
+  -- has the correct kind, if it doesn't exist initialize it properly.
+  mapM_ (makeField d r) $ Map.keysSet rk
+  where
+    context = "createFields `" ++ show d ++ "` `" ++ show r ++ "`"
+
+    -- Given a particular record, make sure the field exists, if not
+    -- initialize it, then ensure that it has the correct type.
+    makeField :: Int -> Ref Record -> String -> EDGMonad ()
+    makeField d r fn = errContext context $ do
+      ri <- getRecInfo r
+      -- get a kind for the field
+      mrfk <- Map.lookup fn <$> getRecKindFromRef r
+      rfk <- case mrfk of
+        Nothing -> throw $ "No field `" ++ fn ++ "` found in record `"
+          ++ show r ++ "` this should never happen."
+        Just fk -> return fk
+      -- get the map of fields
+      let rf = ri ^. fields
+      -- get the references to the used flag and the value
+      (ur, vr) <- case Map.lookup fn rf of
+        Nothing -> do
+          -- gen the refs
+          u <- ref $ recUsedName  (unpack r) fn
+          v <- ref $ recValueName (unpack r) fn
+          -- update the field with the new information
+          recInfo @GS %= Map.adjust (fields %~ Map.insert fn (u,v)) r
+          return (u,v)
+        Just t -> return t
+      -- Assert that the values have the correct type.
+      assertValKind vr rfk
       where
-        context = "combineKinds `" ++ show ka ++ "` `" ++ show kb ++ "`"
+        context = "makeField `" ++ show d ++ "` `" ++ show r ++ "` `"
+          ++ fn ++ "`"
 
-    -- | Goes through all records, and if a record has the old kind, replaces
-    --   it with the new kind, and runs checks to make sure all values are
-    --   initialized as needed.
-    replaceKind :: RecEqClass -> RecEqClass -> EDGMonad ()
-    replaceKind eqo eqn = undefined
 
-    -- | makes sure all the variables are correctly initialise for a given
-    --   record.
-    createFields :: Ref Record -> EDGMonad ()
-    createFields = undefined
+-- | Given two record equality classes get their join, replace both original
+--   classes with the new one, and create all the variables as needed.
+joinRecord :: Ref Record -> Ref Record -> EDGMonad ()
+joinRecord = joinRecord' 0
+
+-- | Given two record equality classes get their join, replace both original
+--   classes with the new one, and create all the variables as needed.
+joinRecord' ::Int -> Ref Record -> Ref Record -> EDGMonad ()
+joinRecord' d ra rb = errContext context $ do
+  eqa <- (^. eqClass) <$> getRecInfo ra
+  eqb <- (^. eqClass) <$> getRecInfo rb
+  joinRecordEqCl' d eqa eqb
+  return ()
+  where
+    context = "joinRecord `" ++ show ra ++ "` `" ++ show rb ++ "`"
 
 -- | Ensure that a particular record has a kind that encapsulates the given
 --   one
 assertRecordEqCl :: Ref Record -> RecEqClass -> EDGMonad ()
-assertRecordEqCl r eq = errContext context $ do
-  mri <- uses @GS recInfo (Map.lookup r)
-  req <- case mri of
-    Nothing -> throw $ "could not find recInfo for record `" ++ show r ++ "`"
-    Just RecInfo{..} -> return riEqClass
-  joinRecordEqCl eq req
+assertRecordEqCl = assertRecordEqCl' 0
+
+-- | Ensure that a particular record has a kind that encapsulates the given
+--   one
+assertRecordEqCl' :: Int -> Ref Record -> RecEqClass -> EDGMonad ()
+assertRecordEqCl' d r eq = errContext context $ do
+  ri@RecInfo{..} <- getRecInfo r
+  joinRecordEqCl' d eq riEqClass
+  return ()
   where
     context = "assertRecordEqCL `" ++ show r ++ "` `" ++ show eq ++ "`"
 
 -- | Ensure that a particular record has a kind that encapsulates the given
 --   one
 assertRecordKind :: Ref Record -> RecKind -> EDGMonad ()
-assertRecordKind r k = errContext context $ do
+assertRecordKind = assertRecordKind' 0
+
+-- | Ensure that a particular record has a kind that encapsulates the given
+--   one
+assertRecordKind' :: Int -> Ref Record -> RecKind -> EDGMonad ()
+assertRecordKind' d r k = errContext context $ do
   ec <- addRecordKind k
-  assertRecordEqCl r ec
+  assertRecordEqCl' d r ec
   where
     context = "assertRecordKind `" ++ show r ++ "` `" ++ show k ++ "`"
 
@@ -457,6 +674,8 @@ instance SBVAble Value where
     kr <- ref . valKindName $ name
     let rf = Ref name
         vr = KVBot eq
+    exists <- uses @GS valInfo $ Map.member rf
+    when exists $ throw $ "value ref `" ++ show rf ++ "` already exists."
     valInfo @GS %= Map.insert rf ValInfo{viKindRef = kr, viValRef = vr}
     returnAnd rf (sbv rf)--(errContext context $ sbvNoDup "Value" valueRef rf)
     where
@@ -730,19 +949,44 @@ instance EDGOrd Value where
   lteE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
   lteE = ordBinOp (S..<=)
 
-instance S.EqSymbolic RecSBV --where
---
---   (.==) a@RecSBV{rsFields=ma} b@RecSBV{rsFields=mb}
---     | Map.keysSet ma /= Map.keysSet mb = S.literal False
---     | otherwise = S.bAnd . Map.elems $ Map.intersectionWith (S..==) ma mb
---
---   (./=) a@RecSBV{rsFields=ma} b@RecSBV{rsFields=mb}
---     | Map.keysSet ma /= Map.keysSet mb = S.literal True
---     | otherwise = S.bOr . Map.elems $ Map.intersectionWith (S../=) ma mb
+instance S.EqSymbolic RecSBV where
+
+  (.==) a@RecSBV{rsFields=ma} b@RecSBV{rsFields=mb}
+    | Map.keysSet ma /= Map.keysSet mb = S.literal False
+    | otherwise = S.bAnd . Map.elems $ Map.intersectionWith combineFields ma mb
+    where
+      -- Make sure both fields are in use *and* the values are identical.
+      combineFields (abr,avr) (bbr,bvr) = (abr S..== bbr) S.&&& (avr S..== bvr)
+
+  (./=) a@RecSBV{rsFields=ma} b@RecSBV{rsFields=mb}
+    | Map.keysSet ma /= Map.keysSet mb = S.literal True
+    | otherwise = S.bOr . Map.elems $ Map.intersectionWith combineFields ma mb
+    where
+      -- Make sure fields don't have the same usage state *or* the values are
+      -- different.
+      combineFields (abr,avr) (bbr,bvr) = (abr S../= bbr) S.||| (avr S../= bvr)
 
 instance SBVAble Record where
   type SBVType Record = RecSBV
   type RefType Record = Ref Record
+
+  ref :: String -> EDGMonad (Ref Record)
+  ref name = errContext context $ do
+    -- get the new ref, make sure it exists.
+    let rf  = Ref name
+    exists <- uses @GS recInfo $ Map.member rf
+    when exists $ throw $ "value ref `" ++ show rf ++ "` already exists."
+    -- initial maps of fields & kind is empty
+    let fs = Map.empty
+        kn = Map.empty
+    -- get the eqclass for the new kinds
+    eq <- addRecordKind kn
+    -- insert it into the usual map
+    recInfo @GS %= Map.insert rf RecInfo{riFields=fs, riEqClass=eq}
+    returnAnd rf $ errContext context $ undefined
+    where
+      context = "(ref :: Record) `" ++ name ++ "`"
+
 
 instance InvertSBV Record
 

@@ -176,6 +176,11 @@ newRecEqClass = do
 
 -- | Catch an expcetion and append a string to it, so that we can have better
 --   knowledge of what's actually happening.
+--
+--   TODO :: Replace this form of error management with something that
+--           uses GHC.Stack and errorWithCallStack.
+--           Alternately something that uses
+--           Language.Haskell.TH.Syntax.location with a custom error type.
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
 errContext s e = do
   n <- monadName

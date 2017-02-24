@@ -120,7 +120,7 @@ data ValueSBV = ValueSBV {
 
 data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
-    riFields  :: Map String (Ref Value)
+    riFields  :: Map String (Ref Bool, Ref Value)
   , riEqClass :: RecEqClass
 } deriving (Show, Eq, Read)
 
@@ -128,6 +128,7 @@ data RecInfo = RecInfo {
 data RecSBV = RecSBV {
   -- the elems are (<is field used in the record?>,<value of field>)
     rsFields :: Map String (SBV Bool,ValueSBV)
+  -- possibly a name, only for debugging purposes
   , rsRefName :: Maybe (Ref Record)
 } deriving (Show, Eq)
 
