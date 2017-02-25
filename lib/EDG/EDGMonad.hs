@@ -187,11 +187,10 @@ newRecEqClass = do
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
 errContext s e = do
   n <- monadName
-  {- T.trace (n ++ ": " ++ s) $ -}
-  catch e appendContext
+  T.trace (n ++ ": " ++ s) $  catch e (appendContext n)
   where
-    appendContext = throw . unlines
-      . (\ e -> ["In Context : " ++ s] ++ e )
+    appendContext n = throw . unlines
+      . (\ e -> [("In Context ("++n++") : ") ++ s] ++ e )
       . map ("  " ++) . lines
 
 -- | The class for contrianable types that can be written as an element in an

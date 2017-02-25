@@ -241,10 +241,12 @@ ambigValKind (Concrete v) = valueKind v
 
 -- | Adds a kind to the tracked set of kinds
 addRecordKind :: RecKind -> EDGMonad RecEqClass
-addRecordKind k = do
+addRecordKind k = errContext context $ do
   eqc <- newRecEqClass
   recordKinds @GS %= Map.insert eqc k
-  return eqc
+  errContext (context ++ " `" ++ show eqc ++ "`") $ return eqc
+  where
+    context = "addRecordKind `" ++ show k ++ "`"
 
 -- | gets the kind for a record
 recordKind :: Record -> EDGMonad RecKind
@@ -361,9 +363,19 @@ assertValKindEq' d a b = errContext context $ do
     (_        , UID    _ ) -> assertBoth $ UID ()
     --
     (Record ar, Record br) -> do
+      -- merge the equalitity classes and create missing fields
       eqa <- getRecEqCl ar
       eqb <- getRecEqCl br
       joinRecordEqCl' d eqa eqb
+      -- Get the current fields for the records and force them to share a kind
+      rfa <- (^. fields) <$> getRecInfo ar
+      rfb <- (^. fields) <$> getRecInfo br
+      let rfPairs = Map.intersectionWith (\ (_,a) (_,b) -> (a,b)) rfa rfb
+          rfMatch = Map.keysSet rfa == Map.keysSet rfb
+      when (not rfMatch) $ throw $ "Records don't have matching sets of fields"
+        ++ ".\n  Record `" ++ show ar ++ "` has fields `" ++ show rfa ++ "`"
+        ++ "\n  Record `" ++ show br ++ "` has fields `" ++ show rfb ++ "`"
+      traverse (uncurry $ assertValKindEq' d) rfPairs
       return ()
     (Record ar, _) -> do
       aeq <- getRecEqCl ar
@@ -442,7 +454,7 @@ getRecKind eq = errContext context $ do
       ++ show eq ++ "`"
     Just k -> return k
   where
-    context = "gerRecKind `" ++ show eq ++ "`"
+    context = "getRecKind `" ++ show eq ++ "`"
 
 -- | Get the information for a record.
 getRecInfo :: Ref Record -> EDGMonad RecInfo
@@ -457,7 +469,9 @@ getRecInfo r = errContext context $ do
 
 -- | get equality class.
 getRecEqCl :: Ref Record -> EDGMonad RecEqClass
-getRecEqCl r = errContext context $ (^. eqClass) <$> getRecInfo r
+getRecEqCl r = errContext context $ do
+  eqcl <- (^. eqClass) <$> getRecInfo r
+  errContext (context ++ " '" ++ show eqcl ++ "`") $ return eqcl
   where
     context = "getRecEqCl `" ++ show r ++ "`"
 
@@ -485,8 +499,8 @@ combineKinds' d ka kb = errContext context $ do
       -- Pairs of types for keys in both kinds.
       sp = Map.intersectionWith (,) ka kb -- :: Map String (ValKind,ValKind)
   -- Iteratoe over and combine all the shared fields.
-  sf <- Map.traverseWithKey (\ k v -> errContext ("Field `" ++ k ++ "`") $
-          (uncurry $ intersectKinds' d) v) sp
+  sf <- Map.traverseWithKey (\ k v -> errContext (context ++ "\n  Field `"
+      ++ k ++ "`") $ (uncurry $ intersectKinds' d) v) sp
   -- Make sure all the fields are added together and grab the new kind
   let af = Map.union sf uf
   -- add the new kind to the map and return the new eqClass
@@ -542,12 +556,25 @@ replaceKind = replaceKind' 0
 --   initialized correctly.
 replaceKind' :: Int -> RecEqClass -> RecEqClass -> EDGMonad ()
 replaceKind' d eqo eqn = errContext context $ do
+  -- Replace instances of eqo in recInfo
   recInfo @GS %= Map.mapWithKey repSingleRecInfo
+  -- Replaces instances of eqo in recordKinds
+  recordKinds @GS %= Map.map (Map.map repValKind)
+  -- Delete the old kind
+  errContext ("Deleting Kind # " ++ show eqo) $
+    recordKinds @GS %= Map.delete eqo
+  -- Ensure all the fields have the correct values created.
   ris <- use @GS recInfo
   errContext ("replaceKind ris: " ++ show ris) $
     Map.traverseWithKey (condCreateFields d) ris
   return ()
   where
+    -- Replace the thing inside a valkind
+    repValKind :: ValKind -> ValKind
+    repValKind r
+      | Record eq <- r, eq == eqo = Record eqn
+      | otherwise = r
+
     context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
       ++ show eqn ++ "`"
 
@@ -1180,40 +1207,24 @@ instance EDGEquals Record where
   unequalE :: Ref Record -> Ref Record -> String -> EDGMonad (Ref Bool)
   unequalE = recEqOp (S../=) "unequalE"
 
--- | Yeah, this class is a bit weird since it just lets you define whatever
---   version of getVal you want. This is neccesary in order to make things like
---   the Port and Module monads to work as they should, with correctly local
---   references.
---
---   In general the fuction should give you some way of retrieving a nested
---   value within a record.
-class CanGetVal t where
-  getVal :: t
-
-instance CanGetVal (String -> EDGMonad (Ref Value)) where
-  getVal s = ec $ do
-     -- Just get a value with that name if possible ...
-     --
-     -- NOTE :: This is a bit weird, since it'll just create that value if
-     --         needed. Whatever, it's kinda neccesary, esp given how the
-     --         first pass description of the system is trying to declarative
-     --         in instances where there are no errors.
-     --
-     --         (i.e. the order of top level declarations should not matter
-     --         unless there are multiple possible errors in the system in
-     --         which case the error returned is unspecified)
-    rv <- ref n
-    getValL rv l
-    where
-      ec = errContext context
-      context = "(getVal :: String -> EDGMonad (Ref Value)) `" ++ s ++ "`"
-      n:l = split '.' s
-
-instance CanGetVal (Ref Value -> String -> EDGMonad (Ref Value)) where
-  getVal = getValS
-
-instance CanGetVal (Ref Value -> [String] -> EDGMonad (Ref Value)) where
-  getVal = getValL
+getVal :: String -> EDGMonad (Ref Value)
+getVal s = ec $ do
+   -- Just get a value with that name if possible ...
+   --
+   -- NOTE :: This is a bit weird, since it'll just create that value if
+   --         needed. Whatever, it's kinda neccesary, esp given how the
+   --         first pass description of the system is trying to declarative
+   --         in instances where there are no errors.
+   --
+   --         (i.e. the order of top level declarations should not matter
+   --         unless there are multiple possible errors in the system in
+   --         which case the error returned is unspecified)
+  rv <- ref n
+  getValL rv l
+  where
+    ec = errContext context
+    context = "(getVal :: String -> EDGMonad (Ref Value)) `" ++ s ++ "`"
+    n:l = split '.' s
 
 -- | getValS lets you use a string specifier to get a value reference
 getValS :: Ref Value -> String -> EDGMonad (Ref Value)
@@ -1235,7 +1246,7 @@ getValL r l
 --   used.
 getField :: Ref Value -> String -> EDGMonad (Ref Value)
 getField rv f = ec $ do
-  eq <- addRecordKind (Map.fromList [(f,KVTop ())])
+  eq <- addRecordKind (Map.fromList [(f,KVBot ())])
   assertValKind rv (Record eq)
   mvi <- uses @GS valInfo (Map.lookup rv)
   vi <- case mvi of
@@ -1251,7 +1262,7 @@ getField rv f = ec $ do
   case Map.lookup f fs of
     Nothing -> throw $ "No field `" ++ f ++ "` exists in record `" ++ show rr
       ++ "`"
-    Just (_,v) -> return v
+    Just (_,v) -> errContext (context ++ " ri:" ++ show ri) $ return v
   where
     ec = errContext context
     context = "getField `" ++ show rv ++ "` `" ++ f ++ "`"
