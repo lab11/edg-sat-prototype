@@ -49,7 +49,10 @@ instance SBVAble Float where
   type RefType Float = Ref Float
 
   ref :: String -> EDGMonad (Ref Float)
-  ref name = let n = Ref name in returnAnd n (sbvNoDup "Float" floatRef n)
+  ref name = let n = Ref name in ec $ returnAnd n (ec $ sbv n)
+    where
+      ec :: (NamedMonad m, MonadExcept String m) => m a -> m a
+      ec = errContext $ "(ref :: String) `" ++ name ++ "`"
 
   isAbstract :: FloatCons -> SBV Float -> SBVMonad (SBV Bool)
   isAbstract FCBottom _ = return $ S.literal True

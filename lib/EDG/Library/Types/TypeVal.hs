@@ -119,12 +119,12 @@ type Value' = Kinded Val
 
 -- | This is the fixed point we're going to be working with when we have a
 --   typed value lying aorund.
-newtype Value = Value { getVal :: Value' Value}
+newtype Value = Value { getValue :: Value' Value}
   deriving (Eq, Show, Read)
 
 instance Newtype Value (Value' Value) where
   pack   = Value
-  unpack = getVal
+  unpack = getValue
 
 -- | This time we fill the type with unit so that we can use the flags
 --   themselves as markers for the kind of a value.

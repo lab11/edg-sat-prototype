@@ -47,6 +47,7 @@ import EDG.Predicates
 
 import EDG.EDGMonad
 import EDG.EDGDatatype
+
 import EDG.EDGInstances
 
 pPrint :: (MonadIO m, Show a) => a -> m ()
@@ -108,30 +109,40 @@ testProblem = do
     , "field2" <~= String $ bottom
     , "field3" <~= Float $ [lessThan 12, greaterThan 3]
     , "field4" <~= Record $ bottom
+    , "field5" <~= KVBot ()
     ])
   --b2 <- refAbstract @Value "b2" (pack . Int $ oneOf[3,4,5,6])
   b2 <- refAbstract @Value "b2" (pack . Record $ [
       "field1" <~= Int $ [lessThan 12, greaterThan 5]
     , "field2" <~= String $ oneOf ["a","b","c"]
-    , "field3" <~= Float $ bottom
+    , "field3" <~= KVBot ()
     , "field4" <~= Record $ [
-        "field1" <:= Int $ 4
-      , "field2" <~= String $ oneOf ["a","b"]
+        "field1" <:= Int $ 7
+      , "field2" <:= String "b"
       ]
+    , "field5" <~= KVBot ()
     ])
   b3 <- refAbstract @Value "b3" (pack . Record $ [
       "field1" <~= Int $ [lessThan 12, greaterThan 5]
     , "field2" <~= String $ oneOf ["a","b","c"]
-    , "field3" <~= KVBot $ bottom
+    , "field3" <~= KVBot ()
     , "field4" <~= Record $ [
         "field1" <:= Int $ 4
       , "field5" <~= String $ oneOf ["a","b"]
       ]
+    , "field5" <~= KVBot ()
     ])
   b4 <- b1 .== b2
   b5 <- b1 .== b3
-  b6 <- b5 .|| b5
+  b6 <- b4 .|| b5
   constrain $ b6
+  b7 <- getValS b3 "field4.field5"
+  b8 <- getVal "b1.field5"
+  b9 <- getValL b2 ["field4","field2"]
+  b10 <- b9 ./= b8
+  b11 <- b7 .== b8
+  constrain $ b10
+  constrain $ b11
   return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
