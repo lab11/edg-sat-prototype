@@ -53,50 +53,6 @@ import EDG.EDGInstances
 pPrint :: (MonadIO m, Show a) => a -> m ()
 pPrint = P.pPrintOpt P.defaultOutputOptionsDarkBg{P.outputOptionsIndentAmount=2}
 
-
--- | Run the Gather Monad to, get either an error, or a tuple with the output
---   and the corresponding return value.
-runGather :: GatherMonad a -> Either String (a,GatherState)
-runGather = runIdentity . runExceptT . flip runStateT initialGatherState
-
--- | Given a particular variable which should be true, a start state, and
---   the monad, get the underlying Symbolic monad with the relevant sBool
---   chosen. This is a predicate we can work with pretty straightforwardly.
---
---   TODO :: Fix this super cludgy way of getting the insternal state of the
---           SBVMonad back out. There's got to be something that
---           allows us to get the value back out more elegantly. That said
---           if you can't think of one, refactor this interface so it's
---           less awyward but still lets you get the
---           state back out.
---
-runSBVMonad :: SBVState -> Maybe (IORef SBVState) -> SBVMonad a -> Symbolic (SBV Bool)
-runSBVMonad state sio monad = fmap throwUp . runExceptT $ evalStateT nm state
-  where
-    throwUp (Left err) = error $ "Execution failed in SBV phase with error:\n" ++ err
-    throwUp (Right  v) = v
-
-    -- Yup :V I'm grabbing the state through an IORef, this is incredibly not
-    -- robust against using allSat or repeated invocations. There has to be
-    -- some special provision to allow that.
-    --
-    -- TODO :: Though It might just be that I have to make sure that the
-    --         decoding can work with only the completed GatherState. At the
-    --         moment we're fine. But this is a change that we should consider.
-    nm = do
-      monad
-      state <- get
-      sequence ((\ r -> liftIO $ writeIORef r state) <$> sio)
-      return $ S.literal True
-
--- | Turn the entire EDG monad into a predicate while propagating errors up to
---   the standard error system.
---
-runEDGMonad :: Maybe (IORef SBVState) ->  EDGMonad a -> (Symbolic (SBV Bool),GatherState,a)
-runEDGMonad sio i = case runGather . runScribeT $ i of
-  Left err -> error $ "Execution failed in Gather phase with error:\n" ++ err
-  Right ((a,sbvm),gs) -> (runSBVMonad (transformState gs) sio sbvm,gs,a)
-
 -- | Just a test problem I'll be editing a lot.
 --
 --   TODO ;: Change this interface so it's easier to get the RefType values
@@ -128,7 +84,7 @@ testProblem = do
     , "field3" <~= KVBot ()
     , "field4" <~= Record $ [
         "field1" <:= Int $ 4
-      , "field4" <~= KVBot ()
+      --, "field4" <~= KVBot ()
       , "field5" <~= String $ oneOf ["a","b"]
       ]
     , "field5" <~= KVBot ()
@@ -144,10 +100,10 @@ testProblem = do
   b11 <- b7 .== b8
   constrain b10
   constrain b11
-  b12 <- getVal "b2.field4"
-  b13 <- getVal "b3.field4.field4"
-  b14 <- b12 .== b13
-  constrain b14
+  --b12 <- getVal "b2.field4"
+  --b13 <- getVal "b3.field4.field4"
+  --b14 <- b12 .== b13
+  --constrain b14
   return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
@@ -173,3 +129,57 @@ runTestProblem = do
   putStrLn "B3:"
   pPrint $ extract decSt sol b3
 
+
+
+-- TODO :: Figure out why we're not getting an error during the looping
+--         type resolution for the following input, That this produces a
+--         completely different error for something completely different is
+--         kinda absurd.
+--
+-- testProblem = do
+--   -- b1 <- refAbstract @Value "b1" (pack $ KVBot ())
+--   b1 <- refAbstract @Value "b1" (pack . Record $ [
+--       "field1" <~= Int $ oneOf [1,8,15]
+--     , "field2" <~= String $ bottom
+--     , "field3" <~= Float $ [lessThan 12, greaterThan 3]
+--     , "field4" <~= Record $ bottom
+--     , "field5" <~= KVBot ()
+--     ])
+--   --b2 <- refAbstract @Value "b2" (pack . Int $ oneOf[3,4,5,6])
+--   b2 <- refAbstract @Value "b2" (pack . Record $ [
+--       "field1" <~= Int $ [lessThan 12, greaterThan 5]
+--     , "field2" <~= String $ oneOf ["a","b","c"]
+--     , "field3" <~= KVBot ()
+--     , "field4" <~= Record $ [
+--         "field1" <:= Int $ 7
+--       , "field2" <:= String "b"
+--       ]
+--     , "field5" <~= KVBot ()
+--     ])
+--   b3 <- refAbstract @Value "b3" (pack . Record $ [
+--       "field1" <~= Int $ [lessThan 12, greaterThan 5]
+--     , "field2" <~= String $ oneOf ["a","b","c"]
+--     , "field3" <~= KVBot ()
+--     , "field4" <~= Record $ [
+--         "field1" <:= Int $ 4
+--       , "field4" <~= KVBot ()
+--       , "field5" <~= String $ oneOf ["a","b"]
+--       ]
+--     , "field5" <~= KVBot ()
+--     ])
+--   b4 <- b1 .== b2
+--   b5 <- b1 .== b3
+--   b6 <- b4 .|| b5
+--   constrain b6
+--   b7 <- getValS b3 "field4.field5"
+--   b8 <- getVal "b1.field5"
+--   b9 <- getValL b2 ["field4","field2"]
+--   b10 <- b9 ./= b8
+--   b11 <- b7 .== b8
+--   constrain b10
+--   constrain b11
+--   b12 <- getVal "b2.field4"
+--   b13 <- getVal "b3.field4.field4"
+--   b14 <- b12 .== b13
+--   constrain b14
+--   return (b1,b2,b3)

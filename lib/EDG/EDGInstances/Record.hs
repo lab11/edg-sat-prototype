@@ -298,9 +298,7 @@ assertValKind' d v k = errContext context $ do
     -- If we're creating a new record, we've got to both create new ValRer
     -- and make sure the fields are setup right, we do this by punting to
     -- ourselves.
-    (Record rc, KVBot eq) -> do
-      generateDatum eq ref Record
-      assertValKind' d v k
+    (Record rc, KVBot eq) -> generateDatum eq ref Record
     -- IF there's no contraint, there's no contraint
     (KVBot (),_) -> return ()
     (KVTop (),_) -> throw $ "Tried to assert that kind of `" ++ show v ++ "` "
@@ -318,21 +316,28 @@ assertValKind' d v k = errContext context $ do
                   -> (a -> ValRef)
                   -> EDGMonad ()
     generateDatum eq ref cons = errContext context $ do
-      vi  <- use @GS valInfo
-      vi' <- mapM updateValInfo vi
-      valInfo @GS .= vi'
+      vi <- use @GS valInfo
+      mapM_ updateValInfo . Map.keys $ vi
       where
-        context = "replacing eq class `" ++ show eq ++ "` with kind `"
+        context = "generateDatum `" ++ show eq ++ "` `"
           ++ show k ++ "`"
-        updateValInfo :: ValInfo -> EDGMonad ValInfo
-        updateValInfo i@ValInfo{..}
-          | KVBot eqv <- viValRef, eqv == eq = errContext context $ do
-            r <- cons <$> (ref . valDataName . unpack $ v)
-            return i{viValRef = r}
-          | otherwise = return $ i
+        updateValInfo :: Ref Value -> EDGMonad ()
+        updateValInfo v = errContext context $ do
+          mvi <- uses @GS valInfo (Map.lookup v)
+          i@ValInfo{..} <- case mvi of
+            Nothing -> throw $ "No valInfo for `" ++ show v ++ "`"
+            Just vi -> return vi
+          case viValRef of
+            KVBot eqv
+              | eqv == eq -> do
+                r <- cons <$> (ref . valDataName . unpack $ v)
+                valInfo @GS %= Map.insert v i{viValRef = r}
+                assertValKind' d v k
+              | otherwise -> return ()
+            _ -> return ()
           where
-            context = "updating `" ++ show i ++ "` with new kind `" ++ show k
-              ++ "`"
+            context = "updateValInfo `" ++ show v ++
+              "` `" ++ show k ++ "`"
 
 -- | Ensure that two values have the same kind
 assertValKindEq :: Ref Value -> Ref Value -> EDGMonad ()
@@ -589,9 +594,8 @@ replaceKind' d eqo eqn = errContext context $ do
     --   if needed.
     condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
     condCreateFields d r ri@RecInfo{..}
-      = errContext context $ createFields' d r
-    --   | riEqClass == eqn = errContext context $ createFields' d r
-    --   | otherwise = errContext (context ++ "!!nop") $ return ()
+      | riEqClass == eqn = errContext context $ createFields' d r
+      | otherwise = errContext (context ++ " !! nop") $ return ()
       where
         context = "condCreateFields `" ++ show d ++ "` `" ++ show r ++ "`"
 
@@ -1256,8 +1260,9 @@ getField rv f = ec $ do
   let vr = vi ^. valRef
   rr <- case vr of
     Record r -> return r
+    --KVBot eq -> assertValKind v eq
     _ -> throw $ "Value `" ++ show rv ++ "` is not a record and cannot have a"
-     ++ " field `" ++ show f ++ "`"
+     ++ " field `" ++ show f ++ "` with info `" ++ show vi ++ "`"
   ri <- getRecInfo rr
   let fs = ri ^. fields
   case Map.lookup f fs of
