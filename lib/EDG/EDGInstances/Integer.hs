@@ -49,7 +49,7 @@ instance SBVAble Integer where
 
   ref :: String -> EDGMonad (Ref Integer)
   ref name = let n = Ref name in errContext context $
-      returnAnd n (errContext context $ sbvNoDup "Integer" integerRef n)
+      returnAnd n (errContext context $ sbv n)
     where
       context = "(ref :: Integer) `" ++ name ++ "`"
 

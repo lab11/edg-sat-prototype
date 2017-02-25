@@ -52,7 +52,7 @@ instance SBVAble String where
 
   ref :: String -> EDGMonad (Ref String)
   ref name = let n = Ref name in errContext context $
-    returnAnd n (errContext context $ sbvNoDup "String" stringRef n)
+    returnAnd n (errContext context $ sbv n)
     where
       context = "(ref :: String) `" ++ name ++ "`"
 

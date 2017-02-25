@@ -695,7 +695,7 @@ instance SBVAble Value where
       True -> return rf
       False -> do
         valInfo @GS %= Map.insert rf ValInfo{viKindRef = kr, viValRef = vr}
-        returnAnd rf (errContext context $ sbvNoDup "Value" valueRef rf)
+        returnAnd rf (errContext context $ sbv rf)
     where
       context = "(ref :: Value) `" ++ name ++ "`"
 
@@ -1025,7 +1025,7 @@ instance SBVAble Record where
         eq <- addRecordKind kn
         -- insert it into the usual map
         recInfo @GS %= Map.insert rf RecInfo{riFields=fs, riEqClass=eq}
-        returnAnd rf $ errContext context $ sbvNoDup "Record" recordRef rf
+        returnAnd rf $ errContext context $ sbv rf
     where
       context = "(ref :: Record) `" ++ name ++ "`"
 
@@ -1192,13 +1192,17 @@ class CanGetVal t where
 
 instance CanGetVal (String -> EDGMonad (Ref Value)) where
   getVal s = ec $ do
-    let r = Ref n
      -- Just get a value with that name if possible ...
+     --
      -- NOTE :: This is a bit weird, since it'll just create that value if
-     --         needed. Whatever it's kinda neccesary, esp given how the
+     --         needed. Whatever, it's kinda neccesary, esp given how the
      --         first pass description of the system is trying to declarative
      --         in instances where there are no errors.
-    rv <- ref r
+     --
+     --         (i.e. the order of top level declarations should not matter
+     --         unless there are multiple possible errors in the system in
+     --         which case the error returned is unspecified)
+    rv <- ref n
     getValL rv l
     where
       ec = errContext context
@@ -1206,10 +1210,10 @@ instance CanGetVal (String -> EDGMonad (Ref Value)) where
       n:l = split '.' s
 
 instance CanGetVal (Ref Value -> String -> EDGMonad (Ref Value)) where
-  getVal = uncurry getValS
+  getVal = getValS
 
 instance CanGetVal (Ref Value -> [String] -> EDGMonad (Ref Value)) where
-  getVal = uncurry getValL
+  getVal = getValL
 
 -- | getValS lets you use a string specifier to get a value reference
 getValS :: Ref Value -> String -> EDGMonad (Ref Value)

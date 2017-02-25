@@ -47,7 +47,7 @@ instance SBVAble Bool where
   --         so that we can assign them UIDs or something.
   ref :: String -> EDGMonad (Ref Bool)
   ref name = let n = Ref name in errContext context $
-    returnAnd n (errContext context $ sbvNoDup "Bool" boolRef n)
+    returnAnd n (errContext context $ sbv n)
     where
       context = "(ref :: Bool) `" ++ name ++ "`"
 

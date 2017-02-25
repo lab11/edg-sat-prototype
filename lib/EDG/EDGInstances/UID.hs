@@ -49,7 +49,10 @@ instance SBVAble UID' where
   type RefType UID' = Ref UID'
 
   ref :: String -> EDGMonad (Ref UID')
-  ref name = let n = Ref name in returnAnd n (sbvNoDup "UID" uidRef n)
+  ref name = let n = Ref name in ec $ returnAnd n (ec $ sbv n)
+    where
+      ec :: (NamedMonad m, MonadExcept String m) => m a -> m a
+      ec = errContext $ "(ref :: UID') `" ++ name ++ "`"
 
   isAbstract :: UIDCons -> SBV UID' -> SBVMonad (SBV Bool)
   isAbstract UCTop     _ = return $ S.literal False
