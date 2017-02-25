@@ -589,8 +589,9 @@ replaceKind' d eqo eqn = errContext context $ do
     --   if needed.
     condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
     condCreateFields d r ri@RecInfo{..}
-      | riEqClass == eqn = errContext context $ createFields' d r
-      | otherwise = errContext (context ++ "!!nop") $ return ()
+      = errContext context $ createFields' d r
+    --   | riEqClass == eqn = errContext context $ createFields' d r
+    --   | otherwise = errContext (context ++ "!!nop") $ return ()
       where
         context = "condCreateFields `" ++ show d ++ "` `" ++ show r ++ "`"
 
@@ -644,7 +645,7 @@ createFields' d r = errContext context $ do
           return (u,v)
         Just t -> return t
       -- Assert that the values have the correct type.
-      assertValKind vr rfk
+      assertValKind' d vr rfk
       where
         context = "makeField `" ++ show d ++ "` `" ++ show r ++ "` `"
           ++ fn ++ "`"

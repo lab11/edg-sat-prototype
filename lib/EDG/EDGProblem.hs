@@ -128,6 +128,7 @@ testProblem = do
     , "field3" <~= KVBot ()
     , "field4" <~= Record $ [
         "field1" <:= Int $ 4
+      , "field4" <~= KVBot ()
       , "field5" <~= String $ oneOf ["a","b"]
       ]
     , "field5" <~= KVBot ()
@@ -135,14 +136,18 @@ testProblem = do
   b4 <- b1 .== b2
   b5 <- b1 .== b3
   b6 <- b4 .|| b5
-  constrain $ b6
+  constrain b6
   b7 <- getValS b3 "field4.field5"
   b8 <- getVal "b1.field5"
   b9 <- getValL b2 ["field4","field2"]
   b10 <- b9 ./= b8
   b11 <- b7 .== b8
-  constrain $ b10
-  constrain $ b11
+  constrain b10
+  constrain b11
+  b12 <- getVal "b2.field4"
+  b13 <- getVal "b3.field4.field4"
+  b14 <- b12 .== b13
+  constrain b14
   return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
@@ -167,7 +172,4 @@ runTestProblem = do
   pPrint $ extract decSt sol b2
   putStrLn "B3:"
   pPrint $ extract decSt sol b3
-
-
-
 
