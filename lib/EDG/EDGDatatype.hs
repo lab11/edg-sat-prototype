@@ -114,7 +114,7 @@ data ValueSBV = ValueSBV {
   -- The stored value
   , vsValSBV  :: ValSBV
   -- Possibly a name (only for debugging purposes)
-  , vsRefName :: Maybe (Ref Value)
+  , vsRefName :: Maybe (String)
 } deriving (Show, Eq)
 
 
@@ -129,7 +129,7 @@ data RecSBV = RecSBV {
   -- the elems are (<is field used in the record?>,<value of field>)
     rsFields :: Map String (SBV Bool,ValueSBV)
   -- possibly a name, only for debugging purposes
-  , rsRefName :: Maybe (Ref Record)
+  , rsRefName :: Maybe (String)
 } deriving (Show, Eq)
 
 -- NOTE :: These template haskell things have to be at the end of the

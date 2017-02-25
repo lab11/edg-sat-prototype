@@ -1,0 +1,83 @@
+-- Swap file for info I want handy 
+
+-- ## Functions in EDG.EDGInstances.Record ##
+-- may be out of date
+
+vsLT  :: ValueSBV -> ValueSBV -> SBV Bool
+vsLTE :: ValueSBV -> ValueSBV -> SBV Bool
+vsGT  :: ValueSBV -> ValueSBV -> SBV Bool
+vsGTE :: ValueSBV -> ValueSBV -> SBV Bool
+
+getValueKind :: Ref Value -> SBVMonad ValKind
+
+valRefSBV  :: ValRef -> SBVMonad ValSBV
+valRefKind :: ValRef -> SBVMonad ValKind
+
+valInfoKind :: ValInfo -> SBVMonad ValKind
+
+valueKind       :: Value           -> EDGMonad ValKind
+constrainedKind :: Constrained     -> EDGMonad ValKind
+ambigValKind    :: Ambiguous Value -> EDGMonad ValKind
+
+assertValKind  ::        Ref Value -> ValKind -> EDGMonad ()
+assertValKind' :: Int -> Ref Value -> ValKind -> EDGMonad ()
+
+assertValKindEq  ::        Ref Value -> Ref Value -> EDGMonad ()
+assertValKindEq' :: Int -> Ref Value -> Ref Value -> EDGMonad ()
+
+addRecordKind :: RecKind -> EDGMonad RecEqClass
+
+recordKind  :: Record  -> EDGMonad RecKind
+recConsKind :: RecCons -> EDGMonad RecKind
+
+getRecKind :: RecEqClass -> EDGMonad RecKind
+
+getRecInfo        :: Ref Record -> EDGMonad RecInfo
+getRecEqCl        :: Ref Record -> EDGMonad RecEqClass
+getRecKindFromRef :: Ref Record -> EDGMonad RecKind
+
+joinRecordEqCl  :: 
+         RecEqClass -> RecEqClass -> EDGMonad RecEqClass
+joinRecordEqCl' ::
+  Int -> RecEqClass -> RecEqClass -> EDGMonad RecEqClass
+
+combineKinds  ::        RecKind -> RecKind -> EDGMonad RecEqClass
+combineKinds' :: Int -> RecKind -> RecKind -> EDGMonad RecEqClass
+
+intersectKinds  ::        ValKind -> ValKind -> EDGMonad ValKind
+intersectKinds' :: Int -> ValKind -> ValKind -> EDGMonad ValKind
+
+replaceKind  ::        RecEqClass -> RecEqClass -> EDGMonad ()
+replaceKind' :: Int -> RecEqClass -> RecEqClass -> EDGMonad ()
+
+createFields  ::        Ref Record -> EDGMonad ()
+createFields' :: Int -> Ref Record -> EDGMonad ()
+
+joinRecord  ::        Ref Record -> Ref Record -> EDGMonad ()
+joinRecord' :: Int -> Ref Record -> Ref Record -> EDGMonad ()
+
+assertRecordEqCl  ::        Ref Record -> RecEqClass -> EDGMonad ()
+assertRecordEqCl' :: Int -> Ref Record -> RecEqClass -> EDGMonad ()
+
+assertRecordKind  ::        Ref Record -> RecKind -> EDGMonad ()
+assertRecordKind' :: Int -> Ref Record -> RecKind -> EDGMonad ()
+
+valDataName :: String -> String
+valKindName :: String -> String
+
+recUsedName  :: String -> String -> String
+recValueName :: String -> String -> String
+
+allEqOp ::
+  (forall a. S.EqSymbolic a => a -> a -> SBV Bool)
+  -> Bool -> Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)
+boolUnOp ::
+  (SBV Bool -> SBV Bool)
+  -> Ref Value -> String -> EDGMonad (Ref Value)
+boolBinOp ::
+  (SBV Bool -> SBV Bool -> SBV Bool)
+  -> Ref Value -> Ref Value -> String -> EDGMonad (Ref Value)
+ordBinOp ::
+  (forall a. S.OrdSymbolic a => a -> a -> SBV Bool)
+  -> Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
+

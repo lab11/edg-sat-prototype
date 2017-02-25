@@ -118,7 +118,7 @@ instance InvertSBV String where
   --         workaround. So we'll see what we can do about that.
   --
   extract :: Modelable a => DecodeState -> a -> Ref String -> Maybe String
-  extract (getStringDecode -> m) model (Ref name) = do
+  extract (getDSStringDecode -> m) model (Ref name) = do
     int <- getModelValue name model
     Bimap.lookup int m
 

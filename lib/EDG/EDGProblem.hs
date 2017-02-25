@@ -69,7 +69,7 @@ runGather = runIdentity . runExceptT . flip runStateT initialGatherState
 runSBVMonad :: SBVState -> Maybe (IORef SBVState) -> SBVMonad a -> Symbolic (SBV Bool)
 runSBVMonad state sio monad = fmap throwUp . runExceptT $ evalStateT nm state
   where
-    throwUp (Left err) = error $ "Execution failed in SBV phase with error: " ++ err
+    throwUp (Left err) = error $ "Execution failed in SBV phase with error:\n" ++ err
     throwUp (Right  v) = v
 
     -- Yup :V I'm grabbing the state through an IORef, this is incredibly not
@@ -90,7 +90,7 @@ runSBVMonad state sio monad = fmap throwUp . runExceptT $ evalStateT nm state
 --
 runEDGMonad :: Maybe (IORef SBVState) ->  EDGMonad a -> (Symbolic (SBV Bool),GatherState,a)
 runEDGMonad sio i = case runGather . runScribeT $ i of
-  Left err -> error $ "Execution failed in Gather phase with error: " ++ err
+  Left err -> error $ "Execution failed in Gather phase with error:\n" ++ err
   Right ((a,sbvm),gs) -> (runSBVMonad (transformState gs) sio sbvm,gs,a)
 
 -- | Just a test problem I'll be editing a lot.
@@ -99,20 +99,20 @@ runEDGMonad sio i = case runGather . runScribeT $ i of
 --           back out once you're done. Not sure how that'll look either.
 --
 testProblem = do
-  b1 <- refAbstract @Value "b1" (pack $ Int $ greaterThan 5)
-  --b1 <- refAbstract @Value "b1" (pack . Record $ [
-  --    "field1" <~= Int $ oneOf [1,8,15]
-  --  , "field3" <~= Float $ [lessThan 12, greaterThan 3]
-  --  ])
+  b1 <- refAbstract @Value "b1" (pack $ KVBot ())
+  -- b1 <- refAbstract @Value "b1" (pack . Record $ [
+  --     "field1" <~= Int $ oneOf [1,8,15]
+  --   -- , "field3" <~= Float $ [lessThan 12, greaterThan 3]
+  --   ])
   b2 <- refAbstract @Value "b2" (pack . Int $ oneOf[3,4,5,6])
   -- b2 <- refAbstract @Value "b2" (pack . Record $ [
-  --     "field1" <~= Int $ [lessThan 12, greaterThan 5]
-  --   , "field2" <~= String $ oneOf ["a","b","c"]
-  --   , "field4" <~= Record $ [
-  --       "field1" <:= Int $ 4
-  --     , "field2" <~= String $ oneOf ["a","b"]
-  --     ]
-  --   ])
+    --  "field1" <~= Int $ [lessThan 12, greaterThan 5]
+    -- , "field2" <~= String $ oneOf ["a","b","c"]
+    -- , "field4" <~= Record $ [
+    --     "field1" <:= Int $ 4
+    --   , "field2" <~= String $ oneOf ["a","b"]
+    --   ]
+  -- ])
   b3 <- b1 .== b2
   constrain $ b3
   return (b1,b2,b3)

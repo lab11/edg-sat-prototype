@@ -90,22 +90,22 @@ instance EDGEquals Bool
 
 instance EDGLogic Bool where
   notE :: Ref Bool ->             String -> EDGMonad (Ref Bool)
-  notE = mkUnOp (S.bnot)
+  notE = mkUnOp (S.bnot) "notE"
 
   andE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  andE = mkBinOp (&&&)
+  andE = mkBinOp (&&&) "andE"
 
   orE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  orE = mkBinOp (|||)
+  orE = mkBinOp (|||) "orE"
 
   impliesE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  impliesE = mkBinOp (==>)
+  impliesE = mkBinOp (==>) "impliesE"
 
   nandE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  nandE = mkBinOp (~&)
+  nandE = mkBinOp (~&) "nameE"
 
   norE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  norE = mkBinOp (~|)
+  norE = mkBinOp (~|) "norE"
 
   xorE :: Ref Bool -> Ref Bool -> String -> EDGMonad (Ref Bool)
-  xorE = mkBinOp (<+>)
+  xorE = mkBinOp (<+>) "xorE"

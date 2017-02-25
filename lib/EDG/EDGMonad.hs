@@ -340,7 +340,10 @@ isAmbiguous (Abstract c) s = isAbstract c s
 
 
 -- | Like the usual `sbv` but errors when a duplicate element is created.
---   Also take in a typename for error messagesa
+--   Also take in a typename for error messages
+--
+--   TODO :: See if you can figure out what's causing multiple creation
+--           instances and make sure it stops, then undo this hack.
 sbvNoDup :: (SBVAble t, Show (RefType t), Ord (RefType t))
          => String
          -> Lens' SBVS (Map (RefType t) (SBVType t))
@@ -381,42 +384,53 @@ buildDecodeState :: GatherState -> SBVState -> DecodeState
 buildDecodeState = (,)
 
 -- | Get the string Decoder from the decodeState
-getStringDecode :: DecodeState -> Bimap Integer String
-getStringDecode d = d ^. _2 . stringDecode
+getDSStringDecode :: DecodeState -> Bimap Integer String
+getDSStringDecode d = d ^. _2 . stringDecode
 
 -- | Get the map of value information from the decode state.
-getValInfo :: DecodeState -> Map (Ref Value) ValInfo
-getValInfo s = s ^. _2 . valInfo
+getDSValInfo :: DecodeState -> Map (Ref Value) ValInfo
+getDSValInfo s = s ^. _2 . valInfo
 
+-- | get the map of record information from the decode state
+getDSRecInfo :: DecodeState -> Map (Ref Record) RecInfo
+getDSRecInfo s = s ^. _2 . recInfo
 
 -- | ease of se internal funtion that allow us to easily generate a binary
 --   operator on refs from an operator on sbv values
 mkBinOp :: (SBVAble i,SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))
         => (SBVType i -> SBVType j -> SBVType k)
-        ->  RefType i -> RefType j
-        ->  String
-        ->  EDGMonad (RefType k)
-mkBinOp op a b name = do
+        -> String
+        -> RefType i -> RefType j
+        -> String
+        -> EDGMonad (RefType k)
+mkBinOp op opName a b name = errContext context $ do
   n <- ref name
-  returnAnd n $ do
+  returnAnd n $ errContext context $ do
     av <- sbv a
     bv <- sbv b
     nv <- sbv n
     constrain $ nv S..== (op av bv)
+  where
+    context = opName ++ " `" ++ show a ++ "` `" ++ show b ++ "` `"
+      ++ show name ++ "`"
 
 -- | ease of se internal funtion that allow us to easily generate a unary
 --   operator on refs from an operator on sbv values
 mkUnOp :: (SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))
        => (SBVType j -> SBVType k)
+       -> String
        ->  RefType j
        ->  String
        ->  EDGMonad (RefType k)
-mkUnOp op a name = do
+mkUnOp op opName a name = errContext context $ do
   n <- ref name
-  returnAnd n $ do
+  returnAnd n $ errContext context $ do
     av <- sbv a
     nv <- sbv n
     constrain $ nv S..== (op av)
+  where
+    context = opName ++ " `" ++ show a ++ "` `"
+      ++ show name ++ "`"
 
 -- | Get an equality constraint
 class (SBVAble t,SBVAble Bool) => EDGEquals t where
@@ -426,13 +440,13 @@ class (SBVAble t,SBVAble Bool) => EDGEquals t where
   equalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default equalE :: (SBVType Bool ~ S.SBV Bool,S.EqSymbolic (SBVType t))
                  => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  equalE = mkBinOp (S..==)
+  equalE = mkBinOp (S..==) "equalE"
 
   -- | As you'd expect.
   unequalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default unequalE :: (SBVType Bool ~ S.SBV Bool,S.EqSymbolic (SBVType t))
                    => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  unequalE = mkBinOp (S../=)
+  unequalE = mkBinOp (S../=) "unequalE"
 
 -- | Same as `equalE` but chooses its own name, usually just something
 --   pretty obvious.
@@ -500,22 +514,22 @@ class (SBVAble t, SBVAble Bool) => EDGOrd t where
   gtE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default gtE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
                    => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  gtE = mkBinOp (S..>)
+  gtE = mkBinOp (S..>) "gtE"
 
   gteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default gteE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
                    => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  gteE = mkBinOp (S..>=)
+  gteE = mkBinOp (S..>=) "gteE"
 
   ltE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default ltE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
                    => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  ltE = mkBinOp (S..<)
+  ltE = mkBinOp (S..<) "ltE"
 
   lteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default lteE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
                    => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
-  lteE = mkBinOp (S..>=)
+  lteE = mkBinOp (S..>=) "lteE"
 
 -- | Same as `ltE` but chooses its own name, usually just something
 --   pretty obvious.
