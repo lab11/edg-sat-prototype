@@ -456,7 +456,8 @@ getRecKind eq = errContext context $ do
   mk <- uses @GS recordKinds (Map.lookup eq)
   case mk of
     Nothing -> throw $ "could not find kind for Equality class `"
-      ++ show eq ++ "`"
+      ++ show eq ++ "`.\nThis might be indicative of a cyclic type?"
+      ++ "\n If so you're implying that a type should contain itself."
     Just k -> return k
   where
     context = "getRecKind `" ++ show eq ++ "`"

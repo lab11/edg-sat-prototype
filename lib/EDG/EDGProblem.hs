@@ -100,10 +100,10 @@ testProblem = do
   b11 <- b7 .== b8
   constrain b10
   constrain b11
-  --b12 <- getVal "b2.field4"
-  --b13 <- getVal "b3.field4.field4"
-  --b14 <- b12 .== b13
-  --constrain b14
+  -- b12 <- getVal "b2.field4"
+  -- b13 <- getVal "b3.field4.field4"
+  -- b14 <- b12 .== b13
+  -- constrain b14
   return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
