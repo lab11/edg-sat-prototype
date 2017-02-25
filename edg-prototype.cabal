@@ -184,7 +184,7 @@ library
     -- Utility functions. 
     newtype >= 0.2,
     -- Used to build bindings to z3 and other theorem provers as needed
-    sbv >= 5.12,
+    sbv >= 5.14,
     -- Basic Containers
     bimap >= 0.3.2,
     containers,

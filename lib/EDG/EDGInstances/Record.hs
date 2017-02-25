@@ -99,12 +99,12 @@ instance S.EqSymbolic ValueSBV where
 
   (./=) a@ValueSBV{vsKindSBV=ak,vsValSBV=av}
         b@ValueSBV{vsKindSBV=bk,vsValSBV=bv}
-    | Int    as <- av, Int    bs <- bv = (ak S..== bk) S.==> (as S../= bs)
-    | Bool   as <- av, Bool   bs <- bv = (ak S..== bk) S.==> (as S../= bs)
-    | Float  as <- av, Float  bs <- bv = (ak S..== bk) S.==> (as S../= bs)
-    | String as <- av, String bs <- bv = (ak S..== bk) S.==> (as S../= bs)
-    | UID    as <- av, UID    bs <- bv = (ak S..== bk) S.==> (as S../= bs)
-    | Record as <- av, Record bs <- bv = (ak S..== bk) S.==> (as S../= bs)
+    | Int    as <- av, Int    bs <- bv = (ak S../= bk) S.||| (as S../= bs)
+    | Bool   as <- av, Bool   bs <- bv = (ak S../= bk) S.||| (as S../= bs)
+    | Float  as <- av, Float  bs <- bv = (ak S../= bk) S.||| (as S../= bs)
+    | String as <- av, String bs <- bv = (ak S../= bk) S.||| (as S../= bs)
+    | UID    as <- av, UID    bs <- bv = (ak S../= bk) S.||| (as S../= bs)
+    | Record as <- av, Record bs <- bv = (ak S../= bk) S.||| (as S../= bs)
     | otherwise = S.literal True
 
 vsLT :: ValueSBV -> ValueSBV -> SBV Bool
@@ -142,15 +142,17 @@ vsGTE a@ValueSBV{vsKindSBV=ak,vsValSBV=av,vsRefName=an}
 
 -- | Turn a value reference into the symbolic data variable.
 valRefSBV :: ValRef -> SBVMonad ValSBV
-valRefSBV (Int    i) = Int    <$> sbv i
-valRefSBV (Bool   b) = Bool   <$> sbv b
-valRefSBV (Float  f) = Float  <$> sbv f
-valRefSBV (String s) = String <$> sbv s
-valRefSBV (UID    u) = UID    <$> sbv u
-valRefSBV (Record r) = Record <$> sbv r
-valRefSBV (KVBot e)  = throw $ "ValRef with EqClass `" ++ show e ++ "` is still"
-  ++ "ambiguous, cannot generate concrete instantiation."
-valRefSBV (KVTop v)  = absurd v
+valRefSBV vr
+  | Int    i <- vr = errContext context $ Int    <$> sbv i
+  | Bool   b <- vr = errContext context $ Bool   <$> sbv b
+  | Float  f <- vr = errContext context $ Float  <$> sbv f
+  | String s <- vr = errContext context $ String <$> sbv s
+  | UID    u <- vr = errContext context $ UID    <$> sbv u
+  | Record r <- vr = errContext context $ Record <$> sbv r
+  | KVBot  e <- vr = errContext context $ throw $ "ValRef with EqClass `" ++ show e ++ "` is still"
+    ++ "ambiguous, cannot generate concrete instantiation."
+  | KVTop v <- vr  = absurd v
+  where context = "valRevSBV `" ++ show vr ++ "`"
 
 -- | Given a valueSBV, get the kind of that value
 getValueKind :: Ref Value -> SBVMonad ValKind
@@ -215,15 +217,15 @@ constrainedKind :: Constrained -> EDGMonad ValKind
 constrainedKind (unpack -> c)
   | unSAT c = throw $ "Contraints are unsatisfiable for `" ++ show c
      ++ "` cannot get a kind."
-  | (Int    _) <- c = return $ Int ()
-  | (Bool   _) <- c = return $ Bool ()
-  | (Float  _) <- c = return $ Float ()
-  | (String _) <- c = return $ String ()
-  | (UID    _) <- c = return $ UID ()
+  | (Int    _) <- c = errContext context $ return $ Int ()
+  | (Bool   _) <- c = errContext context $ return $ Bool ()
+  | (Float  _) <- c = errContext context $ return $ Float ()
+  | (String _) <- c = errContext context $ return $ String ()
+  | (UID    _) <- c = errContext context $ return $ UID ()
   | (Record r) <- c = errContext context $ do
      ec <- addRecordKind =<< recConsKind r
      return . Record $ ec
-  | (KVBot  _) <- c = return $ KVBot ()
+  | (KVBot  _) <- c = errContext context $ return $ KVBot ()
   | (KVTop  _) <- c = throw $ "Contraints are unsatisfiable for `" ++ show c
      ++ "` cannot get a kind."
   where
@@ -303,7 +305,7 @@ assertValKind' d v k = errContext context $ do
     _ -> throw $ "Tried asserting that `" ++ show v ++ "` has kind `" ++
           show k ++ "` but it has conflicting info `" ++ show vi ++ "`."
   where
-    context = "Asserting that value `" ++ show v ++ "` has kind `" ++ show k
+    context = "assertValKind `" ++ show v ++ "` `" ++ show k
       ++ "`"
     -- | Take every instance of that EQ class in the valInfo map and generate
     --   a new valInfo with a concrete ValRef there.
@@ -417,10 +419,11 @@ joinRecordEqCl' d eqa eqb
     ka <- getRecKind eqa
     kb <- getRecKind eqb
     -- Get the new combined eqclass
-    eqn <- combineKinds' d' ka kb
+    eqn <- errContext ("joinRecordEqCl ka: " ++ show ka ++ " kb: " ++
+      show kb) $ combineKinds' d' ka kb
     -- Replace the elements with that new eqclass
     replaceKind' d' eqa eqn
-    replaceKind' d' eqa eqn
+    replaceKind' d' eqb eqn
     -- return the new eqclass
     return eqn
   where
@@ -479,11 +482,15 @@ combineKinds' d ka kb = errContext context $ do
       uf = Map.union ufa ufb
       -- Pairs of types for keys in both kinds.
       sp = Map.intersectionWith (,) ka kb -- :: Map String (ValKind,ValKind)
-  -- Make sure all the fields are added together and grab the new kind
+  -- Iteratoe over and combine all the shared fields.
   sf <- Map.traverseWithKey (\ k v -> errContext ("Field `" ++ k ++ "`") $
           (uncurry $ intersectKinds' d) v) sp
+  -- Make sure all the fields are added together and grab the new kind
+  let af = Map.union sf uf
   -- add the new kind to the map and return the new eqClass
-  addRecordKind sf
+  neq <- addRecordKind af
+  errContext ("combineKinds af: " ++ show af ++ " neq: " ++ show neq) $
+    return neq
   where
     context = "combineKinds d:`" ++ show d ++ "` ka:`" ++ show ka ++ "` kb:`"
       ++ show kb ++ "`"
@@ -535,7 +542,8 @@ replaceKind' :: Int -> RecEqClass -> RecEqClass -> EDGMonad ()
 replaceKind' d eqo eqn = errContext context $ do
   recInfo @GS %= Map.mapWithKey repSingleRecInfo
   ris <- use @GS recInfo
-  Map.traverseWithKey (condCreateFields d) ris
+  errContext ("replaceKind ris: " ++ show ris) $
+    Map.traverseWithKey (condCreateFields d) ris
   return ()
   where
     context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
@@ -552,8 +560,10 @@ replaceKind' d eqo eqn = errContext context $ do
     --   if needed.
     condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
     condCreateFields d r ri@RecInfo{..}
-      | riEqClass == eqn = createFields' d r
-      | otherwise = return ()
+      | riEqClass == eqn = errContext context $ createFields' d r
+      | otherwise = errContext (context ++ "!!nop") $ return ()
+      where
+        context = "condCreateFields `" ++ show d ++ "` `" ++ show r ++ "`"
 
 -- | makes sure all the variables are correctly initialise for a given
 --   record. Recursively verifies that the kinds of things are correct.
@@ -708,7 +718,7 @@ instance SBVAble Value where
     case val of
       -- If there's a value with this name, just return it
       Just v -> return v
-      Nothing -> do
+      Nothing -> errContext context $ do
         mvinfo <- uses @SBVS valInfo (Map.lookup r)
         -- Otherwise check if we have information on how to generate the
         -- value.
@@ -761,18 +771,23 @@ instance SBVAble Value where
     where
       addKind :: SBVAble t => Constraints t -> SBVType t -> SBVMonad (SBV Bool)
       addKind i s = do
-        ve <- isAbstract i s
-        ke <- isConcrete (getKindNum c) vsKindSBV
-        return $ ve S.&&& ke
-      con = errContext ("generating symbolic variable to check whether `"
+        ve <- errContext context $ isAbstract i s
+        ke <- errContext context $ isConcrete (getKindNum c) vsKindSBV
+        errContext ("addKind!! ve: " ++ show ve ++ " ke: " ++ show ke) $
+          return $ ve S.&&& ke
+        where
+          context = "addKind `" ++ show i ++ "` `" ++ show s ++ "`"
+      con = errContext ("(isAbstract :: value) `"
         ++ show v ++ "` is equal to `" ++ show c ++ "`.")
 
   refAbstract :: String -> Constrained -> EDGMonad (Ref Value)
-  refAbstract n c = do
+  refAbstract n c = errContext context $ do
     r <- defaultRefAbstract n c
     k <- constrainedKind c
-    assertValKind r k
+    when (k /= KVBot()) $ assertValKind r k
     return r
+    where
+      context = "(refAbstract :: Value) `" ++ show n ++ "` `" ++ show c ++ "`"
 
   fixConcrete :: Value -> EDGMonad Value
   fixConcrete (unpack -> Record r) = pack . Record <$> fixConcrete r
@@ -1015,6 +1030,7 @@ instance SBVAble Record where
     let name = "Literal Record: " ++ show r
     return $ RecSBV{rsFields = fls, rsRefName = Just name}
     where
+      buildField :: Value -> SBVMonad (SBV Bool, ValueSBV)
       buildField v = do
         vs <- lit v
         return (S.literal True,vs)
@@ -1068,14 +1084,16 @@ instance SBVAble Record where
       context = "(add :: Record) `" ++ show r ++ "` `" ++ show s ++ "`"
 
   isAbstract :: RecCons -> RecSBV -> SBVMonad (SBV Bool)
-  isAbstract RCTop    _ = return $ S.literal False
-  isAbstract RCBottom _ = return $ S.literal True
-  isAbstract rc@RCAmbig{..} s@RecSBV{..}
-    | Map.null rcMap = return $ S.literal True
-    | otherwise = errContext context $ do
+  isAbstract rc s@RecSBV{..}
+    | RCTop <- rc = errContext context $ return $ S.literal False
+    | RCBottom <- rc = errContext context $ return $ S.literal True
+    | RCAmbig{..} <- rc , Map.null rcMap = errContext context $
+        return $ S.literal True
+    | RCAmbig{..} <- rc = errContext context $ do
       let unusedFs = Map.elems $ Map.difference rsFields rcMap -- unused fields
           -- No fields in the spec which aren't in the RecSBV
-          noUnavail = S.literal . Map.null $ Map.difference rcMap rsFields
+          md = Map.difference rcMap rsFields
+          noUnavail = Map.null $ md
           -- get all the fields we use along with corresponding constraints
           usedFs = Map.elems $ Map.intersectionWith (,) rsFields rcMap
           -- Is ever field that's unique to the recSBV unused?
@@ -1087,8 +1105,12 @@ instance SBVAble Record where
         -- and if we satisfy the constraint the record places on it.
         isMatch <- isAmbiguous av rv
         return $ isUsed S.&&& isMatch)
+      when (not noUnavail) (throw $ "There exists Fields in the recordCons `"
+        ++ show rcMap ++ "` which are not in the pregenerated fields `"
+        ++ show rsFields ++ "` for this record")
       -- Are all 3 of our major constraints true?
-      return $ allUnused S.&&& allEq S.&&& noUnavail
+      errContext ("isAbsRec!! au:" ++ show allUnused ++ " ae:" ++ show allEq
+        ++ " nou:" ++ show noUnavail ++ show md ) $ return $ allUnused S.&&& allEq
     where
       context = "(isAbstract :: Record) '" ++ show rc ++ "` `" ++ show s ++ "`"
 
@@ -1137,12 +1159,13 @@ recEqOp :: (RecSBV -> RecSBV -> SBV Bool)
         -> Ref Record
         -> String
         -> EDGMonad (Ref Bool)
-recEqOp op opName a b name = errContext opName $ do
+recEqOp op opName a b name = errContext context $ do
   r <- mkBinOp op opName a b name
   joinRecord a b
   return r
   where
-    context = opName
+    context = opName ++ " `" ++ show a ++ "` `" ++ show b ++ "` `" ++ name
+      ++ "`"
 
 instance EDGEquals Record where
 

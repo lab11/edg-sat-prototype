@@ -32,6 +32,7 @@ import qualified Data.SBV as S
 import Control.Monad.Scribe
 import Control.Monad.Identity (Identity)
 
+import Control.Monad.Trans.Class
 import Control.Lens.Ether.Implicit
 import Control.Lens.TH
 
@@ -45,6 +46,9 @@ import EDG.Library.Types
 import EDG.Predicates
 import EDG.SBVWrap
 import EDG.EDGDatatype
+
+import qualified Data.SBV.Internals as S
+import qualified Data.SBV.Dynamic as S
 
 import qualified Debug.Trace as T
 trace _ b = b
@@ -99,7 +103,6 @@ initialGatherState = GatherState {
 --   Symbolic Monad wrapped in a State that allows us to access the various
 --   global information needed to build the actual design.
 type SBVMonad = StateT SBVState (ExceptT String Symbolic)
-
 data SBVState = SBVState {
   -- The grand store that we use to get the SBV values for a given reference
   -- Is basically useless outside of the actual Symbolic monad.
@@ -198,7 +201,8 @@ class (S.EqSymbolic (SBVType t)
   ,Show t
   ,Show (Constraints t)
   ,Show (SBVType t)
-  ,Show (RefType t)) => SBVAble t where
+  ,Show (RefType t)
+  ) => SBVAble t where
 
   -- | The type of the particular variable in SBV land, in a way that allows us
   --   to get to the particular `SBV _` of the components making it up.
@@ -290,12 +294,12 @@ defaultIsConcrete v s = errContext context $ do
   lv <- lit v
   return $ s S..== lv
   where
-    context = "default is concrete `" ++ show v ++ "' `" ++ show s ++ "'"
+    context = "defaultIsConcrete `" ++ show v ++ "' `" ++ show s ++ "'"
 
 defaultRefConcrete :: SBVAble t => String -> t -> EDGMonad (RefType t)
-defaultRefConcrete name' v = errContext ("egd:" ++ context) $ do
+defaultRefConcrete name' v = errContext context $ do
   n <- ref name'
-  returnAnd n $ errContext ("sbv:"++context) $ do
+  returnAnd n $ errContext context $ do
     nv <- sbv n
     constrain =<< isConcrete v nv
   where
@@ -305,11 +309,11 @@ defaultRefAbstract :: SBVAble t
                    => String -> Constraints t -> EDGMonad (RefType t)
 defaultRefAbstract name' c
   | unSAT c = error $ "Variable `" ++ name' ++ "` is unsatisfiable."
-  | otherwise = errContext context $  do
+  | otherwise = errContext context $ do
     n <- ref name'
-    returnAnd n $ do
-      nv <- sbv n
-      constrain =<< isAbstract c nv
+    returnAnd n $ errContext context $ do
+      nv <- errContext "sbv" $ sbv n
+      errContext "cons" (constrain =<< (errContext "abs" $ isAbstract c nv))
   where
       context = "defaultRefAbstract `" ++ name' ++ "` `" ++ show c ++ "`"
 
@@ -559,3 +563,19 @@ class (SBVAble t, SBVAble Bool) => EDGPartialOrd t where
 --   pretty obvious.
 leqE' :: EDGPartialOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
 leqE' a b = leqE a b ("leqE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+-- NOTE :: A special instance that helps us detect when we try to constrain
+--         our problem with a constant False. This is a bit problematic
+--         since it forces the solution to be unsat.
+instance {-# OVERLAPPING #-} MonadConstrain SBVMonad (SBV Bool) where
+  constrain a = errContext context $ case (S.unSBV a) of
+    (S.SVal _ (Left cw)) -> if
+      | cw == S.falseCW -> throw @String $ "Setting a constraint of False,"
+        ++ " this system is now unsatifiable."
+      | cw == S.trueCW  -> return ()
+      | otherwise -> throw @String "unreachable, probably"
+    _ -> lift $ constrain a
+    where
+      context = "constrain `" ++ show a ++ "`"
+
+

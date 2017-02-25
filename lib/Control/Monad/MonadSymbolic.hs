@@ -31,7 +31,7 @@ instance (MonadSymbolic m,MonadTrans t, Monad (t m)) => MonadSymbolic (t m) wher
   sFloat    = lift . sFloat
   free      = lift . free
 
-instance (MonadConstrain m (SBV Bool),MonadTrans t, Monad (t m)) => MonadConstrain (t m) (SBV Bool) where
+instance {-# OVERLAPPABLE #-} (MonadConstrain m (SBV Bool),MonadTrans t, Monad (t m)) => MonadConstrain (t m) (SBV Bool) where
   constrain = lift . constrain
 
 instance MonadSymbolic Symbolic where
@@ -41,7 +41,11 @@ instance MonadSymbolic Symbolic where
   free      = S.free
 
 instance MonadConstrain Symbolic (SBV Bool) where
-  constrain = S.constrain
+  constrain a = case (S.unSBV a) of
+    (S.SVal _ (Left cw)) -> if
+      | cw == S.falseCW -> (error "Setting constraing of false")
+      | otherwise -> return ()
+    _ -> S.constrain a
 
 -- | Allows you to construct an `SBV typ` value for a typ that has a valid
 --   `SBV typ` backing it. This lets us be a bit more precise with typechecking

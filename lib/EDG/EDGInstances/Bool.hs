@@ -46,7 +46,10 @@ instance SBVAble Bool where
   -- TODO :: see if we really need to keep track of the names in GatherMonad
   --         so that we can assign them UIDs or something.
   ref :: String -> EDGMonad (Ref Bool)
-  ref name = let n = Ref name in returnAnd n (sbvNoDup "Bool" boolRef n)
+  ref name = let n = Ref name in errContext context $
+    returnAnd n (errContext context $ sbvNoDup "Bool" boolRef n)
+    where
+      context = "(ref :: Bool) `" ++ name ++ "`"
 
   isAbstract :: BoolCons -> SBV Bool -> SBVMonad (SBV Bool)
   isAbstract (BoolCons (OneOf sb)) s = do

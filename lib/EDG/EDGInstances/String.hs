@@ -51,7 +51,10 @@ instance SBVAble String where
   type RefType String = Ref String
 
   ref :: String -> EDGMonad (Ref String)
-  ref name = let n = Ref name in returnAnd n (sbvNoDup "String" stringRef n)
+  ref name = let n = Ref name in errContext context $
+    returnAnd n (errContext context $ sbvNoDup "String" stringRef n)
+    where
+      context = "(ref :: String) `" ++ name ++ "`"
 
   isAbstract :: StringCons -> SBV String -> SBVMonad (SBV Bool)
   isAbstract SCBottom _ = return $ S.literal True

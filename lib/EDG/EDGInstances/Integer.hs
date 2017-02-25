@@ -55,12 +55,13 @@ instance SBVAble Integer where
 
   isAbstract :: IntCons -> SBV Integer -> SBVMonad (SBV Bool)
   isAbstract ICBottom _ = return $ S.literal True
-  isAbstract (ICOneOf m) s = do
+  isAbstract (ICOneOf m) s = errContext context $ do
     return $ case lvs of
       [] -> S.literal False
       ts -> S.bAny ((S..==) s) ts
     where
       lvs = map S.literal (Set.toList . unpack $ m)
+      context = "(isAbstract :: Integer) `" ++ show m ++ "` `" ++ show s ++ "`"
   isAbstract ICOther{..} s = errContext context $ do
     n <- noCons
     let l = lbCons
@@ -83,7 +84,7 @@ instance SBVAble Integer where
         Just (UpperBound Inclusive    val) -> (S.literal val) S..>= s
         Just (UpperBound NonInclusive val) -> (S.literal val) S..>  s
         _ -> error "Impossible State"
-      context = "isAbstract :: Integer `" ++ show s ++ "'"
+      context = "(isAbstract :: Integer) `" ++ show s ++ "'"
 
   sbv :: Ref Integer -> SBVMonad (SBV Integer)
   sbv r = errContext ("SBV:" ++ context) $ do
@@ -98,7 +99,9 @@ instance SBVAble Integer where
       context = "(sbv :: Integer) `" ++ show r ++ "`"
 
   lit :: Integer     -> SBVMonad (SBV Integer)
-  lit = return . S.literal
+  lit l = errContext context $ return . S.literal $ l
+    where
+      context = "(lit :: Integer) `" ++ show l ++ "`"
 
   add :: Ref Integer -> SBV Integer -> SBVMonad ()
   add r s = do
@@ -106,6 +109,8 @@ instance SBVAble Integer where
     case exists of
       True  -> throw $ "Reference to integer `" ++ show r ++ "` already exists."
       False -> integerRef @SBVS %= (Map.insert r s)
+    where
+      context = "(add :: Integer) `" ++ show r ++ "` `" ++ show s ++ "`"
 
   getName :: Ref Integer -> String
   getName = unpack
