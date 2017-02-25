@@ -217,6 +217,8 @@ class (S.EqSymbolic (SBVType t)
   -- | Given a name, gets you the external reference for an SBV value of that
   --   type, and the setup code in the SBVMonad. Generally only meaningful for
   --   non-recursive values that don't need global information to use.
+  --
+  --   If the value already exists, just return the already existing thing
   ref :: String -> EDGMonad (RefType t)
 
   -- | Will convert a literal into the corresponding SBVType. Again, mostly
@@ -342,28 +344,6 @@ isAmbiguous :: SBVAble t => Ambiguous t -> SBVType t -> SBVMonad (SBV Bool)
 isAmbiguous Impossible   _ = return $ S.literal False
 isAmbiguous (Concrete v) s = isConcrete v s
 isAmbiguous (Abstract c) s = isAbstract c s
-
-
--- | Like the usual `sbv` but errors when a duplicate element is created.
---   Also take in a typename for error messages
---
---   TODO :: See if you can figure out what's causing multiple creation
---           instances and make sure it stops, then undo this hack.
-sbvNoDup :: (SBVAble t, Show (RefType t), Ord (RefType t))
-         => String
-         -> Lens' SBVS (Map (RefType t) (SBVType t))
-         -> RefType t -> SBVMonad (SBVType t)
-sbvNoDup typeName lens ref = errContext context $ sbv ref
-  -- do
-  --   val <- uses @SBVS lens (Map.lookup ref)
-  --   case val of
-  --     Just v  -> do
-  --       s <- get @SBVS
-  --       throw $ "SBV Var `"++ show ref ++ "` of type " ++
-  --         typeName ++ " already exists. \n\n" ++ show s
-  --     Nothing -> sbv ref
-  where
-    context = "sbvNoDup `" ++ show ref ++ "` `" ++ typeName ++ "`"
 
 -- | Can we, given a reference to a particular element in a SatModel to
 --   retrieve, retrieve it? Well, if we have the particular context, which

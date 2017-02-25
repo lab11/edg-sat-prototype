@@ -113,7 +113,7 @@ testProblem = do
   b2 <- refAbstract @Value "b2" (pack . Record $ [
       "field1" <~= Int $ [lessThan 12, greaterThan 5]
     , "field2" <~= String $ oneOf ["a","b","c"]
-    , "field3" <~= Float $ bottom
+    , "field3" <~= KVBot ()
     , "field4" <~= Record $ [
         "field1" <:= Int $ 4
       , "field2" <~= String $ oneOf ["a","b"]
@@ -122,7 +122,7 @@ testProblem = do
   b3 <- refAbstract @Value "b3" (pack . Record $ [
       "field1" <~= Int $ [lessThan 12, greaterThan 5]
     , "field2" <~= String $ oneOf ["a","b","c"]
-    , "field3" <~= KVBot $ bottom
+    , "field3" <~= KVBot ()
     , "field4" <~= Record $ [
         "field1" <:= Int $ 4
       , "field5" <~= String $ oneOf ["a","b"]
