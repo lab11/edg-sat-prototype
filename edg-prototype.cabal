@@ -87,7 +87,7 @@ library
     Algebra.GenOrd
     Algebra.Constrainable
     Algebra.AsPredicate
-    --EDG.Predicates 
+    --EDG.Predicates -- generic predicates
     EDG.Predicates
     EDG.Predicates.Predicate
     EDG.Predicates.Tuple
@@ -98,10 +98,10 @@ library
     EDG.Predicates.Maybe
     -- Special Data Structures 
     Data.EqMap 
-    --EDG.Classes
+    --EDG.Classes -- Classes which may or maynot be useful
     EDG.Classes.Fields
     EDG.Classes.Normalizable
-    -- EDG.Library
+    -- EDG.Library -- Low-level types and constraints over them
     EDG.Library.Types
     EDG.Library.Types.Bool
     EDG.Library.Types.String
@@ -110,7 +110,7 @@ library
     EDG.Library.Types.Integer
     EDG.Library.Types.Record 
     EDG.Library.Types.TypeVal
-    -- Messy Modules that should be reorganized
+    -- EDG.EDGInstances -- Converting low level types into something SBV can handle
     -- TODO :: Reorganize these. 
     EDG.EDGMonad
     EDG.EDGProblem
@@ -121,6 +121,10 @@ library
     EDG.EDGInstances.UID
     EDG.EDGInstances.Integer
     EDG.EDGInstances.Record
+    -- EDG.Elements -- High level design elements
+    EDG.ElemTypes
+    EDG.Elements
+    EDG.Elements.Port
 
   -- Modules included in this library but not exported.
   other-modules:
