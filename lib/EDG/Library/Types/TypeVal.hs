@@ -376,16 +376,18 @@ instance IsList Record where
 --
 --  TODO :: Add a normal function version of the operator
 --
-(<:=) :: String -> (t -> Value' Value) -> t -> (String,Ambiguous Value)
-(<:=) s c v = (s,Concrete . pack . c $ v)
+infixr 0 <:=
+(<:=) :: String -> Value' Value -> (String,Ambiguous Value)
+(<:=) s v = (s,Concrete . pack $ v)
 
 -- | This operator allows you define an ambiguous field, with a series of
 --   constraints on it. Each is defined as:
 --
 --      ` <Name of Field> <~= <TC Constructor for field type> $ <Constraint over field>`
 --   or `(<Name of Field> <~= <TC Constructor for field type>)  <Constraint over field>`
-(<~=) :: String -> (Constraints t -> Constrained' Value) -> Constraints t -> (String,Ambiguous Value)
-(<~=) s c v = (s,flattenAmbig . Abstract . pack . c $ v)
+infixr 0 <~=
+(<~=) :: String -> Constrained' Value -> (String,Ambiguous Value)
+(<~=) s c = (s,flattenAmbig . Abstract . pack $ c)
 
 
 -- This is just an example of the Record definition syntax, it's mediocre at
@@ -393,16 +395,16 @@ instance IsList Record where
 -- of constructors and wrappers for each element.
 exampleRecord :: RecordCons Value
 exampleRecord
-  = ["Number"  <:= Int    $ 3
-    ,"Name"    <~= String $ oneOf ["a","b","c"]
-    ,"record1" <~= Record $
-      [ "par1"   <:= Float  $ 2
-      , "pas2"   <~= Int    $ lessThan 3
-      , "pas3"   <~= Int    $ [lessThanEq 3, greaterThan 1, oneOf [2,3,4]]
+  = ["Number"  <:= Int     3
+    ,"Name"    <~= String  $ oneOf ["a","b","c"]
+    ,"record1" <~= Record
+      [ "par1"   <:= Float   2
+      , "pas2"   <~= Int  [lessThan 3]
+      , "pas3"   <~= Int     [lessThanEq 3, greaterThan 1, oneOf [2,3,4]]
       ]
-    ,"record2" <:= Record $
-      [ "foo1"   <:= Int    $ 1
-      , "foo2"   <:= String $ "test"
+    ,"record2" <:= Record
+      [ "foo1"   <:= Int   1
+      , "foo2"   <:= String "test"
       ]
     ]
 --
