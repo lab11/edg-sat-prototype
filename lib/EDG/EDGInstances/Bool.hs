@@ -38,9 +38,22 @@ import EDG.EDGMonad
 import EDG.EDGDatatype
 
 -- * Instances for Bool
+type EBool = Either Bool (SBV Bool)
+
+instance S.EqSymbolic EBool where
+
+  (.==) (Left a) (Left b) = S.literal (a == b)
+  (.==) (Left a) (Right b) = (S.literal a) S..== b
+  (.==) (Right a) (Left b) = (S.literal b) S..== a
+  (.==) (Right a) (Right b) = b S..== a
+
+  (./=) (Left a) (Left b) = S.literal (a /= b)
+  (./=) (Left a) (Right b) = (S.literal a) S../= b
+  (./=) (Right a) (Left b) = (S.literal b) S../= a
+  (./=) (Right a) (Right b) = b S../= a
 
 instance SBVAble Bool where
-  type SBVType Bool = SBV Bool
+  type SBVType Bool = EBool
   type RefType Bool = Ref Bool
 
   -- TODO :: see if we really need to keep track of the names in GatherMonad
