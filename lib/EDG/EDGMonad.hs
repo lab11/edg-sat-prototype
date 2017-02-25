@@ -187,7 +187,8 @@ newRecEqClass = do
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
 errContext s e = do
   n <- monadName
-  T.trace (n ++ ": " ++ s) $ catch e appendContext
+  {- T.trace (n ++ ": " ++ s) $ -}
+  catch e appendContext
   where
     appendContext = throw . unlines
       . (\ e -> ["In Context : " ++ s] ++ e )
@@ -490,7 +491,7 @@ notE' a = notE a ("notE (" ++ getName a ++ ")")
 -- | Same as `orE` but chooses its own name, usually just something
 --   pretty obvious.
 (.||)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.||) a b = andE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.||) a b = orE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `impliesE` but chooses its own name, usually just something
 --   pretty obvious.

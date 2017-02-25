@@ -387,6 +387,7 @@ instance IsList Record where
 (<~=) :: String -> (Constraints t -> Constrained' Value) -> Constraints t -> (String,Ambiguous Value)
 (<~=) s c v = (s,flattenAmbig . Abstract . pack . c $ v)
 
+
 -- This is just an example of the Record definition syntax, it's mediocre at
 -- best, but it gets the job dome without having to write out a huge number
 -- of constructors and wrappers for each element.

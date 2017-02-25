@@ -51,7 +51,7 @@ import EDG.EDGInstances.Float
 import EDG.EDGInstances.UID
 import EDG.EDGInstances.Integer
 
-import Text.Show.Pretty hiding (Value,Float,String)
+import Text.Pretty.Simple
 import Debug.Trace
 
 -- TODO :: Get better standard form for error checking. Probably using a
@@ -1174,6 +1174,9 @@ instance EDGEquals Record where
 
   unequalE :: Ref Record -> Ref Record -> String -> EDGMonad (Ref Bool)
   unequalE = recEqOp (S../=) "unequalE"
+
+--getVal :: Ref Value -> [String] -> EDGMonad (Ref Value)
+--getVal r l
 
 --  -- TODO :: Replace this with more generic versions that use the constraint
 --  --         on the existence of a field in the state. So that we don't make a

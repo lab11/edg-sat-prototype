@@ -16,7 +16,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import Text.Show.Pretty hiding (Value,Float,String)
+import qualified Text.Pretty.Simple as P
 
 import Control.Newtype
 
@@ -48,6 +48,9 @@ import EDG.Predicates
 import EDG.EDGMonad
 import EDG.EDGDatatype
 import EDG.EDGInstances
+
+pPrint :: (MonadIO m, Show a) => a -> m ()
+pPrint = P.pPrintOpt P.defaultOutputOptionsDarkBg{P.outputOptionsIndentAmount=2}
 
 
 -- | Run the Gather Monad to, get either an error, or a tuple with the output
@@ -102,19 +105,33 @@ testProblem = do
   -- b1 <- refAbstract @Value "b1" (pack $ KVBot ())
   b1 <- refAbstract @Value "b1" (pack . Record $ [
       "field1" <~= Int $ oneOf [1,8,15]
-    -- , "field3" <~= Float $ [lessThan 12, greaterThan 3]
+    , "field2" <~= String $ bottom
+    , "field3" <~= Float $ [lessThan 12, greaterThan 3]
+    , "field4" <~= Record $ bottom
     ])
-  b2 <- refAbstract @Value "b2" (pack . Int $ oneOf[3,4,5,6])
-  -- b2 <- refAbstract @Value "b2" (pack . Record $ [
-    -- "field1" <~= Int $ [lessThan 12, greaterThan 5]
-    -- , "field2" <~= String $ oneOf ["a","b","c"]
-    -- , "field4" <~= Record $ [
-    --     "field1" <:= Int $ 4
-    --   , "field2" <~= String $ oneOf ["a","b"]
-    --   ]
-  --  ])
-  b3 <- refAbstract @Bool "b3" bottom-- b1 .== b2
-  -- constrain $ b3
+  --b2 <- refAbstract @Value "b2" (pack . Int $ oneOf[3,4,5,6])
+  b2 <- refAbstract @Value "b2" (pack . Record $ [
+      "field1" <~= Int $ [lessThan 12, greaterThan 5]
+    , "field2" <~= String $ oneOf ["a","b","c"]
+    , "field3" <~= Float $ bottom
+    , "field4" <~= Record $ [
+        "field1" <:= Int $ 4
+      , "field2" <~= String $ oneOf ["a","b"]
+      ]
+    ])
+  b3 <- refAbstract @Value "b3" (pack . Record $ [
+      "field1" <~= Int $ [lessThan 12, greaterThan 5]
+    , "field2" <~= String $ oneOf ["a","b","c"]
+    , "field3" <~= KVBot $ bottom
+    , "field4" <~= Record $ [
+        "field1" <:= Int $ 4
+      , "field5" <~= String $ oneOf ["a","b"]
+      ]
+    ])
+  b4 <- b1 .== b2
+  b5 <- b1 .== b3
+  b6 <- b5 .|| b5
+  constrain $ b6
   return (b1,b2,b3)
 
 -- | What `main` in "app/Main.hs" calls.
@@ -126,14 +143,19 @@ runTestProblem = do
   ss <- newIORef (undefined :: SBVState)
   let (symb,gs,(b1,b2,b3)) = runEDGMonad (Just ss) testProblem
   sol <- S.satWith S.defaultSMTCfg{S.verbose = True} symb
-  putStrLn $ ppShow sol
+  pPrint sol
   ss' <- readIORef ss
-  putStrLn $ ppShow ss'
   let decSt = buildDecodeState gs ss'
-  putStrLn $ ppShow decSt
-  print $ extract decSt sol b1
-  print $ extract decSt sol b2
-  print $ extract decSt sol b3
+  putStrLn "RI:"
+  pPrint (ss' ^. recInfo)
+  putStrLn "RK:"
+  pPrint (ss' ^. recordKinds)
+  putStrLn "B1:"
+  pPrint $ extract decSt sol b1
+  putStrLn "B2:"
+  pPrint $ extract decSt sol b2
+  putStrLn "B3:"
+  pPrint $ extract decSt sol b3
 
 
 
