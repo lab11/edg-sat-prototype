@@ -193,6 +193,7 @@ errContext s e = do
       . (\ e -> [("In Context ("++n++") : ") ++ s] ++ e )
       . map ("  " ++) . lines
 
+
 -- | The class for contrianable types that can be written as an element in an
 --   SMT problem. Mainly gives us a way to construct an SBV representation of
 --   the particular type.
