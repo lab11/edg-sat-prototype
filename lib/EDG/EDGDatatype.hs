@@ -142,131 +142,116 @@ newtype Resource = Resource String
 --
 --   First param is a flag that detmines how we describe values
 --   or references
-data Exp a t where
+data Exp a where
   -- | Static values
-  Val :: Expressible a => ExpValue a t -> Exp a t
+  Val :: Expressible a => ExpValue a -> Exp a
   -- | Pointers to values that are reasonable in some
   --   context.
-  Pnt :: Expressible a => ExpPointer a t -> Exp a t
+  Pnt :: Expressible a => ExpPointer a -> Exp a
   -- | Equality Ops
-  (:==)   :: Exp a t -> Exp a t -> Exp a Bool
-  (:/=)   :: Exp a t -> Exp a t -> Exp a Bool
+  (:==)   :: Exp a -> Exp a -> Exp a
+  (:/=)   :: Exp a -> Exp a -> Exp a
   -- | Boolean comparison ops
-  (:&&)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:||)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:~&)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:~|)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:<+>)  :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:=>)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  Not     :: Exp a Bool -> Exp a Bool
-  JustOne :: [Exp a Bool] -> Exp a Bool
-  All     :: [Exp a Bool] -> Exp a Bool
-  Any     :: [Exp a Bool] -> Exp a Bool
+  (:&&)   :: Exp a -> Exp a -> Exp a
+  (:||)   :: Exp a -> Exp a -> Exp a
+  (:~&)   :: Exp a -> Exp a -> Exp a
+  (:~|)   :: Exp a -> Exp a -> Exp a
+  (:<+>)  :: Exp a -> Exp a -> Exp a
+  (:=>)   :: Exp a -> Exp a -> Exp a
+  Not     :: Exp a -> Exp a
+  JustOne :: [Exp a] -> Exp a
+  All     :: [Exp a] -> Exp a
+  Any     :: [Exp a] -> Exp a
   -- | Ordering Ops
-  (:<)  :: Exp a t -> Exp a t -> Exp a Bool
-  (:<=) :: Exp a t -> Exp a t -> Exp a Bool
-  (:>)  :: Exp a t -> Exp a t -> Exp a Bool
-  (:>=) :: Exp a t -> Exp a t -> Exp a Bool
+  (:<)  :: Exp a -> Exp a -> Exp a
+  (:<=) :: Exp a -> Exp a -> Exp a
+  (:>)  :: Exp a -> Exp a -> Exp a
+  (:>=) :: Exp a -> Exp a -> Exp a
   -- | Numerical Ops
-  (:+)   :: Exp a t -> Exp a t -> Exp a t
-  (:-)   :: Exp a t -> Exp a t -> Exp a t
-  (:*)   :: Exp a t -> Exp a t -> Exp a t
-  (:/)   :: Exp a t -> Exp a t -> Exp a t
-  Sum    :: [Exp a t] -> Exp a t
-  Mult   :: [Exp a t] -> Exp a t
-  Negate :: Exp a t -> Exp a t
+  (:+)   :: Exp a -> Exp a -> Exp a
+  (:-)   :: Exp a -> Exp a -> Exp a
+  (:*)   :: Exp a -> Exp a -> Exp a
+  (:/)   :: Exp a -> Exp a -> Exp a
+  Sum    :: [Exp a] -> Exp a
+  Mult   :: [Exp a] -> Exp a
+  Negate :: Exp a -> Exp a
   -- | Control Ops
-  If :: Exp a Bool -> Exp a t -> Exp a t -> Exp a t
+  If :: Exp a -> Exp a -> Exp a -> Exp a
   -- | Other Utility Ops
   -- Returns the number of bool values that are true
-  Count :: [Exp a Bool] -> Exp a Integer
-
--- | Simple way to lump up all the constraints that need to be
---   repeated. Expression Instance Constraint.
-
-type ExpInstCons c a t
-  = (c (ExpValue a t), c (ExpPointer a t))
+  Count :: [Exp a] -> Exp a
 
 -- | Basic instances for the elements
 --
 --   NOTE :: This is why Undecidable instances is needed
 deriving instance (
-    Eq (ExpValue a t), Eq (ExpPointer a t)
-  , Eq (ExpValue a Bool), Eq (ExpPointer a Bool)
-  , Eq (ExpValue a Integer), Eq (ExpPointer a Integer)
-  ) => Eq (Exp a Value)
+    Expressible a
+  , Eq (ExpValue a), Eq (ExpPointer a)
+  ) => Eq (Exp a)
 deriving instance (
-    Ord (ExpValue a t), Ord (ExpPointer a t)
-  , Ord (ExpValue a Bool), Ord (ExpPointer a Bool)
-  , Ord (ExpValue a Integer), Ord (ExpPointer a Integer)
-  ) => Ord  (Exp a t)
+    Expressible a
+  , Ord (ExpValue a ), Ord (ExpPointer a)
+  ) => Ord  (Exp a)
 deriving instance (
-    Show (ExpValue a t), Show (ExpPointer a t)
-  , Show (ExpValue a Bool), Show (ExpPointer a Bool)
-  , Show (ExpValue a Integer), Show (ExpPointer a Integer)
-  ) => Show (Exp a t)
+    Expressible a
+  , Show (ExpValue a), Show (ExpPointer a)
+  ) => Show (Exp a)
 deriving instance (
-    Read (ExpValue a t), Read (ExpPointer a t)
-  , Read (ExpValue a Bool), Read (ExpPointer a Bool)
-  , Read (ExpValue a Integer), Read (ExpPointer a Integer)
-  ) => Read (Exp a t)
+    Expressible a
+  , Read (ExpValue a), Read (ExpPointer a)
+  ) => Read (Exp a)
 
 class Expressible a where
   -- The type of the value, and the flag it gets
-  type ExpValue   a t
+  type ExpValue   a
   -- The type of a pointer and the flag it gets
-  type ExpPointer a t
+  type ExpPointer a
 
-class Monad m => ExpConvert a m where
-    -- | Static values
-  Val :: Expressible a => ExpValue a t -> Exp a t
-  -- | Pointers to values that are reasonable in some
-  --   context.
-  Pnt :: Expressible a => ExpPointer a t -> Exp a t
-  -- | Equality Ops
-  (:==)   :: Exp a t -> Exp a t -> Exp a Bool
-  (:/=)   :: Exp a t -> Exp a t -> Exp a Bool
-  -- | Boolean comparison ops
-  (:&&)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:||)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:~&)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:~|)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:<+>)  :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  (:=>)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
-  Not     :: Exp a Bool -> Exp a Bool
-  JustOne :: [Exp a Bool] -> Exp a Bool
-  All     :: [Exp a Bool] -> Exp a Bool
-  Any     :: [Exp a Bool] -> Exp a Bool
-  -- | Ordering Ops
-  (:<)  :: Exp a t -> Exp a t -> Exp a Bool
-  (:<=) :: Exp a t -> Exp a t -> Exp a Bool
-  (:>)  :: Exp a t -> Exp a t -> Exp a Bool
-  (:>=) :: Exp a t -> Exp a t -> Exp a Bool
-  -- | Numerical Ops
-  (:+)   :: Exp a t -> Exp a t -> Exp a t
-  (:-)   :: Exp a t -> Exp a t -> Exp a t
-  (:*)   :: Exp a t -> Exp a t -> Exp a t
-  (:/)   :: Exp a t -> Exp a t -> Exp a t
-  Sum    :: [Exp a t] -> Exp a t
-  Mult   :: [Exp a t] -> Exp a t
-  Negate :: Exp a t -> Exp a t
-  -- | Control Ops
-  If :: Exp a Bool -> Exp a t -> Exp a t -> Exp a t
-  -- | Other Utility Ops
-  -- Returns the number of bool values that are true
-  Count :: [Exp a Bool] -> Exp a Integer
+-- class Monad m => ExpConvert a m where
+--     -- | Static values
+--   Val :: Expressible a => ExpValue a t -> Exp a t
+--   -- | Pointers to values that are reasonable in some
+--   --   context.
+--   Pnt :: Expressible a => ExpPointer a t -> Exp a t
+--   -- | Equality Ops
+--   (:==)   :: Exp a t -> Exp a t -> Exp a Bool
+--   (:/=)   :: Exp a t -> Exp a t -> Exp a Bool
+--   -- | Boolean comparison ops
+--   (:&&)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
+--   (:||)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
+--   (:~&)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
+--   (:~|)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
+--   (:<+>)  :: Exp a Bool -> Exp a Bool -> Exp a Bool
+--   (:=>)   :: Exp a Bool -> Exp a Bool -> Exp a Bool
+--   Not     :: Exp a Bool -> Exp a Bool
+--   JustOne :: [Exp a Bool] -> Exp a Bool
+--   All     :: [Exp a Bool] -> Exp a Bool
+--   Any     :: [Exp a Bool] -> Exp a Bool
+--   -- | Ordering Ops
+--   (:<)  :: Exp a t -> Exp a t -> Exp a Bool
+--   (:<=) :: Exp a t -> Exp a t -> Exp a Bool
+--   (:>)  :: Exp a t -> Exp a t -> Exp a Bool
+--   (:>=) :: Exp a t -> Exp a t -> Exp a Bool
+--   -- | Numerical Ops
+--   (:+)   :: Exp a t -> Exp a t -> Exp a t
+--   (:-)   :: Exp a t -> Exp a t -> Exp a t
+--   (:*)   :: Exp a t -> Exp a t -> Exp a t
+--   (:/)   :: Exp a t -> Exp a t -> Exp a t
+--   Sum    :: [Exp a t] -> Exp a t
+--   Mult   :: [Exp a t] -> Exp a t
+--   Negate :: Exp a t -> Exp a t
+--   -- | Control Ops
+--   If :: Exp a Bool -> Exp a t -> Exp a t -> Exp a t
+--   -- | Other Utility Ops
+--   -- Returns the number of bool values that are true
+--   Count :: [Exp a Bool] -> Exp a Integer
 
-
--- | Cast a particular value as a bool
-bool :: Exp a Value -> Exp a Bool
-bool = UnsafeCast
 
 -- | Phantom type we'll use to flag things as related to Ports
 data PortF
 
 instance Expressible PortF where
-  type ExpPointer PortF Value = Ref Value
-  type ExpPointer PortF Integer = Ref Integer
+  type ExpPointer PortF = Ref Value
 
 -- | Phantom type we'll use to flag things as related to Modules
 data ModF
