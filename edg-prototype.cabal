@@ -122,7 +122,9 @@ library
     EDG.EDGInstances.Integer
     EDG.EDGInstances.Record
     -- EDG.Elements -- High level design elements
+    EDG.ElemIncludes 
     EDG.ElemTypes
+    EDG.ElemProblem
     EDG.Elements
     EDG.Elements.Port
 
@@ -154,6 +156,7 @@ library
     InstanceSigs
     KindSignatures
     LambdaCase
+    LiberalTypeSynonyms
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns

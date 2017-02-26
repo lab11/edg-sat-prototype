@@ -1,6 +1,6 @@
 module Main where
 
-import EDG.EDGProblem
+import EDG.ElemProblem
 
 main :: IO ()
 main = runTestProblem
