@@ -46,6 +46,8 @@ import EDG.Library.Types
 import EDG.Predicates
 import EDG.SBVWrap
 import EDG.EDGDatatype
+import EDG.PortTypes
+import EDG.ElemTypes
 
 import qualified Data.SBV.Internals as S
 import qualified Data.SBV.Dynamic as S
@@ -77,6 +79,10 @@ data GatherState = GatherState {
   , gsRecInfo  :: Map (Ref Record) RecInfo
   -- For each equality class over a record stores the kind for each field.
   , gsRecordKinds :: Map RecEqClass RecKind
+  -- Storage for each major class of port, raw ones that are
+  , gsBasePortInfo   :: Map (Ref Port    ) (PortInfo Port   Port)
+  --, gsLinkPortInfo   :: Map (Ref LinkPort) (PortInfo Link   ModPort)
+  --, gsModulePortInfo :: Map (Ref ModPort ) (PortInfo Module LinkPort)
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -97,6 +103,9 @@ initialGatherState = GatherState {
   , gsValInfo     = Map.empty
   , gsRecInfo     = Map.empty
   , gsRecordKinds = Map.empty
+  , gsBasePortInfo = Map.empty
+  --, gsLinkPortInfo = Map.empty
+  --, gsModulePortInfo = Map.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard
@@ -162,6 +171,10 @@ instance NamedMonad SBVMonad where
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
 newUID = uidCounter @(GatherState) <+= 1
+
+-- | Get a wrapped new UID
+newConcreteUID :: EDGMonad UID'
+newConcreteUID = UID' <$> newUID
 
 -- | Get a new EqClassID and increment the counter.
 newValEqClass :: EDGMonad ValEqClass

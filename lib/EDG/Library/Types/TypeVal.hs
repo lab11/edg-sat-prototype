@@ -194,6 +194,11 @@ type Record = Record' Value
 
 type RecCons = RecordCons Value
 
+-- | Merge two records, while adding fields if they're not found, instead of
+--   returning Top.
+recordMerge :: RecCons -> RecCons -> RecCons
+recordMerge = undefined
+
 instance AsPredicate (Constrained' a) where
   type PredicateDomain (Constrained' a) = (Value' a)
   asPredicate (Int    c) (Int    v) = asPredicate c v

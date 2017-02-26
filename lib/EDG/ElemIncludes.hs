@@ -9,6 +9,7 @@ module EDG.ElemIncludes (
   , module Lens
   , module Algebra
   , module EDG
+  , module Expression
   , pPrint
 ) where
 
@@ -49,7 +50,8 @@ import qualified Control.Lens.TH as Lens
 --
 import qualified Algebra.Constrainable as Algebra
 import qualified Algebra.AsPredicate as Algebra
---
+
+import qualified EDG.Expression as Expression
 -- import EDG.Library.Types
 -- import EDG.Predicates
 --

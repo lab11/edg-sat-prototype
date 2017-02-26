@@ -124,9 +124,12 @@ library
     -- EDG.Elements -- High level design elements
     EDG.ElemIncludes 
     EDG.ElemTypes
+    EDG.PortTypes
     EDG.ElemProblem
     EDG.Elements
     EDG.Elements.Port
+    -- 
+    EDG.Expression
 
   -- Modules included in this library but not exported.
   other-modules:
@@ -165,6 +168,7 @@ library
     OverloadedStrings
     PatternGuards
     PatternSynonyms
+    PolyKinds
     RankNTypes
     RecordWildCards
     RecursiveDo
