@@ -43,7 +43,7 @@ import EDG.Library.Types
 type PortM a = ExceptT String (Writer (PortState a))
 
 instance NamedMonad (PortM a) where
-  monadName = return "Port  "
+  monadName = return "Port   "
 
 -- | The state of the port monad, which we'll use to collect pieces of
 --   information about the port as we build it.
@@ -74,11 +74,10 @@ deriving instance (ExpContext a) => Show (PortState a)
 deriving instance (ExpContext a) => Read (PortState a)
 
 data PortValue a
-  = PVIdent
-  | PVUID
+  = PVUID
   | PVConnected
   | PVClass
-  | PVConnctedTo
+  | PVConnectedTo
   | PVType [String]
   deriving (Eq, Ord, Show, Read)
 
@@ -167,10 +166,15 @@ data PortInfo n = PortInfo {
   , piPConnected :: Ref Value -- Bool -- Are we connected to something?
   , piPConnectedTo :: Ref Value -- UID' -- UID of port we're connected to.
   , piPConstrained :: Ref Value -- Bool -- Are our constraints satisfied
+  -- The set of actual constraints we have along with their induvidual
+  -- references.
+  , piPConstraints :: [(String,Ref Value)] -- [(String,Bool)]
   , piPUsed :: Ref Value -- Bool -- Are we being used in the design?
     -- What potential connections? and what Port are they pointing to?
-    -- typed so that they'll only ever point to their `opposite` kind.
-  , piPConnections :: Map UID' (Ref Bool, Ref n)
+    -- typed so that they'll only ever point to their `opposite` kind
+    -- NOTE :: Probably not actually needed since we can make things
+    --         aggregate nicely without it, even preserving recoverability..
+  -- , piPConnections :: Map UID' (Ref Bool, Ref n)
   }
 
 deriving instance Ord UID'
@@ -180,19 +184,19 @@ deriving instance ExpContext EDG => Read (PortInfo n)
 
 -- | The output type of a port, what we can extract from the finished
 --   sat solver output.
-data PortOut = PortOut {
+data PortOut a = PortOut {
     poPName :: String
-  , poPUID :: UID'
   , poPClass :: String
   , poPType :: Record
   , poPConnectedTo :: Maybe (UID')
   , poPUsed :: Bool
   , poPConstrained :: Bool
+  , poPConstraints :: Map String Bool
   }
 
-deriving instance Eq   PortOut
-deriving instance Show PortOut
-deriving instance Read PortOut
+deriving instance Eq   (PortOut a)
+deriving instance Show (PortOut a)
+deriving instance Read (PortOut a)
 -- |
 -- | Datatype for a description of a port, what is used as input to
 --   the system

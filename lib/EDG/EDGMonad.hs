@@ -81,8 +81,9 @@ data GatherState = GatherState {
   , gsRecInfo  :: Map (Ref Record) RecInfo
   -- For each equality class over a record stores the kind for each field.
   , gsRecordKinds :: Map RecEqClass RecKind
-  -- Storage for each major class of port, raw ones that are
-  , gsBasePortInfo   :: Map (Ref Port) (PortInfo Port)
+  -- Storage for each major class of port, raw ones that don't come from a
+  -- context of a module or link
+  , gsBarePortInfo   :: Map (Ref Port) (PortInfo Port)
   --, gsLinkPortInfo   :: Map (Ref LinkPort) (PortInfo ModPort)
   --, gsModulePortInfo :: Map (Ref ModPort ) (PortInfo LinkPort)
   -- Stores the integer representations of each string
@@ -110,7 +111,7 @@ initialGatherState = GatherState {
   , gsValInfo     = Map.empty
   , gsRecInfo     = Map.empty
   , gsRecordKinds = Map.empty
-  , gsBasePortInfo = Map.empty
+  , gsBarePortInfo = Map.empty
   -- , gsLinkPortInfo = Map.empty
   -- , gsModulePortInfo = Map.empty
   }
@@ -163,15 +164,23 @@ transformState GatherState{..} = SBVState {
 --   build the final SMT problem.
 type EDGMonad = ScribeT SBVMonad GatherMonad
 
+-- | This monad is what we use when extracting a solution from a particular
+--   test result
+--
+-- TODO :: make the relevant typeclasses use this so that it's reasonable
+type ExtractMonad a = ExceptT String (Reader (a,DecodeState))
 
 instance NamedMonad EDGMonad where
-  monadName = return "EDG   "
+  monadName = return "EDG    "
 
 instance NamedMonad GatherMonad where
-  monadName = return "Gather"
+  monadName = return "Gather "
 
 instance NamedMonad SBVMonad where
-  monadName = return "SBV   "
+  monadName = return "SBV    "
+
+instance NamedMonad (ExtractMonad a) where
+  monadName = return "Extract"
 
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
@@ -210,6 +219,16 @@ errContext s e = do
     appendContext n = throw . unlines
       . (\ e -> [("In Context ("++n++") : ") ++ s] ++ e )
       . map ("  " ++) . lines
+
+-- | throw an error when an operation that returns maybe fails.
+maybeThrow :: (MonadExcept String m) => String -> Maybe a -> m a
+maybeThrow s  Nothing = throw s
+maybeThrow _ (Just v) = return v
+
+-- TODO :: Change typesig to following and reimplement when we make the
+--         ExtractMonad changes.
+maybeThrow' :: String -> Maybe a -> Maybe a
+maybeThrow' _ = id
 
 
 -- | The class for contrianable types that can be written as an element in an
@@ -398,6 +417,9 @@ getDSValInfo s = s ^. _2 . valInfo
 -- | get the map of record information from the decode state
 getDSRecInfo :: DecodeState -> Map (Ref Record) RecInfo
 getDSRecInfo s = s ^. _2 . recInfo
+
+getDSBarePortInfo :: DecodeState -> Map (Ref Port) (PortInfo Port)
+getDSBarePortInfo d = d ^. _1 . barePortInfo
 
 -- | ease of se internal funtion that allow us to easily generate a binary
 --   operator on refs from an operator on sbv values

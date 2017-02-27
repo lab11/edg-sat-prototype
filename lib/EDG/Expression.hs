@@ -93,7 +93,7 @@ class (
 class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
   -- The intermidate type of an expression that use used as this
   -- system is run.
-  type ExpRuntime a = t | t -> a
+  type ExpRuntime a :: *
 
   -- Neccesary
   intToLit  :: Integer -> m (ExpLiteral a)

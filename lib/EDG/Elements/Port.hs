@@ -22,6 +22,10 @@ import EDG.EDGDatatype
 import EDG.EDGMonad
 import EDG.EDGInstances
 
+import Data.SBV (
+    Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
+  , SatResult(..), SMTResult(..), SMTConfig(..), CW(..), Kind(..), Modelable(..)
+  )
 
 -- | No other good place to keep this instance for now.
 instance ExpContext a => MonadConstrain (PortM a) (Exp a) where
@@ -124,21 +128,36 @@ instance Expressible EDG EDGMonad where
 
 -- Given a name, and a transformation function actually embed the type
 embedPort :: String -> PortDesc Port -> EDGMonad (Ref Port)
-embedPort n pd = do
-  u <- newConcreteUID
-  embedPort' basePortInfo transform n u pd
+embedPort n pd =
+  embedPort' barePortInfo transform n pd
     where
       transform :: (PortInfo Port) -> Exp Port -> EDGMonad (Exp EDG)
-      transform = undefined
+      transform pi = convertExpressionM litc (varc pi)
+
+      litc :: Constrained' Value -> EDGMonad (Ambiguous Value)
+      litc = return . Abstract . Constrained
+
+      varc :: PortInfo Port -> PortValue Port -> EDGMonad (Ref Value)
+      varc pi@PortInfo{..} pv
+        | PVUID <- pv = return piPUidRef
+        | PVConnected <- pv = return piPConnected
+        | PVClass <- pv = return piPClass
+        | PVConnectedTo <- pv = return piPConnectedTo
+        | PVType fs <- pv = errContext (context ++ " `" ++ show fs ++ "`") $ do
+            getValL piPType fs
+        where
+          context = "var c `" ++ show pi ++ "`"
+
 
 -- | The more generic port embedding function, that allows you to add
 --   to a portInfo given a lens and stuff.
 embedPort' :: (ExpContext c)
            => Lens' GS (Map (Ref a) (PortInfo b))
            -> (PortInfo b -> Exp c -> EDGMonad (Exp EDG))
-           -> String -> UID' -> PortDesc c -> EDGMonad (Ref a)
-embedPort' mapLens transformCons n uid pd@PortDesc{..}
-  = errContext context $ do
+           -> String -> PortDesc c -> EDGMonad (Ref a)
+embedPort' mapLens transformCons n pd@PortDesc{..} = do
+  uid <- newConcreteUID
+  errContext (context uid) $ do
     let name = n ++ "[" ++ show (unpack uid) ++ "]"
         r = Ref name
     -- Build all of the internal values inside the PortInfo
@@ -149,7 +168,7 @@ embedPort' mapLens transformCons n uid pd@PortDesc{..}
     pconnected <- refAbstract (name ++ ".conn") . Constrained . Bool $ bottom
     pconnectedto <- refAbstract (name ++ ".connTo") . Constrained . UID $ bottom
     pused <- refAbstract (name ++ ".used") . Constrained . Bool $ bottom
-    let pconnections = Map.empty
+    -- let pconnections = Map.empty
     pconstrained <- refAbstract (name ++ ".constrained") . Constrained . Bool $
       bottom
     -- build the PortInfo
@@ -162,46 +181,174 @@ embedPort' mapLens transformCons n uid pd@PortDesc{..}
       , piPConnected = pconnected
       , piPConnectedTo = pconnectedto
       , piPUsed = pused
-      , piPConnections = pconnections
+      -- , piPConnections = pconnections
       , piPConstrained = pconstrained
+      , piPConstraints = undefined
       }
     -- And build all the constraints
     pconstraints <- mapM (transformCons portInfo) pdPConstraints
-    constrain $ (Val pconstrained) :=> (All pconstraints)
+    consRefVals <- mapM (\ e -> (show e,) <$> express e) $ pconstraints
+    constrain $ (Val pconstrained :: Exp EDG)
+        :=> (All $ map (Val . snd) consRefVals)
       -- TODO :: Figure out why you need the explicit type annotations.
     constrain $ (Val pused :: Exp EDG) :=> (Val pconstrained)
     constrain $ (Val pconnected :: Exp EDG) :=> (Val pused)
     -- Build the new portDesc
     let pd' = PortDesc{pdPIdent=pdPIdent,pdPClass=pdPClass,pdPType=pdPType,
       pdPConstraints=pconstraints}
+    -- Build the annotated list of constraints
     -- Add the PortINfo to the storage map
-    mapLens %= Map.insert r portInfo{piPDesc=pd'}
+    mapLens %= Map.insert r portInfo{piPDesc=pd',piPConstraints=consRefVals}
     return r
   where
-    context = "embedPort `" ++ show n ++ "` `" ++ show uid ++ "` `"
+    context uid = "embedPort `" ++ show n ++ "` `" ++ show uid ++ "` `"
       ++ show pd ++ "`"
 
-areBarePortsConnected :: Ref Port -> Ref Port -> EDGMonad (Ref Bool)
-areBarePortsConnected = undefined
+-- | Gets you the portinfo variable for the port itself.
+getPortInfo :: Ref Port -> EDGMonad (PortInfo Port)
+getPortInfo = getPortInfo' "BarePortInfo" barePortInfo
 
--- extractPort :: Modelable a => DecodeState -> a -> Ref Port -> PortOut Port
+getPortInfo' :: String -> Lens' GS (Map (Ref a) (PortInfo b))
+             -> Ref a -> EDGMonad (PortInfo b)
+getPortInfo' errName portMap r = errContext context $ do
+    mpi <- uses @GS portMap (Map.lookup r)
+    case mpi of
+      Nothing -> throw $ "No Port `" ++ show r ++ "` found in " ++ errName
+        ++ "."
+      Just pi -> return pi
+  where
+    context = "(getPortInfo :: " ++ errName ++ ") '" ++ show r ++ "`"
+
+-- | Given two ports, sets up the infrastructure to ensure they are connected
+--   this is actually pretty nontrivial :/
+--
+--   TODO :: convert this to a nicely lensed version like the others.
+areBarePortsConnected :: Ref Port -> Ref Port -> EDGMonad (Ref Bool)
+areBarePortsConnected p p' = errContext context $ do
+  -- retieve the portInfo data
+  p1 <- getPortInfo p
+  p2 <- getPortInfo p'
+  -- Create the output variable and
+  let oname = "connected? (" ++ show p ++ ") (" ++ show p' ++ ")"
+  o <- ref oname
+  vo <- bootstrapValue (Bool o)
+  let whenConn = Val vo :: Exp EDG
+  -- Make sure that classes are equal when the things are connected
+  constrain $ whenConn :=> ((p1 <!> pClass) :== (p2 <!> pClass))
+  -- Make sure that types are equal when the things are connected
+  constrain $  whenConn :=> ((p1 <!> pType) :== (p2 <!> pType))
+  -- both ports are being used if this connection is true
+  constrain $ whenConn :=> (p1 <!> pUsed)
+  constrain $ whenConn :=> (p2 <!> pUsed)
+  -- They are both connected if this connection is true
+  constrain $ whenConn :=> (p1 <!> pConnected)
+  constrain $ whenConn :=> (p2 <!> pConnected)
+  -- And their ConnectedTo is equal to the UID of the other iff connected.
+  --
+  -- NOTE :: This constraint and the fact that UIDs are unique should enforce
+  --         that connnections are one-to-one, *and* that connections are
+  --         mutual.
+  --
+  --         For fucks sake don't mess with this unless you know exactly
+  --         what you're going. >:|
+  constrain $ whenConn :== ((p1 <!> pConnectedTo) :== (p2 <!> pUidRef))
+  constrain $ whenConn :== ((p1 <!> pConnectedTo) :== (p2 <!> pUidRef))
+  -- Return the boolean that describes whether the variables are connected
+  return o
+  where
+    context = "areBarePortsConnected `" ++ show p ++ "` `" ++ show p' ++ "`"
+
+    -- I dunno, i just don't want to write this out 15 million times.
+    (<!>) :: PortInfo f -> Lens' (PortInfo f) (Ref Value) -> Exp EDG
+    (<!>) pt l = Val $ pt ^. l
+
+-- | Make sure the port will be used in the design
+--
+--   TODO :: Convert this to a nicely lens parameterized version.
+assertPortUsed :: Ref Port -> EDGMonad ()
+assertPortUsed p = errContext context $ do
+  pi <- getPortInfo p
+  constrain (Val $ pi ^. pUsed :: Exp EDG)
+  where
+    context = "assertPortUsed `" ++ show p ++ "`"
+
+extractPort :: Modelable a => DecodeState -> a -> Ref Port
+            -> Maybe (UID',PortOut Port)
+extractPort ds model port = do
+  pi <-maybeThrow' ("No portInfo found for `" ++ show port ++ "`") $
+    Map.lookup port pim
+  let poName = pi ^. pDesc . pIdent
+  -- Get the class
+  poClass' <- extract ds model (pi ^. pClass)
+  poClass <- case poClass' of
+    Value (String s) -> return s
+    _ -> fail $ "the pClass variable in `" ++ show port ++ "` is not a string"
+  -- The type
+  poType' <- extract ds model (pi ^. pType)
+  poType <- case poClass' of
+    Value (Record s) -> return s
+    _ -> fail $ "the pType variable in `" ++ show port ++ "` is not a record"
+  -- Whether the port was connected and whom to
+  poConnected' <- extract ds model (pi ^. pConnected)
+  poConnected <- case poConnected' of
+    Value (Bool s) -> return s
+    _ -> fail $ "the pConnected variable in `" ++ show port ++ "` is not a bool"
+  poConnectedTo <- case poConnected of
+    False -> return Nothing
+    True -> do
+      poConnectedTo' <- extract ds model (pi ^. pConnectedTo)
+      case poConnectedTo' of
+        Value (UID s) -> return (Just s)
+        _ -> fail $ "the pConnectedTo variable in `" ++ show port ++ "`"
+              ++ " isn't a UID"
+  -- Whether the port is being used
+  poUsed' <- extract ds model (pi ^. pUsed)
+  poUsed <- case poUsed' of
+    Value (Bool s) -> return s
+    _ -> fail $ "the pUsed variable in `" ++ show port ++ "` is not a bool"
+  -- Whether the port has all of its constraints met
+  poConstrained' <- extract ds model (pi ^. pConstrained)
+  poConstrained <- case poConstrained' of
+    Value (Bool s) -> return s
+    _ -> fail $ "the pConstrained variable in `" ++ show port
+      ++ "` is not a Bool"
+  poConstraints' <- flip mapM (pi ^. pConstraints)
+    (\ (s,v) -> (s,) <$> extract ds model v)
+  poConstraints <- flip mapM poConstraints' (\ (s,vr) -> case vr of
+    Value (Bool b) -> return (s,b)
+    _ -> fail $ "the constraint `" ++ s ++ "` in the pConstraints variable"
+      ++ "is not a bool")
+  -- TODO :: add a check to make sure the referenced UID is the same as the
+  --         stored UID
+  -- Assemble the output
+  return (pi ^. pUid,PortOut{
+      poPName = poName
+    , poPClass = poClass
+    , poPType = poType
+    , poPConnectedTo = poConnectedTo
+    , poPUsed = poUsed
+    , poPConstrained = poConstrained
+    , poPConstraints = Map.fromList poConstraints
+    })
+  where
+    pim = getDSBarePortInfo ds
 
 --- Link and module stuff ---
 
-embedLinkPort :: String -> PortDesc Link -> EDGMonad (Ref LinkPort)
-embedLinkPort = undefined
+-- embedLinkPort :: String -> PortDesc Link -> EDGMonad (Ref LinkPort)
+-- embedLinkPort = undefined
 
-embedModPort :: String -> PortDesc Module -> EDGMonad (Ref ModPort)
-embedModPort = undefined
+-- embedModPort :: String -> PortDesc Module -> EDGMonad (Ref ModPort)
+-- embedModPort = undefined
 
-arePortsConnected :: Ref LinkPort -> Ref ModPort -> EDGMonad (Ref Bool)
-arePortsConnected = undefined
+-- arePortsConnected :: Ref LinkPort -> Ref ModPort -> EDGMonad (Ref Bool)
+-- arePortsConnected = undefined
 
-portToLinkPort :: Ref Port -> PortDesc Port -> PortDesc LinkPort
-portToLinkPort = undefined
+-- portToLinkPort :: Ref Port -> PortDesc Port -> PortDesc LinkPort
+-- portToLinkPort = undefined
 
-portToModPort :: Ref Port -> PortDesc Port -> PortDesc ModPort
-portToModPort = undefined
+-- portToModPort :: Ref Port -> PortDesc Port -> PortDesc ModPort
+-- portToModPort = undefined
 
 -- extractLinkPort :: Modelable a => DecodeState -> a -> Ref Port -> PortOut Link
 -- extractModPort :: Modelable a => DecodeState -> a -> Ref Port -> PortOut Mod

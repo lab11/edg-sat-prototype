@@ -5,4 +5,6 @@ import EDG.Elements
 
 -- | Is the main function in the app
 runTestProblem :: IO ()
-runTestProblem = print 2
+runTestProblem = do
+  solveProblem testProblem
+  return ()
