@@ -15,8 +15,8 @@ import Control.Newtype
 
 import Control.Lens.TH
 
-import Control.Applicative ((<|>))
-import Data.Monoid ((<>))
+import Control.Applicative ((<|>)) -- Alternative
+import Data.Monoid ((<>)) -- Mappend
 
 import EDG.Expression
 import EDG.EDGDatatype
@@ -40,7 +40,10 @@ import EDG.Library.Types
 --   The monad instance on PortState does all the actual work, which is
 --   why we're mostly just using the monad instance to shuffle very
 --   specific types of data around.
-type PortM a = Writer (PortState a)
+type PortM a = ExceptT String (Writer (PortState a))
+
+instance NamedMonad (PortM a) where
+  monadName = return "Port  "
 
 -- | The state of the port monad, which we'll use to collect pieces of
 --   information about the port as we build it.
@@ -69,8 +72,6 @@ deriving instance (ExpContext a) => Eq (PortState a)
 -- deriving instance (ExpContext a) => Ord (PortState a)
 deriving instance (ExpContext a) => Show (PortState a)
 deriving instance (ExpContext a) => Read (PortState a)
-
-
 
 data PortValue a
   = PVIdent
@@ -138,7 +139,6 @@ convertPortState PortState{..}
       RCTop -> throw @String $ "The type of this port is unsatisfiable."
       o -> return o
 
-
 -- | The interior datatype of a port, which keep track of all the little
 --   references that are relevant, and makes sure we can get them back.
 --
@@ -157,30 +157,30 @@ convertPortState PortState{..}
 --    forall u in (Map.keys piConnections)
 --      (fst $ Map.lookup u piConnections)
 --        == (pConnected && (pConnectedTo == u))
-data PortInfo a n = PortInfo {
-    piPDesc :: PortDesc a -- Original Data for the Port
-  , piPIdent :: Ref String -- Our name
-  , piPClass :: Ref String -- Our class
+data PortInfo n = PortInfo {
+    piPDesc :: PortDesc EDG -- Original Data for the Port
+  , piPClass :: Ref Value -- String -- Our class
+  , piPType :: Ref Value -- Record -- Our type
   , piPUid :: UID' -- Our UID
-  , piPUidRef :: Ref UID' -- Our UID as represented in the SMT problem
-  , piPConnected :: Ref Bool -- Are we connected to something?
-  , piPConnectedTo :: Ref UID' -- UID of port we're connected to.
-  , piPConstrained :: Ref Bool -- Are our constraints satisfied
-  , piPUsed :: Ref Bool -- Are we being used in the design?
+  -- Our UID as represented in the SMT problem
+  , piPUidRef :: Ref Value -- UID'
+  , piPConnected :: Ref Value -- Bool -- Are we connected to something?
+  , piPConnectedTo :: Ref Value -- UID' -- UID of port we're connected to.
+  , piPConstrained :: Ref Value -- Bool -- Are our constraints satisfied
+  , piPUsed :: Ref Value -- Bool -- Are we being used in the design?
     -- What potential connections? and what Port are they pointing to?
     -- typed so that they'll only ever point to their `opposite` kind.
-  , piConnections :: Map UID' (Ref Bool, Ref n)
+  , piPConnections :: Map UID' (Ref Bool, Ref n)
   }
 
 deriving instance Ord UID'
-deriving instance (ExpContext a) => Eq   (PortInfo a n)
--- deriving instance (ExpContext a) => Ord  (PortInfo a n)
-deriving instance (ExpContext a) => Show (PortInfo a n)
-deriving instance (ExpContext a) => Read (PortInfo a n)
+deriving instance ExpContext EDG => Eq   (PortInfo n)
+deriving instance ExpContext EDG => Show (PortInfo n)
+deriving instance ExpContext EDG => Read (PortInfo n)
 
 -- | The output type of a port, what we can extract from the finished
 --   sat solver output.
-data PortOut a = PortOut {
+data PortOut = PortOut {
     poPName :: String
   , poPUID :: UID'
   , poPClass :: String
@@ -190,10 +190,9 @@ data PortOut a = PortOut {
   , poPConstrained :: Bool
   }
 
-deriving instance (ExpContext a) => Eq   (PortOut a)
--- deriving instance (ExpContext a) => Ord  (PortOut a)
-deriving instance (ExpContext a) => Show (PortOut a)
-deriving instance (ExpContext a) => Read (PortOut a)
+deriving instance Eq   PortOut
+deriving instance Show PortOut
+deriving instance Read PortOut
 -- |
 -- | Datatype for a description of a port, what is used as input to
 --   the system

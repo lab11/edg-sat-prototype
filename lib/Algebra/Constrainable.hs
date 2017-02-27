@@ -91,6 +91,14 @@ data Ambiguous t where
   --   "I cannot exist"
   Impossible :: Ambiguous t
 
+-- | Property preserving transformations of ambiguous values.
+transformAmbig :: (Constrainable t,Constrainable t')
+               => (t -> t') -> (Constraints t -> Constraints t')
+               -> Ambiguous t -> Ambiguous t'
+transformAmbig _ _  Impossible  = Impossible
+transformAmbig f _ (Concrete v) = Concrete (f v)
+transformAmbig _ f (Abstract c) = Abstract (f c)
+
 -- | If the value is collapsible or unsatisfiable reduce this to its simplest
 --   representation.
 flattenAmbig :: (Constrainable t) => Ambiguous t -> Ambiguous t

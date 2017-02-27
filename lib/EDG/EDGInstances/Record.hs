@@ -266,6 +266,40 @@ recConsKind ra@RCAmbig{..} = errContext context $ mapM ambigValKind rcMap
 assertValKind :: Ref Value -> ValKind -> EDGMonad ()
 assertValKind = assertValKind' 0
 
+-- | Given a ValRef will create a nice wrapping value
+bootstrapValue :: ValRef -> EDGMonad (Ref Value)
+bootstrapValue vr
+  | KVBot _  <- vr = ec $ throw @String "Cannot bootstrap an untyped value"
+  | KVTop  v <- vr = absurd v
+  | otherwise = ec $ makeVal
+  where
+    ec :: (NamedMonad m, MonadExcept String m) => m a -> m a
+    ec = errContext context
+
+    context = "bootstrapValue `" ++ show vr ++ "`"
+
+    makeVal :: EDGMonad (Ref Value)
+    makeVal = do
+      vrn <- valRefName vr
+      kr <- refConcrete (valKindName vrn) (getKindNum vr)
+      let rf = Ref vrn
+      exists <- uses @GS valInfo $ Map.member rf
+      case exists of
+        True -> return rf
+        False -> do
+          valInfo @GS %= Map.insert rf ValInfo{viKindRef = kr, viValRef = vr}
+          returnAnd rf (ec $ sbv rf)
+
+    valRefName :: ValRef -> EDGMonad (String)
+    valRefName (Int    r) = return $ unpack r
+    valRefName (Bool   r) = return $ unpack r
+    valRefName (Float  r) = return $ unpack r
+    valRefName (String r) = return $ unpack r
+    valRefName (UID    r) = return $ unpack r
+    valRefName (Record r) = return $ unpack r
+    valRefName (KVBot  _) = throw @String "Cannot get name of untyped value"
+    valRefName (KVTop  v) = absurd v
+
 -- | Ensure that a value has a given kind
 --
 --   TODO :: change to assertValueKind to make the naming a bit more consistent
@@ -702,7 +736,7 @@ assertRecordKind' d r k = errContext context $ do
     context = "assertRecordKind `" ++ show r ++ "` `" ++ show k ++ "`"
 
 valDataName :: String -> String
-valDataName = (++ ".data")
+valDataName = id -- (++ ".data")
 
 valKindName :: String -> String
 valKindName = (++ ".kind")

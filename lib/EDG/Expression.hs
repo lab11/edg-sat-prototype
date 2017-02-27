@@ -93,7 +93,7 @@ class (
 class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
   -- The intermidate type of an expression that use used as this
   -- system is run.
-  type ExpRuntime a :: *
+  type ExpRuntime a = t | t -> a
 
   -- Neccesary
   intToLit  :: Integer -> m (ExpLiteral a)
@@ -282,7 +282,8 @@ express (If     c t f) = do
   f' <- express f
   expressIf c' t' f'
 
-
+-- | Given that you can transform the leaf nodes, this will transform
+--   the entire expression from the bottom up.
 convertExpression :: (ExpContext a, ExpContext a')
                   => (ExpLiteral a -> ExpLiteral a')
                   -> (ExpValue a -> ExpValue a')
@@ -298,10 +299,10 @@ convertExpression lconv vconv e
   | a :~| b   <- e = (conv a) :~|  (conv b)
   | a :<+> b  <- e = (conv a) :<+> (conv b)
   | a :=> b   <- e = (conv a) :=>  (conv b)
-  | Not a     <- e = Not (conv a)
-  | JustOne l <- e = JustOne (map conv l)
-  | All l     <- e = All (map conv l)
-  | Any l     <- e = Any (map conv l)
+  | Not a     <- e = Not $ conv a
+  | JustOne l <- e = JustOne $ map conv l
+  | All l     <- e = All $ map conv l
+  | Any l     <- e = Any $ map conv l
   | a :< b    <- e = (conv a) :<  (conv b)
   | a :<= b   <- e = (conv a) :<= (conv b)
   | a :> b    <- e = (conv a) :>  (conv b)
@@ -310,11 +311,48 @@ convertExpression lconv vconv e
   | a :- b    <- e = (conv a) :-  (conv b)
   | a :* b    <- e = (conv a) :*  (conv b)
   | a :/ b    <- e = (conv a) :/  (conv b)
-  | Negate a  <- e = Negate (conv a)
-  | Sum l     <- e = Sum    (map conv l)
-  | Mult l    <- e = Mult   (map conv l)
-  | Count l   <- e = Count  (map conv l)
+  | Negate a  <- e = Negate $ conv a
+  | Sum l     <- e = Sum    $ map conv l
+  | Mult l    <- e = Mult   $ map conv l
+  | Count l   <- e = Count  $ map conv l
   | If c t f  <- e
     = If (conv c) (conv t) (conv f)
   where
     conv = convertExpression lconv vconv
+
+-- | Monadic version of convertExpression
+convertExpressionM :: (ExpContext a, ExpContext a', Monad m)
+                  => (ExpLiteral a -> m (ExpLiteral a'))
+                  -> (ExpValue a -> m (ExpValue a'))
+                  -> Exp a -> m (Exp a')
+convertExpressionM lconv vconv e
+  | Lit l     <- e = Lit <$> lconv l
+  | Val v     <- e = Val <$> vconv v
+  | a :== b   <- e = (:==) <$> (conv a) <*> (conv b)
+  | a :/= b   <- e = (:/=) <$> (conv a) <*> (conv b)
+  | a :&& b   <- e = (:&&) <$> (conv a) <*> (conv b)
+  | a :|| b   <- e = (:||) <$> (conv a) <*> (conv b)
+  | a :~& b   <- e = (:~&) <$> (conv a) <*> (conv b)
+  | a :~| b   <- e = (:~|) <$> (conv a) <*> (conv b)
+  | a :<+> b  <- e = (:<+>)<$> (conv a) <*> (conv b)
+  | a :=> b   <- e = (:=>) <$> (conv a) <*> (conv b)
+  | Not a     <- e = Not <$> conv a
+  | JustOne l <- e = JustOne <$> mapM conv l
+  | All l     <- e = All <$> mapM conv l
+  | Any l     <- e = Any <$> mapM conv l
+  | a :< b    <- e = (:< ) <$> (conv a) <*> (conv b)
+  | a :<= b   <- e = (:<=) <$> (conv a) <*> (conv b)
+  | a :> b    <- e = (:> ) <$> (conv a) <*> (conv b)
+  | a :>= b   <- e = (:>=) <$> (conv a) <*> (conv b)
+  | a :+ b    <- e = (:+ ) <$> (conv a) <*> (conv b)
+  | a :- b    <- e = (:- ) <$> (conv a) <*> (conv b)
+  | a :* b    <- e = (:* ) <$> (conv a) <*> (conv b)
+  | a :/ b    <- e = (:/ ) <$> (conv a) <*> (conv b)
+  | Negate a  <- e = Negate <$> conv a
+  | Sum l     <- e = Sum    <$> mapM conv l
+  | Mult l    <- e = Mult   <$> mapM conv l
+  | Count l   <- e = Count  <$> mapM conv l
+  | If c t f  <- e
+    = If <$> conv c <*> conv t <*> conv f
+  where
+    conv = convertExpressionM lconv vconv

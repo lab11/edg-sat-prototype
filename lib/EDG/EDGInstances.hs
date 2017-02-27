@@ -14,6 +14,7 @@ module EDG.EDGInstances (
   , EDG.EDGInstances.Record.getVal
   , EDG.EDGInstances.Record.getValS
   , EDG.EDGInstances.Record.getValL
+  , EDG.EDGInstances.Record.bootstrapValue
   , runGather
   , runSBVMonad
   , runEDGMonad

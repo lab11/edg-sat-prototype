@@ -154,6 +154,10 @@ type instance Flip Link   = Module
 type instance Flip LinkPort = ModPort
 type instance Flip ModPort  = LinkPort
 
+type family PFlip a :: *
+type instance PFlip LinkPort = ModPort
+type instance PFlip ModPort  = LinkPort
+
 -- | Gets the phantom type for the type of port from the identifier.
 type family Portify a :: *
 type instance Portify Port = Port
@@ -167,6 +171,10 @@ newtype Resource a = Resource String
 instance Newtype (Resource a) String where
   pack = Resource
   unpack (Resource s) = s
+
+-- Exists for debugging purposes.
+class Monad m => NamedMonad m where
+  monadName :: m String
 
 -- NOTE :: These template haskell things have to be at the end of the
 --         file so that we don't mess up the code generation and typing

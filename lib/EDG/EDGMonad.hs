@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Mostly the datatypes needed for the EDG Monad and the classes that let us
 --   do more interesting stuff with them. Honestly this is suboptimal.
@@ -42,6 +43,7 @@ import Algebra.Lattice
 import Algebra.Constrainable
 import Algebra.AsPredicate
 
+import EDG.Expression
 import EDG.Library.Types
 import EDG.Predicates
 import EDG.SBVWrap
@@ -80,13 +82,18 @@ data GatherState = GatherState {
   -- For each equality class over a record stores the kind for each field.
   , gsRecordKinds :: Map RecEqClass RecKind
   -- Storage for each major class of port, raw ones that are
-  , gsBasePortInfo   :: Map (Ref Port    ) (PortInfo Port   Port)
-  --, gsLinkPortInfo   :: Map (Ref LinkPort) (PortInfo Link   ModPort)
-  --, gsModulePortInfo :: Map (Ref ModPort ) (PortInfo Module LinkPort)
+  , gsBasePortInfo   :: Map (Ref Port) (PortInfo Port)
+  --, gsLinkPortInfo   :: Map (Ref LinkPort) (PortInfo ModPort)
+  --, gsModulePortInfo :: Map (Ref ModPort ) (PortInfo LinkPort)
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
-  } deriving (Show,Read)
+  }
+
+-- This is where we need undecidable instances, but ExpContext EDG is
+-- unambiguous created later on. There's no real recursion or anything.
+deriving instance (ExpContext EDG) => Show GatherState
+deriving instance (ExpContext EDG) => Read GatherState
 
 -- Sigh, this TH splice has to come after all the types used in the datatype
 -- and before any uses of the relevant
@@ -104,8 +111,8 @@ initialGatherState = GatherState {
   , gsRecInfo     = Map.empty
   , gsRecordKinds = Map.empty
   , gsBasePortInfo = Map.empty
-  --, gsLinkPortInfo = Map.empty
-  --, gsModulePortInfo = Map.empty
+  -- , gsLinkPortInfo = Map.empty
+  -- , gsModulePortInfo = Map.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard
@@ -156,17 +163,15 @@ transformState GatherState{..} = SBVState {
 --   build the final SMT problem.
 type EDGMonad = ScribeT SBVMonad GatherMonad
 
-class Monad m => NamedMonad m where
-  monadName :: m String
 
 instance NamedMonad EDGMonad where
-  monadName = return "EDG"
+  monadName = return "EDG   "
 
 instance NamedMonad GatherMonad where
   monadName = return "Gather"
 
 instance NamedMonad SBVMonad where
-  monadName = return "SBV"
+  monadName = return "SBV   "
 
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
@@ -342,6 +347,7 @@ refAmbiguous name (Concrete v) = refConcrete name v
 refAmbiguous name (Abstract c)
   | unSAT c   = throw $ "Ambiguous Value \"" ++ name ++ "\" with value \""
     ++ show c ++ "\" is unsatisfiable."
+  | isBottom c = ref name
   | otherwise = refAbstract name c
 
 -- | Given an ambiguous value, return the corresponding Reference, throwing
@@ -437,24 +443,27 @@ class (SBVAble t,SBVAble Bool) => EDGEquals t where
   --   elements are equal.
   equalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default equalE :: (SBVType Bool ~ S.SBV Bool,S.EqSymbolic (SBVType t))
-                 => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+                 => RefType t -> RefType t -> String
+                 -> EDGMonad (RefType Bool)
   equalE = mkBinOp (S..==) "equalE"
 
   -- | As you'd expect.
   unequalE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default unequalE :: (SBVType Bool ~ S.SBV Bool,S.EqSymbolic (SBVType t))
-                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType Bool)
   unequalE = mkBinOp (S../=) "unequalE"
 
 -- | Same as `equalE` but chooses its own name, usually just something
 --   pretty obvious.
-(.==)   :: EDGEquals t => RefType t -> RefType t            -> EDGMonad (RefType Bool)
+(.==)   :: EDGEquals t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.==) a b = equalE a b ("equalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `unequalE` but chooses its own name, usually just something
 --   pretty obvious.
-(./=)   :: EDGEquals t => RefType t -> RefType t            -> EDGMonad (RefType Bool)
-(./=) a b = unequalE a b ("unequalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(./=)   :: EDGEquals t => RefType t -> RefType t -> EDGMonad (RefType Bool)
+(./=) a b = unequalE a b ("unequalE (" ++ getName a ++ ") ("
+            ++ getName b ++ ")")
 
 -- | And some constraints for boolean operators.
 --
@@ -489,7 +498,8 @@ notE' a = notE a ("notE (" ++ getName a ++ ")")
 -- | Same as `impliesE` but chooses its own name, usually just something
 --   pretty obvious.
 (.=>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") ("
+            ++ getName b ++ ")")
 
 -- | Same as `nandE` but chooses its own name, usually just something
 --   pretty obvious.
@@ -511,42 +521,46 @@ class (SBVAble t, SBVAble Bool) => EDGOrd t where
 
   gtE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default gtE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
-                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType Bool)
   gtE = mkBinOp (S..>) "gtE"
 
   gteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default gteE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
-                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType Bool)
   gteE = mkBinOp (S..>=) "gteE"
 
   ltE  :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default ltE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
-                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType Bool)
   ltE = mkBinOp (S..<) "ltE"
 
   lteE :: RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
   default lteE :: (SBVType Bool ~ S.SBV Bool,S.OrdSymbolic (SBVType t))
-                   => RefType t -> RefType t -> String -> EDGMonad (RefType Bool)
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType Bool)
   lteE = mkBinOp (S..>=) "lteE"
 
 -- | Same as `ltE` but chooses its own name, usually just something
 --   pretty obvious.
-(.<)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.<)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.<) a b = ltE a b ("ltE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `lteE` but chooses its own name, usually just something
 --   pretty obvious.
-(.<=)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.<=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.<=) a b = lteE a b ("lteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `gtE` but chooses its own name, usually just something
 --   pretty obvious.
-(.>)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.>)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.>) a b = gtE a b ("gtE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | Same as `gteE` but chooses its own name, usually just something
 --   pretty obvious.
-(.>=)    :: EDGOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+(.>=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.>=) a b = gteE a b ("gteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- | And some constraints for ordered values
@@ -555,7 +569,7 @@ class (SBVAble t, SBVAble Bool) => EDGPartialOrd t where
 
 -- | Same as `gteE` but chooses its own name, usually just something
 --   pretty obvious.
-leqE' :: EDGPartialOrd t => RefType t -> RefType t           -> EDGMonad (RefType Bool)
+leqE' :: EDGPartialOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 leqE' a b = leqE a b ("leqE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
 -- NOTE :: A special instance that helps us detect when we try to constrain
