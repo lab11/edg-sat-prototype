@@ -164,7 +164,7 @@ embedPort' mapLens transformCons n pd@PortDesc{..} = do
     pclass  <- refConcrete (name ++ ".class") . Value . String $ pdPClass
     ptype   <- refAmbiguous (name ++ ".type") . transformAmbig Value Constrained
                  . transformAmbig Record Record $ pdPType
-    puidref <- refConcrete (name ++ ".uidRef") . Value . UID $ uid
+    puidref <- refConcrete (name ++ ".UIDRef") . Value . UID $ uid
     pconnected <- refAbstract (name ++ ".conn") . Constrained . Bool $ bottom
     pconnectedto <- refAbstract (name ++ ".connTo") . Constrained . UID $ bottom
     pused <- refAbstract (name ++ ".used") . Constrained . Bool $ bottom
@@ -173,7 +173,9 @@ embedPort' mapLens transformCons n pd@PortDesc{..} = do
       bottom
     -- build the PortInfo
     let portInfo = PortInfo{
-        piPDesc = undefined
+        -- Temporary values to allow portINfo to be showed.
+        piPDesc = PortDesc{pdPIdent=pdPIdent,pdPClass=pdPClass,pdPType=pdPType,
+          pdPConstraints=[]}
       , piPClass = pclass
       , piPType = ptype
       , piPUid = uid
@@ -183,7 +185,7 @@ embedPort' mapLens transformCons n pd@PortDesc{..} = do
       , piPUsed = pused
       -- , piPConnections = pconnections
       , piPConstrained = pconstrained
-      , piPConstraints = undefined
+      , piPConstraints = []
       }
     -- And build all the constraints
     pconstraints <- mapM (transformCons portInfo) pdPConstraints
@@ -193,6 +195,11 @@ embedPort' mapLens transformCons n pd@PortDesc{..} = do
       -- TODO :: Figure out why you need the explicit type annotations.
     constrain $ (Val pused :: Exp EDG) :=> (Val pconstrained)
     constrain $ (Val pconnected :: Exp EDG) :=> (Val pused)
+    -- Make sure the UID set is set to a consistent error value when
+    -- the system isn't connected
+    let errorNum = Lit . Concrete . Value . UID . pack $ -1
+    constrain $ (Not (Val pconnected :: Exp EDG)) :=>
+        ((Val pconnectedto) :== errorNum)
     -- Build the new portDesc
     let pd' = PortDesc{pdPIdent=pdPIdent,pdPClass=pdPClass,pdPType=pdPType,
       pdPConstraints=pconstraints}
@@ -252,7 +259,7 @@ areBarePortsConnected p p' = errContext context $ do
   --         For fucks sake don't mess with this unless you know exactly
   --         what you're going. >:|
   constrain $ whenConn :== ((p1 <!> pConnectedTo) :== (p2 <!> pUidRef))
-  constrain $ whenConn :== ((p1 <!> pConnectedTo) :== (p2 <!> pUidRef))
+  constrain $ whenConn :== ((p2 <!> pConnectedTo) :== (p1 <!> pUidRef))
   -- Return the boolean that describes whether the variables are connected
   return o
   where
@@ -282,42 +289,42 @@ extractPort ds model port = do
   poClass' <- extract ds model (pi ^. pClass)
   poClass <- case poClass' of
     Value (String s) -> return s
-    _ -> fail $ "the pClass variable in `" ++ show port ++ "` is not a string"
+    _ -> fail $ "the pClass variable `" ++ show poClass' ++ "` in `" ++ show port ++ "` is not a string"
   -- The type
   poType' <- extract ds model (pi ^. pType)
-  poType <- case poClass' of
+  poType <- case poType' of
     Value (Record s) -> return s
-    _ -> fail $ "the pType variable in `" ++ show port ++ "` is not a record"
+    _ -> fail $ "the pType variable `" ++ show poType' ++ "`  in `" ++ show port ++ "` is not a record"
   -- Whether the port was connected and whom to
   poConnected' <- extract ds model (pi ^. pConnected)
   poConnected <- case poConnected' of
     Value (Bool s) -> return s
-    _ -> fail $ "the pConnected variable in `" ++ show port ++ "` is not a bool"
+    _ -> fail $ "the pConnected variable `" ++ show poConnected' ++ "` in `" ++ show port ++ "` is not a bool"
   poConnectedTo <- case poConnected of
     False -> return Nothing
     True -> do
       poConnectedTo' <- extract ds model (pi ^. pConnectedTo)
       case poConnectedTo' of
         Value (UID s) -> return (Just s)
-        _ -> fail $ "the pConnectedTo variable in `" ++ show port ++ "`"
+        _ -> fail $ "the pConnectedTo variable `" ++ show poConnectedTo' ++ "` in `" ++ show port ++ "`"
               ++ " isn't a UID"
   -- Whether the port is being used
   poUsed' <- extract ds model (pi ^. pUsed)
   poUsed <- case poUsed' of
     Value (Bool s) -> return s
-    _ -> fail $ "the pUsed variable in `" ++ show port ++ "` is not a bool"
+    _ -> fail $ "the pUsed variable `" ++ show poUsed' ++ "` in `" ++ show port ++ "` is not a bool"
   -- Whether the port has all of its constraints met
   poConstrained' <- extract ds model (pi ^. pConstrained)
   poConstrained <- case poConstrained' of
     Value (Bool s) -> return s
-    _ -> fail $ "the pConstrained variable in `" ++ show port
+    _ -> fail $ "the pConstrained variable `" ++ show poConstrained' ++ "` in `" ++ show port
       ++ "` is not a Bool"
   poConstraints' <- flip mapM (pi ^. pConstraints)
     (\ (s,v) -> (s,) <$> extract ds model v)
   poConstraints <- flip mapM poConstraints' (\ (s,vr) -> case vr of
     Value (Bool b) -> return (s,b)
-    _ -> fail $ "the constraint `" ++ s ++ "` in the pConstraints variable"
-      ++ "is not a bool")
+    _ -> fail $ "the constraint `" ++ s ++ "` in the pConstraints "
+      ++ "variable `" ++ show poConstraints' ++ "` is not a bool")
   -- TODO :: add a check to make sure the referenced UID is the same as the
   --         stored UID
   -- Assemble the output
@@ -325,6 +332,7 @@ extractPort ds model port = do
       poPName = poName
     , poPClass = poClass
     , poPType = poType
+    , poPConnected = poConnected
     , poPConnectedTo = poConnectedTo
     , poPUsed = poUsed
     , poPConstrained = poConstrained
@@ -332,6 +340,7 @@ extractPort ds model port = do
     })
   where
     pim = getDSBarePortInfo ds
+    fail = error
 
 --- Link and module stuff ---
 

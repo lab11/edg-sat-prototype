@@ -197,7 +197,12 @@ type RecCons = RecordCons Value
 -- | Merge two records, while adding fields if they're not found, instead of
 --   returning Top.
 recordMerge :: RecCons -> RecCons -> RecCons
-recordMerge = undefined
+recordMerge RCTop _ = RCTop
+recordMerge _ RCTop = RCTop
+recordMerge a RCBottom = a
+recordMerge RCBottom a = a
+recordMerge (rcMap -> m1) (rcMap -> m2)
+  = RCAmbig $ Map.intersectionWith (\ a b -> flattenAmbig $ a \/ b) m1 m2
 
 instance AsPredicate (Constrained' a) where
   type PredicateDomain (Constrained' a) = (Value' a)

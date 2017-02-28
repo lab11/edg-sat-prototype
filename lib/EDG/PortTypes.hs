@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import Algebra.Constrainable
 
 import Control.Newtype
+import Control.Newtype.Util
 
 import Control.Lens.TH
 
@@ -40,10 +41,16 @@ import EDG.Library.Types
 --   The monad instance on PortState does all the actual work, which is
 --   why we're mostly just using the monad instance to shuffle very
 --   specific types of data around.
-type PortM a = ExceptT String (Writer (PortState a))
+type PortM a = WriterT (PortState a) (Except String)
+
+runPortM :: PortM a () -> PortDesc a
+runPortM pm = case runExcept (convertPortState =<< execWriterT pm) of
+  Left s -> error $ "portDesc ceration failed with `" ++ s ++ "`"
+  Right pd -> pd
 
 instance NamedMonad (PortM a) where
   monadName = return "Port   "
+
 
 -- | The state of the port monad, which we'll use to collect pieces of
 --   information about the port as we build it.
@@ -80,6 +87,42 @@ data PortValue a
   | PVConnectedTo
   | PVType [String]
   deriving (Eq, Ord, Show, Read)
+
+type PS = PortState
+
+-- | Append a new bit to the port identity
+setIdent :: forall a. String -> PortM a ()
+setIdent s = tell @(PS a) mempty{psPIdent=Just s}
+
+-- | The UID as usabe in an expression
+eUID :: Exp Port
+eUID = Val PVUID
+
+-- | is the port connec
+eConnected :: Exp Port
+eConnected = Val PVConnected
+
+setClass :: forall a. String ->  PortM a (Exp Port)
+setClass s = do
+  tell @(PS a) mempty{psPClass=Just s}
+  return $ Val PVClass
+
+eClass :: Exp Port
+eClass = Val PVClass
+
+eConnectedTo :: Exp Port
+eConnectedTo = Val PVConnectedTo
+
+setType :: forall a. RecordCons Value -> PortM a (Exp Port)
+setType cons = do
+  tell @(PS a) mempty{psPType = cons}
+  return $ Val (PVType [])
+
+eType :: String -> Exp Port
+eType s = Val $ PVType (split '.' s)
+
+addLiteral :: Constrained' Value -> PortM a (Exp Port)
+addLiteral = return . Lit
 
 -- | Right this just stores information relative to the port itself.
 --   So the assumption that everything that is connected to
@@ -188,6 +231,7 @@ data PortOut a = PortOut {
     poPName :: String
   , poPClass :: String
   , poPType :: Record
+  , poPConnected :: Bool
   , poPConnectedTo :: Maybe (UID')
   , poPUsed :: Bool
   , poPConstrained :: Bool

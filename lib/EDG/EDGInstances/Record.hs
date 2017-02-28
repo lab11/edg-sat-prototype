@@ -26,8 +26,10 @@ import Data.SBV.Internals (
   CWVal(..)
   )
 import qualified Data.SBV as S
+
 import Control.Monad.Scribe
 import Control.Monad.Identity (Identity)
+import Control.Monad.IO.Class
 
 import Control.Lens.Ether.Implicit
 import Control.Lens.TH
@@ -151,10 +153,13 @@ valRefSBV vr
   | String s <- vr = errContext context $ String <$> sbv s
   | UID    u <- vr = errContext context $ UID    <$> sbv u
   | Record r <- vr = errContext context $ Record <$> sbv r
-  | KVBot  e <- vr = errContext context $ throw $ "ValRef with EqClass `" ++ show e ++ "` is still"
-    ++ "ambiguous, cannot generate concrete instantiation."
+  | KVBot  e <- vr = errContext context $ do
+    pi <- get @SBVS
+    liftIO $ pPrint pi
+    throw $ "ValRef with EqClass `" ++ show e ++ "` is still"
+      ++ "ambiguous, cannot generate concrete instantiation."
   | KVTop v <- vr  = absurd v
-  where context = "valRevSBV `" ++ show vr ++ "`"
+  where context = "valRefSBV `" ++ show vr ++ "`"
 
 -- | Given a valueSBV, get the kind of that value
 getValueKind :: Ref Value -> SBVMonad ValKind
@@ -231,7 +236,7 @@ constrainedKind (unpack -> c)
   | (KVTop  _) <- c = throw $ "Contraints are unsatisfiable for `" ++ show c
      ++ "` cannot get a kind."
   where
-    context = "calculating kind for `" ++ show c ++ "`"
+    context = "constrainKind `" ++ show c ++ "`"
 
 -- | gets the kind for an ambiguous value
 ambigValKind :: Ambiguous Value -> EDGMonad ValKind
@@ -819,11 +824,13 @@ instance SBVAble Value where
       context = "(add :: Value) `" ++ show r ++ "` `" ++ show s ++ "` `"
 
   refConcrete :: String -> Value -> EDGMonad (Ref Value)
-  refConcrete n v = do
+  refConcrete n v = errContext context $ do
     r <- defaultRefConcrete n v
     k <- valueKind v
     assertValKind r k
     return r
+      where
+        context = "refConcrete `" ++ show n ++ "` `" ++ show v ++ "`"
 
   isAbstract :: Constrained -> ValueSBV -> SBVMonad (SBV Bool)
   isAbstract (unpack -> c) v@ValueSBV{..}

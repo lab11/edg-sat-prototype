@@ -169,7 +169,6 @@ instance (Eq t, Constrainable t,JoinSemiLattice (Ambiguous t)) => BoundedJoinSem
 instance (Eq t, Constrainable t,MeetSemiLattice (Ambiguous t)) => BoundedMeetSemiLattice (RecordCons t) where
   top = RCTop
 
-
 -- We're leaving the IsList instance out on purpose. It'll be defined in
 -- EDG.Library.Types, where we'll have enough information to give it a more
 -- useful instance.
