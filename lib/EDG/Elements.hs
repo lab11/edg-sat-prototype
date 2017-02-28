@@ -31,7 +31,11 @@ import EDG.Expression (
     Exp(..)
   )
 import EDG.EDGInstances (runEDGMonad)
-import EDG.EDGDatatype (Ref(..),Port)
+import EDG.EDGDatatype (
+    Ref(..)
+  , Port
+  , EDG
+  )
 import EDG.EDGMonad (
     SBVState
   , GatherState
@@ -107,33 +111,49 @@ unknown = bottom
 pattern Unknown = KVBot ()
 
 -- Example Problem --
+portPart = do
+    setIdent "testPort"
+    setClass "p"
+
 
 testProblem :: EDGMonad [Ref Port]
 testProblem = do
   p1 <- addBarePort "p1" $ do
-    setIdent "testPort"
-    setClass "p"
+    portPart
+    setIdent "Foo"
     setType [
-        "f1" <:= Int 5
+        "f1" <:= Int 2
       , "f2" <~= Unknown
+      , "f3" <~= Record ["f3" <~= Bool unknown
+                        ,"F8" <~= Int $ oneOf [6,7,8]
+                        ]
       ]
     return ()
-    -- constrain $ (eType "f1") :== (eType "f2")
 
   p2 <- addBarePort "p2" $ do
-    setIdent "testPort"
-    setClass "p"
+    portPart
     setType [
-        "f1" <~= Int unknown
+        "f1" <:= Int 2
       , "f2" <~= Int [oneOf [8,12,16]]
+      , "f3" <~= Unknown
       ]
     return ()
-    -- constrain $ (eType "f1") :== (eType "f2")
+
+  p3 <- addBarePort "p3" $ do
+    portPart
+    setType [
+        "f1" <:= Int 2
+      , "f2" <~= Int [oneOf [8,12,16]]
+      , "f3" <~= Record ["f4" <:= String "test"]
+      ]
+    return ()
 
   p1p2 <- areBarePortsConnected p1 p2
+  p2p3 <- areBarePortsConnected p2 p3
 
   assertPortUsed p1
 
-  constrain p1p2
+  constrain $ (Val p1p2 :: Exp EDG) :|| (Val p2p3)
+  constrain $ (Val p2p3 :: Exp EDG)
 
-  return [p1,p2] -- ,p2,p3,p4]
+  return [p1,p2,p3] -- ,p2,p3,p4]

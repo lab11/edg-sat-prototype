@@ -85,7 +85,8 @@ data Ambiguous t where
   Concrete   :: {value :: t} -> Ambiguous t
   -- | An abstract set of constraints over elements of type t
   --   "There is a range of values of type t that I could be"
-  Abstract   :: (Constrainable t) => {constraints :: Constraints t} -> Ambiguous t
+  Abstract   :: (Constrainable t)
+             => {constraints :: Constraints t} -> Ambiguous t
   -- | An overconstrained value, such that there is not real value that it
   --   could represent.
   --   "I cannot exist"

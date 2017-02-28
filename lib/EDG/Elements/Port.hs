@@ -230,7 +230,7 @@ getPortInfo' errName portMap r = errContext context $ do
 --   this is actually pretty nontrivial :/
 --
 --   TODO :: convert this to a nicely lensed version like the others.
-areBarePortsConnected :: Ref Port -> Ref Port -> EDGMonad (Ref Bool)
+areBarePortsConnected :: Ref Port -> Ref Port -> EDGMonad (Ref Value)
 areBarePortsConnected p p' = errContext context $ do
   -- retieve the portInfo data
   p1 <- getPortInfo p
@@ -261,7 +261,7 @@ areBarePortsConnected p p' = errContext context $ do
   constrain $ whenConn :== ((p1 <!> pConnectedTo) :== (p2 <!> pUidRef))
   constrain $ whenConn :== ((p2 <!> pConnectedTo) :== (p1 <!> pUidRef))
   -- Return the boolean that describes whether the variables are connected
-  return o
+  return vo
   where
     context = "areBarePortsConnected `" ++ show p ++ "` `" ++ show p' ++ "`"
 
