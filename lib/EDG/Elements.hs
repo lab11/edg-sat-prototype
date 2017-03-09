@@ -35,6 +35,10 @@ import EDG.EDGDatatype (
     Ref(..)
   , Port
   , EDG
+  , Link
+  , Module
+  , ModPort
+  , LinkPort
   )
 import EDG.EDGMonad (
     SBVState
@@ -65,6 +69,10 @@ import EDG.PortTypes (
   , addLiteral
   , runPortM
   )
+import EDG.ElemTypes (
+    ElemM
+  , runElemM
+  )
 import EDG.Elements.Port (
     extractPort
   , embedPort
@@ -72,6 +80,10 @@ import EDG.Elements.Port (
   , areBarePortsConnected
   )
 import EDG.Elements.Elem (
+    extractLink
+  , extractModule
+  , embedLink
+  , embedModule
   )
 -- ABSOLUTE MINIMAL IMPORT SET --
 
@@ -92,20 +104,32 @@ import EDG.Elements.Elem (
 -- solveProblem :: EDGMonad i -> IO ()
 --   verbose? :: bool
 --   extractVals :: Modelable a => DecodeState -> a -> i -> IO ()
-solveProblem :: EDGMonad [Ref Port] -> IO ()
+solveProblem :: EDGMonad ([Ref Port],[Ref Link],[Ref Module]) -> IO ()
 solveProblem edgm = do
   ss <- newIORef (undefined :: SBVState)
-  let (symbolicMonad,gatherState,pl) = runEDGMonad (Just ss) edgm
+  let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) edgm
   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
   sbvState <- readIORef ss
   let decodeState = buildDecodeState gatherState sbvState
   flip mapM_ pl $ \ portRef -> do
     putStrLn $ "Next Port :"
     pPrint $ extractPort decodeState solution portRef
+  flip mapM_ ll $ \ linkRef -> do
+    putStrLn $ "Next Link :"
+    pPrint $ extractLink decodeState solution linkRef
+  flip mapM_ ml $ \ moduleRef -> do
+    putStrLn $ "Next Module :"
+    pPrint $ extractModule decodeState solution moduleRef
   return ()
 
 addBarePort :: String -> PortM Port () -> EDGMonad (Ref Port)
 addBarePort s m = embedPort s $ runPortM m
+
+addModule :: String -> ElemM Module () -> EDGMonad (Ref Module)
+addModule s m = embedModule s $ runElemM m
+
+addLink :: String -> ElemM Link () -> EDGMonad (Ref Link)
+addLink s m = embedLink s $ runElemM m
 
 unknown :: BoundedJoinSemiLattice a => a
 unknown = bottom
@@ -118,44 +142,47 @@ portPart = do
     setClass "p"
 
 
-testProblem :: EDGMonad [Ref Port]
+testProblem :: EDGMonad ([Ref Port],[Ref Link],[Ref Module])
 testProblem = do
-  p1 <- addBarePort "p1" $ do
-    portPart
-    setIdent "Foo"
-    setType [
-        "f1" <:= Int 2
-      , "f2" <~= Unknown
-      , "f3" <~= Record ["f3" <~= Bool unknown
-                        ,"F8" <~= Int $ oneOf [6,7,8]
-                        ]
-      ]
-    return ()
+  m1 <- addModule "seedModule" $ do
+      return ()
 
-  p2 <- addBarePort "p2" $ do
-    portPart
-    setType [
-        "f1" <:= Int 2
-      , "f2" <~= Int [oneOf [8,12,16]]
-      , "f3" <~= Unknown
-      ]
-    return ()
+  return ([],[],[m1])
 
-  p3 <- addBarePort "p3" $ do
-    portPart
-    setType [
-        "f1" <:= Int 2
-      , "f2" <~= Int [oneOf [8,12,16]]
-      , "f3" <~= Record ["f4" <:= String "test"]
-      ]
-    return ()
-
-  p1p2 <- areBarePortsConnected p1 p2
-  p2p3 <- areBarePortsConnected p2 p3
-
-  assertPortUsed p1
-
-  constrain $ (Val p1p2 :: Exp EDG) :|| (Val p2p3)
-  constrain $ (Val p2p3 :: Exp EDG)
-
-  return [p1,p2,p3] -- ,p2,p3,p4]
+--   p1 <- addBarePort "p1" $ do
+--     portPart
+--     setIdent "Foo"
+--     setType [
+--         "f1" <:= Int 2
+--       , "f2" <~= Unknown
+--       , "f3" <~= Record ["f3" <~= Bool unknown
+--                         ,"F8" <~= Int $ oneOf [6,7,8]
+--                         ]
+--       ]
+--     return ()
+--
+--   p2 <- addBarePort "p2" $ do
+--     portPart
+--     setType [
+--         "f1" <:= Int 2
+--       , "f2" <~= Int [oneOf [8,12,16]]
+--       , "f3" <~= Unknown
+--       ]
+--     return ()
+--
+--   p3 <- addBarePort "p3" $ do
+--     portPart
+--     setType [
+--         "f1" <:= Int 2
+--       , "f2" <~= Int [oneOf [8,12,16]]
+--       , "f3" <~= Record ["f4" <:= String "test"]
+--       ]
+--     return ()
+--
+--   p1p2 <- areBarePortsConnected p1 p2
+--   p2p3 <- areBarePortsConnected p2 p3
+--
+--   assertPortUsed p1
+--
+--   constrain $ (Val p1p2 :: Exp EDG) :|| (Val p2p3)
+--   constrain $ (Val p2p3 :: Exp EDG)

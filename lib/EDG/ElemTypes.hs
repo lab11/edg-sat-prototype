@@ -154,11 +154,19 @@ lUID :: (ExpContext Link, ExpValue Link ~ ElemValue Link LinkPort)
      => Exp Link
 lUID = Val (EVUID :: ElemValue Link LinkPort)
 
+evUID :: forall e p. (ExpContext e
+     , ExpValue e ~ ElemValue e p)
+     => Exp e
+evUID = Val (EVUID :: ElemValue e p)
+
 eSetClass :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
           => String -> ElemM a (Exp a)
 eSetClass s = do
   tell @(ES a) mempty{esEClass=Just s}
   return $ Val (EVClass :: ElemValue a b)
+
+evClass :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b) => Exp a
+evClass = Val EVClass
 
 mClass :: Exp Module
 mClass = Val EVClass
