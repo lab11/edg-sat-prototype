@@ -426,6 +426,18 @@ getDSRecInfo s = s ^. _2 . recInfo
 getDSBarePortInfo :: DecodeState -> Map (Ref Port) (PortInfo Port)
 getDSBarePortInfo d = d ^. _1 . barePortInfo
 
+getDSModulePortInfo :: DecodeState -> Map (Ref ModPort) (PortInfo ModPort)
+getDSModulePortInfo d = d ^. _1 . modulePortInfo
+
+getDSLinkPortInfo :: DecodeState -> Map (Ref LinkPort) (PortInfo LinkPort)
+getDSLinkPortInfo d = d ^. _1 . linkPortInfo
+
+getDSModuleInfo :: DecodeState -> Map (Ref Module) (ElemInfo Module ModPort)
+getDSModuleInfo d = d ^. _1 . moduleInfo
+
+getDSLinkInfo :: DecodeState -> Map (Ref Link) (ElemInfo Link LinkPort)
+getDSLinkInfo d = d ^. _1 . linkInfo
+
 -- | ease of se internal funtion that allow us to easily generate a binary
 --   operator on refs from an operator on sbv values
 mkBinOp :: (SBVAble i,SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))

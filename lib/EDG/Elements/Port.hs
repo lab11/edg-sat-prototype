@@ -281,8 +281,22 @@ assertPortUsed p = errContext context $ do
 
 extractPort :: Modelable a => DecodeState -> a -> Ref Port
             -> Maybe (UID',PortOut Port)
-extractPort ds model port = do
-  pi <-maybeThrow' ("No portInfo found for `" ++ show port ++ "`") $
+extractPort = extractPort' getDSBarePortInfo
+
+extractModPort :: Modelable a => DecodeState -> a -> Ref ModPort
+            -> Maybe (UID',PortOut ModPort)
+extractModPort = extractPort' getDSModulePortInfo
+
+extractLinkPort :: Modelable a => DecodeState -> a -> Ref LinkPort
+            -> Maybe (UID',PortOut LinkPort)
+extractLinkPort = extractPort' getDSLinkPortInfo
+
+extractPort' :: Modelable a
+             => (DecodeState -> Map (Ref b) (PortInfo b))
+             -> DecodeState -> a -> Ref b
+             -> Maybe (UID',PortOut b)
+extractPort' retfun ds model port = do
+  pi <- maybeThrow' ("No portInfo found for `" ++ show port ++ "`") $
     Map.lookup port pim
   let poName = pi ^. pDesc . pIdent
   -- Get the class
@@ -340,7 +354,7 @@ extractPort ds model port = do
     , poPConstraints = Map.fromList poConstraints
     })
   where
-    pim = getDSBarePortInfo ds
+    pim = retfun ds
     fail = error
 
 --- Link and module stuff ---

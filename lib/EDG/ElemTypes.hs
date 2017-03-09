@@ -259,8 +259,9 @@ data ElemInfo n p = ElemInfo {
   , eiEConstraints :: Map String (Ref Value {-Bool-})
   -- | Whether the resource is used and what the UID is if it is used.
   , eiEResources   :: Map (Resource n) (Ref Value, Ref Value) -- Bool, UID
-  -- | The Resource Constraint name -> (Bool for expression, UIDs assigned for
-  --   relevant tags)
+  -- | The Resource Constraint name ->
+  --   (Bool for expression, Bool for resCons being met,
+  --    UIDs assigned for relevant tags)
   , eiEResourceCons :: Map ResConName (Ref Value, Map ResourceTag (Ref Value))
   }
 
@@ -280,7 +281,7 @@ data ElemOut a b = ElemOut {
   -- | The UID of the element
   , eoEUID :: UID'
   -- | Each port in the element
-  , eoEPorts :: Map PortName (PortOut b)
+  , eoEPorts :: Map PortName (UID', PortOut b)
   -- | Was used in design?
   , eoEUsed :: Bool
   -- | All constraints satisfied?
@@ -289,10 +290,11 @@ data ElemOut a b = ElemOut {
   , eoEConstraints :: Map String Bool
   -- | Map of all resources to a possible resourceConstraint that
   --   uses them.
-  , eoEResources :: Map (Resource a) (Maybe ResConName)
+  , eoEResources :: Map (Resource a) (Bool,UID')
   -- | The map od all resource constraints, and if fulfilled the resources
   --   and tags that it uses.
-  , eoEResourceCons :: Map ResConName (Maybe (Map ResourceTag (Resource a)))
+  , eoEResourceCons :: Map ResConName (Bool,
+    Maybe (Map ResourceTag UID'))
   }
 
 deriving instance () => Eq   (ElemOut a b)
