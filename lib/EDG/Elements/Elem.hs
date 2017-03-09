@@ -302,6 +302,20 @@ createOptionalConnection rl rm = errContext context $ do
   where
     context = "createOptionalConnection `" ++ show rl ++ "` `" ++ show rm ++ "`"
 
+createAllOptionalConnections :: EDGMonad (Map (Ref LinkPort, Ref ModPort)
+  (Ref Value))
+createAllOptionalConnections = errContext context $ do
+  lps <- getAllLinkPorts
+  mps <- getAllModulePorts
+  let pairs = [(l,m) | l <- lps, m <- mps]
+  mmap <- Map.fromList <$> flip mapM pairs (\ p -> do
+      mo <- uncurry createOptionalConnection p
+      return (p,mo)
+    )
+  return $ Map.mapMaybe id mmap
+  where
+    context = "createAllOptionalConnections"
+
 extractModule :: Modelable a => DecodeState -> a -> Ref Module
               -> Maybe (UID', ElemOut Module ModPort)
 extractModule = extractElem getDSModuleInfo getDSModulePortInfo
