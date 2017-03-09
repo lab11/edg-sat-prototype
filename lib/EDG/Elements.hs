@@ -58,20 +58,28 @@ import EDG.PortTypes (
     convertPortState
   , PortM
   , PortDesc
-  , setIdent
-  , setClass
-  , setType
-  , dUID
-  , dConnected
-  , dClass
-  , dConnectedTo
-  , dType
-  , addLiteral
+  , pvSetIdent
+  , pvSetClass
+  , pvSetType
+  , pvUID
+  , pvConnected
+  , pvClass
+  , pvConnectedTo
+  , pvType
+  , pvAddLiteral
   , runPortM
   )
 import EDG.ElemTypes (
     ElemM
   , runElemM
+  , evNewResource
+  , evSetIdent
+  , evUID
+  , evSetClass
+  , evClass
+  , evResourceUsed
+  , evPortVal
+  , evNewPort
   )
 import EDG.Elements.Port (
     extractPort
@@ -138,13 +146,15 @@ pattern Unknown = KVBot ()
 
 -- Example Problem --
 portPart = do
-    setIdent "testPort"
-    setClass "p"
+    pvSetIdent "testPort"
+    pvSetClass "p"
 
 
 testProblem :: EDGMonad ([Ref Port],[Ref Link],[Ref Module])
 testProblem = do
   m1 <- addModule "seedModule" $ do
+      evSetIdent "seedModule"
+      evSetClass "seed"
       return ()
 
   return ([],[],[m1])

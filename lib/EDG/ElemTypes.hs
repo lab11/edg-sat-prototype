@@ -138,13 +138,13 @@ instance ExpContext LinkPort where
   type ExpValue   LinkPort = PortValue LinkPort
   type ExpLiteral LinkPort = Constrained' Value
 
-eNewResource :: forall a. String -> ElemM a (Resource a)
-eNewResource (pack -> r) = do
+evNewResource :: forall a. String -> ElemM a (Resource a)
+evNewResource (pack -> r) = do
   tell @(ES a) mempty{esEResources=Set.singleton r}
   return r
 
-eSetIdent :: forall a. String -> ElemM a ()
-eSetIdent s = tell @(ES a) mempty{esEIdent=Just s}
+evSetIdent :: forall a. String -> ElemM a ()
+evSetIdent s = tell @(ES a) mempty{esEIdent=Just s}
 
 mUID :: (ExpContext Module, ExpValue Module ~ ElemValue Module ModPort)
      => Exp Module
@@ -159,9 +159,9 @@ evUID :: forall e p. (ExpContext e
      => Exp e
 evUID = Val (EVUID :: ElemValue e p)
 
-eSetClass :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
+evSetClass :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
           => String -> ElemM a (Exp a)
-eSetClass s = do
+evSetClass s = do
   tell @(ES a) mempty{esEClass=Just s}
   return $ Val (EVClass :: ElemValue a b)
 
@@ -174,23 +174,23 @@ mClass = Val EVClass
 lClass :: Exp Link
 lClass = Val EVClass
 
-resourceUsed :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
+evResourceUsed :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
              => Resource a -> Exp a
-resourceUsed r = Val $ (EVResourceUsed r :: ElemValue a b)
+evResourceUsed r = Val $ (EVResourceUsed r :: ElemValue a b)
 
-portVal :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
+evPortVal :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
         => PortName -> PortValue b -> Exp a
-portVal n v = Val $ (EVPort n v :: ElemValue a b)
+evPortVal n v = Val $ (EVPort n v :: ElemValue a b)
 
-newPort :: forall a p. (p ~ Portify a, NamedMonad (ElemM' a p))
+evNewPort :: forall a p. (p ~ Portify a, NamedMonad (ElemM' a p))
         => String -> PortM p () -> ElemM' a p (PortName)
-newPort s p = do
+evNewPort s p = do
   p' <- getPortMState p -- :: PortState p
   tell @(ES a) mempty{esEPorts=Map.singleton s p'}
   return s
 
-newResCons :: forall a.  String -> Exp a -> ResourceMap a -> ElemM a ()
-newResCons name exp rmap = tell @(ES a) mempty{
+evNewResCons :: forall a.  String -> Exp a -> ResourceMap a -> ElemM a ()
+evNewResCons name exp rmap = tell @(ES a) mempty{
     esEResourceCons = Map.singleton name ResourceCons{
         rcPredicate=exp
       , rcUsageMap=rmap

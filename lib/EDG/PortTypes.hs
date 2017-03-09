@@ -93,38 +93,38 @@ data PortValue a
 type PS = PortState
 
 -- | Append a new bit to the port identity
-setIdent :: forall a. String -> PortM a ()
-setIdent s = tell @(PS a) mempty{psPIdent=Just s}
+pvSetIdent :: forall a. String -> PortM a ()
+pvSetIdent s = tell @(PS a) mempty{psPIdent=Just s}
 
 -- | The UID as usabe in an expression
-dUID :: Exp Port
-dUID = Val PVUID
+pvUID :: Exp Port
+pvUID = Val PVUID
 
 -- | is the port connec
-dConnected :: Exp Port
-dConnected = Val PVConnected
+pvConnected :: Exp Port
+pvConnected = Val PVConnected
 
-setClass :: forall a. String ->  PortM a (Exp Port)
-setClass s = do
+pvSetClass :: forall a. String ->  PortM a (Exp Port)
+pvSetClass s = do
   tell @(PS a) mempty{psPClass=Just s}
   return $ Val PVClass
 
-dClass :: Exp Port
-dClass = Val PVClass
+pvClass :: Exp Port
+pvClass = Val PVClass
 
-dConnectedTo :: Exp Port
-dConnectedTo = Val PVConnectedTo
+pvConnectedTo :: Exp Port
+pvConnectedTo = Val PVConnectedTo
 
-setType :: forall a. RecordCons Value -> PortM a (Exp Port)
-setType cons = do
+pvSetType :: forall a. RecordCons Value -> PortM a (Exp Port)
+pvSetType cons = do
   tell @(PS a) mempty{psPType = cons}
   return $ Val (PVType [])
 
-dType :: String -> Exp Port
-dType s = Val $ PVType (split '.' s)
+pvType :: String -> Exp Port
+pvType s = Val $ PVType (split '.' s)
 
-addLiteral :: Constrained' Value -> PortM a (Exp Port)
-addLiteral = return . Lit
+pvAddLiteral :: Constrained' Value -> PortM a (Exp Port)
+pvAddLiteral = return . Lit
 
 -- | Right this just stores information relative to the port itself.
 --   So the assumption that everything that is connected to
