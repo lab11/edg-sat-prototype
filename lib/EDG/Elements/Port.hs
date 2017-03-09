@@ -230,11 +230,24 @@ getPortInfo' errName portMap r = errContext context $ do
 --   this is actually pretty nontrivial :/
 --
 --   TODO :: convert this to a nicely lensed version like the others.
-areBarePortsConnected :: Ref Port -> Ref Port -> EDGMonad (Ref Value)
-areBarePortsConnected p p' = errContext context $ do
+areBarePortsConnected :: Ref Port-> Ref Port -> EDGMonad (Ref Value)
+areBarePortsConnected = arePortsConnected barePortInfo barePortInfo
+  "barePortInfo" "barePortInfo"
+
+areElemPortsConnected :: Ref LinkPort -> Ref ModPort -> EDGMonad (Ref Value)
+areElemPortsConnected = arePortsConnected linkPortInfo modulePortInfo
+  "linkPortInfo" "modulePortInfo"
+
+arePortsConnected :: ()
+                  => Lens' GS (Map (Ref a) (PortInfo a))
+                  -> Lens' GS (Map (Ref (Flip a)) (PortInfo (Flip a)))
+                  -> String
+                  -> String
+                  -> Ref a -> Ref (Flip a) -> EDGMonad (Ref Value)
+arePortsConnected lens lens' s s' p p' = errContext context $ do
   -- retieve the portInfo data
-  p1 <- getPortInfo p
-  p2 <- getPortInfo p'
+  p1 <- getPortInfo' s  lens  p
+  p2 <- getPortInfo' s' lens' p'
   -- Create the output variable and
   let oname = "connected? (" ++ show p ++ ") (" ++ show p' ++ ")"
   o <- ref oname

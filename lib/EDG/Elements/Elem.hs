@@ -284,6 +284,24 @@ getAllLinkPorts = errContext context $ do
   where
     context = "getAllLinkPorts"
 
+createOptionalConnection :: Ref LinkPort -> Ref ModPort
+                         -> EDGMonad (Maybe (Ref Value))
+createOptionalConnection rl rm = errContext context $ do
+  mlpi <- uses @GS linkPortInfo (Map.lookup rl)
+  lpi <- case mlpi of
+    Nothing -> throw $ "Could not find linkPort with name `" ++ show rl ++ "`"
+    Just lpi -> return lpi
+  mmpi <- uses @GS modulePortInfo (Map.lookup rm)
+  mpi <- case mmpi of
+    Nothing -> throw $ "Could not find modulePort with name `" ++ show rl ++ "`"
+    Just mpi -> return mpi
+  if (mpi ^. pDesc . pClass :: String) == (lpi ^. pDesc . pClass :: String)
+    then Just <$> areElemPortsConnected rl rm
+    else errContext ("port `" ++ show rl ++ "` and `" ++ show rm ++ "` "
+        ++ "don't have the same class.") $ return Nothing
+  where
+    context = "createOptionalConnection `" ++ show rl ++ "` `" ++ show rm ++ "`"
+
 extractModule :: Modelable a => DecodeState -> a -> Ref Module
               -> Maybe (UID', ElemOut Module ModPort)
 extractModule = extractElem getDSModuleInfo getDSModulePortInfo
