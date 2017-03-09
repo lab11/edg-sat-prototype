@@ -57,11 +57,11 @@ import EDG.PortTypes (
   , setIdent
   , setClass
   , setType
-  , eUID
-  , eConnected
-  , eClass
-  , eConnectedTo
-  , eType
+  , dUID
+  , dConnected
+  , dClass
+  , dConnectedTo
+  , dType
   , addLiteral
   , runPortM
   )
@@ -70,6 +70,8 @@ import EDG.Elements.Port (
   , embedPort
   , assertPortUsed
   , areBarePortsConnected
+  )
+import EDG.Elements.Elem (
   )
 -- ABSOLUTE MINIMAL IMPORT SET --
 

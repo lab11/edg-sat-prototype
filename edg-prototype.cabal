@@ -128,6 +128,7 @@ library
     EDG.ElemProblem
     EDG.Elements
     EDG.Elements.Port
+    EDG.Elements.Elem
     -- 
     EDG.Expression
 
@@ -209,9 +210,8 @@ library
     transformers >= 0.4.2,
     -- Generics 
     syb >= 0.6,
-    -- -- Provides tagged monads, so that we can remove all those 
-    -- --   fucking `(lift . lift)`s
-    -- ether >= 0.3.0.0,
+    -- Generates the Typeclass tree for generic overloading 
+    overload >= 0.1.0.3,
     -- -- Convinient ordered list functions 
     -- data-ordlist >= 0.4.7.0,
     -- -- Used to interleave monadic actions in weird ways 

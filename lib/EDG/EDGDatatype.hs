@@ -146,7 +146,7 @@ data LinkPort
 data EDG
 
 -- | Gets the inverse type for these flags, just something to help with getting
---   the compiler to typecheck my stupidity
+--   the compiler to typecheck my stupidity.
 type family Flip a :: *
 type instance Flip Port = Port
 type instance Flip Module = Link

@@ -332,6 +332,7 @@ extractPort ds model port = do
       poPName = poName
     , poPClass = poClass
     , poPType = poType
+    , poPUID = pi ^. pUid
     , poPConnected = poConnected
     , poPConnectedTo = poConnectedTo
     , poPUsed = poUsed

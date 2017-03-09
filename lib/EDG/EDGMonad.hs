@@ -84,8 +84,11 @@ data GatherState = GatherState {
   -- Storage for each major class of port, raw ones that don't come from a
   -- context of a module or link
   , gsBarePortInfo   :: Map (Ref Port) (PortInfo Port)
-  --, gsLinkPortInfo   :: Map (Ref LinkPort) (PortInfo ModPort)
-  --, gsModulePortInfo :: Map (Ref ModPort ) (PortInfo LinkPort)
+  , gsLinkPortInfo   :: Map (Ref LinkPort) (PortInfo LinkPort)
+  , gsModulePortInfo :: Map (Ref ModPort ) (PortInfo ModPort)
+  -- And Linkwise for each class of element
+  , gsLinkInfo       :: Map (Ref Link  ) (ElemInfo Link   LinkPort)
+  , gsModuleInfo     :: Map (Ref Module) (ElemInfo Module ModPort )
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -112,8 +115,10 @@ initialGatherState = GatherState {
   , gsRecInfo     = Map.empty
   , gsRecordKinds = Map.empty
   , gsBarePortInfo = Map.empty
-  -- , gsLinkPortInfo = Map.empty
-  -- , gsModulePortInfo = Map.empty
+  , gsLinkPortInfo = Map.empty
+  , gsModulePortInfo = Map.empty
+  , gsLinkInfo = Map.empty
+  , gsModuleInfo = Map.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard

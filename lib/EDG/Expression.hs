@@ -5,14 +5,13 @@ module EDG.Expression where
 
 import Data.Foldable (foldrM)
 
--- TODO :: Split the types for the Exp flag and the monad on expressible
---         by splitting Expressible into two typeclasses.
-
 -- | Type for arbitrary expressions within the system.
 --
 --   First param is a flag that detmines how we describe values
 --   or references
 --
+--   TODO :: Do this better so you get actual compile time type checking
+--           of expressions and values where possible.
 data Exp m where
   -- | Literals w/ a name
   Lit :: ExpContext m => ExpLiteral m -> Exp m

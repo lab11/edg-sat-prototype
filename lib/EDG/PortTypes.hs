@@ -28,13 +28,6 @@ import Control.Lens.Ether.Implicit
 import EDG.Library.Types
 
 
--- | Resource Mappings are a way to describe the set of resources used
---   by a given constraint. The string is the name of the mapping,
---   just a human readable name for how the resource is being used.
---   The value is the set of resources of which *one* must be assigned
---   to the expression this is attached to.
--- type ResMap a = Map String (Set (Resources a))
-
 -- | The Port Monad, which lets us be a bit more interesting about how
 --   we specify ports and their properties.
 --
@@ -47,6 +40,15 @@ runPortM :: PortM a () -> PortDesc a
 runPortM pm = case runExcept (convertPortState =<< execWriterT pm) of
   Left s -> error $ "portDesc ceration failed with `" ++ s ++ "`"
   Right pd -> pd
+
+getPortMState :: (MonadExcept String m,NamedMonad m)
+              => PortM a () -> m (PortState a)
+getPortMState p = case runExcept (execWriterT p) of
+  Left s -> throw $ "portDesc Creation failed with `" ++ s ++ "`"
+  Right ps -> return ps
+
+instance NamedMonad (Except a) where
+  monadName = return "Except "
 
 instance NamedMonad (PortM a) where
   monadName = return "Port   "
@@ -95,31 +97,31 @@ setIdent :: forall a. String -> PortM a ()
 setIdent s = tell @(PS a) mempty{psPIdent=Just s}
 
 -- | The UID as usabe in an expression
-eUID :: Exp Port
-eUID = Val PVUID
+dUID :: Exp Port
+dUID = Val PVUID
 
 -- | is the port connec
-eConnected :: Exp Port
-eConnected = Val PVConnected
+dConnected :: Exp Port
+dConnected = Val PVConnected
 
 setClass :: forall a. String ->  PortM a (Exp Port)
 setClass s = do
   tell @(PS a) mempty{psPClass=Just s}
   return $ Val PVClass
 
-eClass :: Exp Port
-eClass = Val PVClass
+dClass :: Exp Port
+dClass = Val PVClass
 
-eConnectedTo :: Exp Port
-eConnectedTo = Val PVConnectedTo
+dConnectedTo :: Exp Port
+dConnectedTo = Val PVConnectedTo
 
 setType :: forall a. RecordCons Value -> PortM a (Exp Port)
 setType cons = do
   tell @(PS a) mempty{psPType = cons}
   return $ Val (PVType [])
 
-eType :: String -> Exp Port
-eType s = Val $ PVType (split '.' s)
+dType :: String -> Exp Port
+dType s = Val $ PVType (split '.' s)
 
 addLiteral :: Constrained' Value -> PortM a (Exp Port)
 addLiteral = return . Lit
@@ -165,7 +167,8 @@ deriving instance (ExpContext a) => Eq   (PortDesc a)
 deriving instance (ExpContext a) => Show (PortDesc a)
 deriving instance (ExpContext a) => Read (PortDesc a)
 
-convertPortState :: MonadExcept String m => PortState a -> m (PortDesc a)
+convertPortState :: (MonadExcept String m,NamedMonad m)
+                 => PortState a -> m (PortDesc a)
 convertPortState PortState{..}
   = PortDesc <$> pIdent <*> pClass <*> (Abstract <$> pType) <*> return psPConstraints
   where
@@ -232,6 +235,7 @@ data PortOut a = PortOut {
   , poPClass :: String
   , poPType :: Record
   , poPConnected :: Bool
+  , poPUID :: UID'
   , poPConnectedTo :: Maybe (UID')
   , poPUsed :: Bool
   , poPConstrained :: Bool
@@ -241,9 +245,7 @@ data PortOut a = PortOut {
 deriving instance Eq   (PortOut a)
 deriving instance Show (PortOut a)
 deriving instance Read (PortOut a)
--- |
--- | Datatype for a description of a port, what is used as input to
---   the system
+
 makeLensesWith abbreviatedFields ''PortState
 makeLensesWith abbreviatedFields ''PortDesc
 makeLensesWith abbreviatedFields ''PortInfo

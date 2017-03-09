@@ -42,6 +42,8 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps: 
   - 'data-fix-0.0.3'
+  - 'overload-0.1.0.3'
+  - 'simple-effects-0.7.0.1'
 
 # Override default flag values for local packages and extra-deps
 flags: {}
