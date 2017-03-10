@@ -14,6 +14,13 @@ import Algebra.Lattice (
     bottom
   , BoundedJoinSemiLattice
   )
+import Algebra.AsPredicate (
+    LiftablePredicate
+  , liftPredicate
+  )
+import Algebra.Constrainable (
+    Ambiguous(..)
+  )
 import EDG.Predicates (
     oneOf
   , noneOf
@@ -26,6 +33,8 @@ import EDG.Library.Types (
   , Kinded(Int,Bool,String,UID,Record,KVBot)
   , (<:=)
   , (<~=)
+  )
+import EDG.Library.Types.TypeVal (
   )
 import EDG.Expression (
     Exp(..)
@@ -92,6 +101,8 @@ import EDG.Elements.Elem (
   , extractModule
   , embedLink
   , embedModule
+  , assertModuleUsed
+  , assertLinkUsed
   )
 -- ABSOLUTE MINIMAL IMPORT SET --
 
@@ -144,6 +155,8 @@ unknown = bottom
 
 pattern Unknown = KVBot ()
 
+mkLit = Lit . liftPredicate
+
 -- Example Problem --
 portPart = do
     pvSetIdent "testPort"
@@ -155,7 +168,10 @@ testProblem = do
   m1 <- addModule "seedModule" $ do
       evSetIdent "seedModule"
       evSetClass "seed"
+      constrain (mkLit $ Bool False :: Exp Module)
       return ()
+
+  assertModuleUsed m1
 
   return ([],[],[m1])
 
