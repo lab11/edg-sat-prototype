@@ -71,6 +71,7 @@ import EDG.PortTypes (
     convertPortState
   , PortM
   , PortDesc
+  , PortValue(..)
   , pvSetIdent
   , pvSetClass
   , pvSetType
@@ -178,7 +179,16 @@ testProblem = do
         , "f3" <~= UID $ bottom
         ]
 
+      p1 <- evNewPort "port1" $ do
+        pvSetIdent "port1"
+        pvSetClass "a"
+        pvSetType [
+            "p3" <~= UID bottom
+          ]
+        return ()
+
       constrain (evType "f3" :== evUID :: Exp Module)
+      constrain (evType "f3" :== evPortVal "port1" (PVType ["p3"]) :: Exp Module)
 
       -- constrain (mkLit $ Bool False :: Exp Module)
       return ()
