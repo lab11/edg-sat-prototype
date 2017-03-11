@@ -24,6 +24,10 @@ import Algebra.Constrainable (
 import EDG.Predicates (
     oneOf
   , noneOf
+  , lessThan
+  , lessThanEq
+  , greaterThan
+  , greaterThanEq
   )
 import Control.Monad.MonadSymbolic (
     constrain
@@ -83,9 +87,11 @@ import EDG.ElemTypes (
   , runElemM
   , evNewResource
   , evSetIdent
-  , evUID
   , evSetClass
+  , evSetType
+  , evUID
   , evClass
+  , evType
   , evResourceUsed
   , evPortVal
   , evNewPort
@@ -155,8 +161,6 @@ unknown = bottom
 
 pattern Unknown = KVBot ()
 
-mkLit = Lit . liftPredicate
-
 -- Example Problem --
 portPart = do
     pvSetIdent "testPort"
@@ -168,7 +172,15 @@ testProblem = do
   m1 <- addModule "seedModule" $ do
       evSetIdent "seedModule"
       evSetClass "seed"
-      constrain (mkLit $ Bool False :: Exp Module)
+      evSetType [
+          "f1" <~= Int [greaterThan 5, lessThan 12]
+        , "f2" <~= String $ oneOf ["test1","test2"]
+        , "f3" <~= UID $ bottom
+        ]
+
+      constrain (evType "f3" :== evUID :: Exp Module)
+
+      -- constrain (mkLit $ Bool False :: Exp Module)
       return ()
 
   assertModuleUsed m1

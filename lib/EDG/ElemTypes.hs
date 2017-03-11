@@ -143,16 +143,12 @@ evNewResource (pack -> r) = do
   tell @(ES a) mempty{esEResources=Set.singleton r}
   return r
 
+evType :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
+       => String -> Exp a
+evType s = Val $ EVType (split '.' s)
+
 evSetIdent :: forall a. String -> ElemM a ()
 evSetIdent s = tell @(ES a) mempty{esEIdent=Just s}
-
-mUID :: (ExpContext Module, ExpValue Module ~ ElemValue Module ModPort)
-     => Exp Module
-mUID = Val (EVUID :: ElemValue Module ModPort)
-
-lUID :: (ExpContext Link, ExpValue Link ~ ElemValue Link LinkPort)
-     => Exp Link
-lUID = Val (EVUID :: ElemValue Link LinkPort)
 
 evUID :: forall e p. (ExpContext e
      , ExpValue e ~ ElemValue e p)
@@ -167,12 +163,6 @@ evSetClass s = do
 
 evClass :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b) => Exp a
 evClass = Val EVClass
-
-mClass :: Exp Module
-mClass = Val EVClass
-
-lClass :: Exp Link
-lClass = Val EVClass
 
 evResourceUsed :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
              => Resource a -> Exp a
@@ -196,6 +186,12 @@ evNewResCons name exp rmap = tell @(ES a) mempty{
       , rcUsageMap=rmap
       }
   }
+
+evSetType :: forall a b. (ExpContext a, ExpValue a ~ ElemValue a b)
+          => RecordCons Value -> ElemM a (Exp a)
+evSetType cons = do
+  tell @(ES a) mempty{esEType = cons}
+  return $ Val (EVType [])
 
 deriving instance () => Eq   (ElemValue a b)
 deriving instance () => Show (ElemValue a b)
