@@ -105,3 +105,4 @@ instance InvertSBV Float where
 
 instance EDGEquals Float
 instance EDGOrd Float
+instance EDGNum Float

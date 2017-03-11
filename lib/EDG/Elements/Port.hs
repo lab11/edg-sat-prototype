@@ -93,14 +93,18 @@ instance Expressible EDG EDGMonad where
   expressGT a b = bootstrapValue =<< (Bool <$> (a .> b))
   expressGTE :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
   expressGTE a b = bootstrapValue =<< (Bool <$> (a .>= b))
---
---   -- Neccesary
---   expressPlus   :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
---   expressMinus  :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
---   expressTimes  :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
---   expressDiv    :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
---   expressNegate :: Ref Value -> EDGMonad (Ref Value)
---
+
+  -- Neccesary
+  expressPlus   :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
+  expressPlus = (.+)
+  expressMinus  :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
+  expressMinus = (.-)
+  expressTimes  :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
+  expressTimes = (.*)
+  -- expressDiv    :: Ref Value -> Ref Value -> EDGMonad (Ref Value)
+  expressNegate :: Ref Value -> EDGMonad (Ref Value)
+  expressNegate = negateE'
+
   -- Neccesary
   expressIf :: Ref Value -> Ref Value -> Ref Value
             -> EDGMonad (Ref Value)

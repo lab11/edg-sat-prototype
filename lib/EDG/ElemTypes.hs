@@ -247,6 +247,25 @@ convertElemState ElemState{..}
     resCon = return esEResourceCons
     prts = mapM convertPortState esEPorts
 
+data ResourceInfo = ResourceInfo {
+    riUsed :: Ref Value
+  , riUid :: Ref Value
+  , riUser :: Ref Value
+  }
+
+deriving instance () => Eq   (ResourceInfo)
+deriving instance () => Show (ResourceInfo)
+deriving instance () => Read (ResourceInfo)
+
+data ResourceTagInfo = ResourceTagInfo {
+    rtiUid :: Ref Value
+  , rtiUsing :: Ref Value
+  }
+
+deriving instance () => Eq   (ResourceTagInfo)
+deriving instance () => Show (ResourceTagInfo)
+deriving instance () => Read (ResourceTagInfo)
+
 -- | The interior datatype of an element which keeps track of all the
 --   references that are relevant, and ensures they're retrievable for
 --   later use.
@@ -262,11 +281,12 @@ data ElemInfo n p = ElemInfo {
   , eiEConstrained :: Ref Value -- Bool
   , eiEConstraints :: Map String (Ref Value {-Bool-})
   -- | Whether the resource is used and what the UID is if it is used.
-  , eiEResources   :: Map (Resource n) (Ref Value, Ref Value) -- Bool, UID
+  , eiEResources   :: Map (Resource n) ResourceInfo -- Bool, UID
   -- | The Resource Constraint name ->
   --   (Bool for expression, Bool for resCons being met,
   --    UIDs assigned for relevant tags)
-  , eiEResourceCons :: Map ResConName (Ref Value, Map ResourceTag (Ref Value))
+  , eiEResourceCons :: Map ResConName (Ref Value,
+      Map ResourceTag ResourceTagInfo)
   }
 
 deriving instance (ExpContext n,ExpContext p) => Eq   (ElemInfo n p)
@@ -294,19 +314,41 @@ data ElemOut a b = ElemOut {
   , eoEConstraints :: Map String Bool
   -- | Map of all resources to a possible resourceConstraint that
   --   uses them.
-  , eoEResources :: Map (Resource a) (Bool,UID')
+  , eoEResources :: Map (Resource a) ResourceOut
   -- | The map od all resource constraints, and if fulfilled the resources
   --   and tags that it uses.
   , eoEResourceCons :: Map ResConName (Bool,
-    Maybe (Map ResourceTag UID'))
+    Maybe (Map ResourceTag ResourceTagOut))
   }
 
 deriving instance () => Eq   (ElemOut a b)
 deriving instance () => Show (ElemOut a b)
 deriving instance () => Read (ElemOut a b)
 
+data ResourceOut = ResourceOut{
+    roUsed :: Bool
+  , roUid :: UID'
+  , roUser :: Maybe UID'
+  }
+
+deriving instance () => Eq   ResourceOut
+deriving instance () => Show ResourceOut
+deriving instance () => Read ResourceOut
+
+data ResourceTagOut = ResourceTagOut {
+    rtoUid :: UID'
+  , rtoUsing :: Maybe UID'
+  }
+
+deriving instance () => Eq   ResourceTagOut
+deriving instance () => Show ResourceTagOut
+deriving instance () => Read ResourceTagOut
 
 makeLensesWith abbreviatedFields ''ResourceCons
+makeLensesWith abbreviatedFields ''ResourceInfo
+makeLensesWith abbreviatedFields ''ResourceTagInfo
+makeLensesWith abbreviatedFields ''ResourceOut
+makeLensesWith abbreviatedFields ''ResourceTagOut
 makeLensesWith abbreviatedFields ''ElemState
 makeLensesWith abbreviatedFields ''ElemDesc
 makeLensesWith abbreviatedFields ''ElemInfo

@@ -1044,6 +1044,56 @@ instance EDGOrd Value where
   lteE :: Ref Value -> Ref Value -> String -> EDGMonad (RefType Bool)
   lteE = ordBinOp (S..<=) "lteE"
 
+numUnOp :: (forall a. Num a => a -> a) -> String
+         -> Ref Value -> String -> EDGMonad (Ref Value)
+numUnOp op opName a name = errContext context $ do
+  n <- ref name
+  assertValKindEq a n
+  returnAnd n $ errContext context $ do
+    ValueSBV{vsValSBV=av} <- sbv a
+    ValueSBV{vsValSBV=nv} <- sbv n
+    case (av,nv) of
+      (Int ai,Int ni) -> constrain $ ni S..== (op ai)
+      (Float af,Float nf) -> constrain $ nf S..== (op af)
+      _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
+           "`" ++ show a ++ "` has an invalid"
+           ++  " kind, kind must be numeric."
+  where
+    context = opName ++ " `" ++ show a ++ "`"
+
+numBinOp :: (forall a. Num a => a -> a -> a) -> String
+         -> Ref Value -> Ref Value -> String -> EDGMonad (Ref Value)
+numBinOp op opName a b name = errContext context $ do
+  n <- ref name
+  assertValKindEq a b
+  assertValKindEq a n
+  assertValKindEq b n
+  returnAnd n $ errContext context $ do
+    ValueSBV{vsValSBV=av} <- sbv a
+    ValueSBV{vsValSBV=bv} <- sbv b
+    ValueSBV{vsValSBV=nv} <- sbv n
+    case (av,bv,nv) of
+      (Int ai, Int bi,Int ni) -> constrain $ ni S..== (op ai bi)
+      (Float af, Float bf, Float nf) -> constrain $ nf S..== (op af bf)
+      _ -> throw $ "Could not create `" ++ show n ++ "` because " ++
+           "`" ++ show a ++ "` and `" ++ show b ++ "` have invalid"
+           ++  " kinds, both kinds must be identical and numeric."
+  where
+    context = opName ++ " `" ++ show a ++ "` `" ++ show b ++ "`"
+
+instance EDGNum Value where
+  negateE :: Ref Value -> String -> EDGMonad (Ref Value)
+  negateE = numUnOp negate "negateE"
+
+  plusE :: Ref Value -> Ref Value -> String -> EDGMonad (Ref Value)
+  plusE = numBinOp (+) "plusE"
+
+  minusE :: Ref Value -> Ref Value -> String -> EDGMonad (Ref Value)
+  minusE = numBinOp (-) "minusE"
+
+  multE :: Ref Value-> Ref Value -> String -> EDGMonad (Ref Value)
+  multE = numBinOp (*) "multE"
+
 instance S.EqSymbolic RecSBV where
 
   (.==) a@RecSBV{rsFields=ma} b@RecSBV{rsFields=mb}

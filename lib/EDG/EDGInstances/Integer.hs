@@ -121,5 +121,5 @@ instance InvertSBV Integer where
   extract _ model (Ref name) = getModelValue name model
 
 instance EDGEquals Integer
-
 instance EDGOrd Integer
+instance EDGNum Integer

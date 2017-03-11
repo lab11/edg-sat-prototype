@@ -40,7 +40,7 @@ data Exp m where
   (:+)   :: Exp m -> Exp m -> Exp m
   (:-)   :: Exp m -> Exp m -> Exp m
   (:*)   :: Exp m -> Exp m -> Exp m
-  (:/)   :: Exp m -> Exp m -> Exp m
+  -- (:/)   :: Exp m -> Exp m -> Exp m
   Sum    :: [Exp m] -> Exp m
   Mult   :: [Exp m] -> Exp m
   Negate :: Exp m -> Exp m
@@ -145,7 +145,7 @@ class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
   expressPlus   :: ExpRuntime a -> ExpRuntime a -> m (ExpRuntime a)
   expressMinus  :: ExpRuntime a -> ExpRuntime a -> m (ExpRuntime a)
   expressTimes  :: ExpRuntime a -> ExpRuntime a -> m (ExpRuntime a)
-  expressDiv    :: ExpRuntime a -> ExpRuntime a -> m (ExpRuntime a)
+  -- expressDiv    :: ExpRuntime a -> ExpRuntime a -> m (ExpRuntime a)
   expressNegate :: ExpRuntime a -> m (ExpRuntime a)
 
   -- Unneccesary
@@ -171,7 +171,7 @@ class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
 
   {-# MINIMAL intToLit, boolToLit, expressLit, expressVal, expressEq,
               expressAnd, expressOr, expressNot, expressLT, expressLTE,
-              expressGT, expressGTE, expressPlus, expressMinus, expressDiv,
+              expressGT, expressGTE, expressPlus, expressMinus,
               expressNegate, expressIf, expressTimes #-}
 
 -- | Shorthand for intToLit that wraps things up in an expression
@@ -259,10 +259,10 @@ express (a :*  b) =  do
   a' <- express a
   b' <- express b
   expressTimes a' b'
-express (a :/  b) =  do
-  a' <- express a
-  b' <- express b
-  expressDiv a' b'
+-- express (a :/  b) =  do
+--   a' <- express a
+--   b' <- express b
+--   expressDiv a' b'
 express (Negate a) =  do
   a' <- express a
   expressNegate a'
@@ -309,7 +309,7 @@ convertExpression lconv vconv e
   | a :+ b    <- e = (conv a) :+  (conv b)
   | a :- b    <- e = (conv a) :-  (conv b)
   | a :* b    <- e = (conv a) :*  (conv b)
-  | a :/ b    <- e = (conv a) :/  (conv b)
+  -- | a :/ b    <- e = (conv a) :/  (conv b)
   | Negate a  <- e = Negate $ conv a
   | Sum l     <- e = Sum    $ map conv l
   | Mult l    <- e = Mult   $ map conv l
@@ -346,7 +346,7 @@ convertExpressionM lconv vconv e
   | a :+ b    <- e = (:+ ) <$> (conv a) <*> (conv b)
   | a :- b    <- e = (:- ) <$> (conv a) <*> (conv b)
   | a :* b    <- e = (:* ) <$> (conv a) <*> (conv b)
-  | a :/ b    <- e = (:/ ) <$> (conv a) <*> (conv b)
+  -- | a :/ b    <- e = (:/ ) <$> (conv a) <*> (conv b)
   | Negate a  <- e = Negate <$> conv a
   | Sum l     <- e = Sum    <$> mapM conv l
   | Mult l    <- e = Mult   <$> mapM conv l

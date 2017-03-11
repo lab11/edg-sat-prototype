@@ -555,6 +555,43 @@ notE' a = notE a ("notE (" ++ getName a ++ ")")
 (.<+>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.<+>) a b = xorE a b ("xorE (" ++ getName a ++ ") (" ++ getName b ++ ")")
 
+class (SBVAble t) => EDGNum t where
+  negateE :: RefType t ->              String -> EDGMonad (RefType t)
+  default negateE :: (Num (SBVType t))
+                   => RefType t -> String
+                   -> EDGMonad (RefType t)
+  negateE = mkUnOp negate "negateE"
+
+  plusE     :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  default plusE :: (Num (SBVType t))
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType t)
+  plusE = mkBinOp (+) "plusE"
+
+  minusE      :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  default minusE :: (Num (SBVType t))
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType t)
+  minusE = mkBinOp (-) "minusE"
+
+  multE :: RefType t -> RefType t -> String -> EDGMonad (RefType t)
+  default multE :: (Num (SBVType t))
+                   => RefType t -> RefType t -> String
+                   -> EDGMonad (RefType t)
+  multE = mkBinOp (*) "multE"
+
+negateE' :: EDGNum t => RefType t -> EDGMonad (RefType t)
+negateE' a = negateE a ("negateE (" ++ getName a ++ ")")
+
+(.+) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
+(.+) a b = plusE a b ("plusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+(.-) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
+(.-) a b = minusE a b ("minusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
+(.*) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
+(.*) a b = multE a b ("multE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+
 -- | And some constraints for ordered values
 class (SBVAble t, SBVAble Bool) => EDGOrd t where
 
