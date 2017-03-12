@@ -249,7 +249,7 @@ convertElemState ElemState{..}
 
 data ResourceInfo = ResourceInfo {
     riUsed :: Ref Value
-  , riUid :: Ref Value
+  , riUid  :: Ref Value
   , riUser :: Ref Value
   }
 
@@ -258,7 +258,8 @@ deriving instance () => Show (ResourceInfo)
 deriving instance () => Read (ResourceInfo)
 
 data ResourceTagInfo = ResourceTagInfo {
-    rtiUid :: Ref Value
+    rtiUsed  :: Ref Value
+  , rtiUid   :: Ref Value
   , rtiUsing :: Ref Value
   }
 
@@ -336,7 +337,8 @@ deriving instance () => Show ResourceOut
 deriving instance () => Read ResourceOut
 
 data ResourceTagOut = ResourceTagOut {
-    rtoUid :: UID'
+    rtoUsed :: Bool
+  , rtoUid :: UID'
   , rtoUsing :: Maybe UID'
   }
 

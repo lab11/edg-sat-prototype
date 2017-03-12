@@ -137,7 +137,7 @@ instance KVAble Knd where
   type KString Knd   = ()
   type KUID    Knd   = ()
   type KRecord Knd b = b
-  type KTop    Knd   = ()
+  type KTop    Knd   = Void
   type KBottom Knd   = ()
 
 type Kind' = Kinded Knd

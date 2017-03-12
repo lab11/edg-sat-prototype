@@ -22,10 +22,10 @@ import EDG.Library.Types
 import EDG.Expression
 import EDG.ElemTypes
 import EDG.EDGDatatype
-import EDG.EDGMonad
+import EDG.EDGMonad hiding (trace)
 import EDG.EDGInstances
 
---import Debug.Trace
+import Debug.Trace
 
 import EDG.Elements.Port
 
@@ -87,7 +87,7 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
     eresources <- Map.fromAscList
       <$> flip mapM (Set.toList edEResources) (\ res -> do
           -- For each resource
-          let rname = name ++ ".resource." ++ unpack r
+          let rname = name ++ ".resource." ++ unpack res
               usedName = rname ++ ".used"
               uidName  = rname ++ ".uid"
               userName = rname ++ ".user"
@@ -98,8 +98,8 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
           ruid <- refConcrete uidName . Value . UID $ ruidnum
           ruser <- refAbstract userName . Constrained . UID $ bottom
           -- If unused the UID should be -1
-          constrain $ (Not . Val $ rused)
-            :=> ((Val ruser :: Exp EDG) :== errorNum)
+          constrain $ ((Not . Val $ rused) :&& (Val econstrained))
+           :=> ((Val ruser :: Exp EDG) :== errorNum)
           -- Key : resource
           -- Value : (Ref Val,Ref Val)
           return (res,ResourceInfo{
@@ -145,27 +145,42 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
             let tname = rcname ++ ".tag." ++ tn
             -- get a unique new ID
             tuidnum <- newConcreteUID
+            tused <- refAbstract (tname ++ ".used")
+                . Constrained . Bool $ bottom
             tuid <- refConcrete (tname ++ ".uid") . Value . UID $ tuidnum
             tusing <- refAbstract (tname ++ ".using")
                 . Constrained . UID $ bottom
+            -- If unused the using flag should be -1 otherwise it should
+            -- be something else.
+            constrain $ (Val econstrained) :=> ((Not . Val $ tused)
+              :== ((Val tusing :: Exp EDG) :== errorNum))
+            -- If the parent expression is true and the element is
+            -- being used then this tag must use a resource/
+            constrain ((Val rcexp :&& Val econstrained)
+              :=> Val tused :: Exp EDG)
             -- for each possibility get the constraint.
             tagEqVals <- flip mapM rs (\ r -> do
               case Map.lookup r eresources of
                 Nothing -> throw $ "No resource `" ++ show r ++ "` found "
                   ++ "when generating constraints for tag `" ++ tn ++ "`"
                   ++ " in resource constraint `" ++ rcn ++ "`"
-                -- the thing should be used and the tag's UID should be
-                -- equal to the resource uid
-                Just ResourceInfo{..} -> return $ undefined
-                  -- (Val rused :: Exp EDG) :&& ((Val ruid) :== (Val tuid))
+                -- If we're using this, both the tag and the resource are
+                -- being used, the tag's UID is the resources user, and the
+                -- resource UID is what the tag is using.
+                Just ResourceInfo{..} -> return (All[
+                    Val tuid :== Val riUser
+                  , Val riUid :== Val tusing
+                  , Val tused
+                  , Val riUsed
+                  ] :: Exp EDG)
               )
             -- There must be a matching tag if the expression is true and the
             -- system is being constrained.
-            -- constrain $ ((Val rcexp) :&& (Val econstrained))
-            --   :=> (JustOne tagEqVals)
-            undefined
+            constrain $ ((Val rcexp) :&& (Val econstrained))
+              :=> (Any tagEqVals)
             return ResourceTagInfo{
-                rtiUid=tuid
+                rtiUsed=tused
+              , rtiUid=tuid
               , rtiUsing=tusing
               }
           )
@@ -353,7 +368,7 @@ extractElem :: forall a b c. (Modelable c)
             -> Maybe (UID', ElemOut a b)
 extractElem retfun pretfun ds model elem = do
   let eim = retfun ds
-  ei <- trace "foo" maybeThrow' ("No elemInfo found for `" ++ show elem ++ "`") $
+  ei <- maybeThrow' ("No elemInfo found for `" ++ show elem ++ "`") $
     Map.lookup elem eim
   let eoident = ei ^. eIdent
       eouid = ei ^. eUID
@@ -386,38 +401,64 @@ extractElem retfun pretfun ds model elem = do
           ++ "has value of wrong type."
     )
   eoresources <- flip Map.traverseWithKey (ei ^. eResources)
-    (\ rn ResourceInfo{..} -> do undefined
-      -- ebv' <- extract ds model bv
-      -- ebv <- case ebv' of
-      --   Value (Bool b) -> return b
-      --   _ -> fail $ "Resource `" ++ show rn ++ "` in elem `" ++ show elem ++ "`"
-      --     ++ "has isUsed value of wrong type `" ++ show ebv' ++ "`"
-      -- euv' <- extract ds model uv
-      -- euv <- case euv' of
-      --   Value (UID u) -> return u
-      --   _ -> fail $ "Resource `" ++ show rn ++ "` in elem `" ++ show elem ++ "`"
-      --     ++ "has usedBy value of wrong type `" ++ show euv' ++ "`"
-      -- return (ebv,euv)
+    (\ rn ResourceInfo{..} ->   do
+      eused' <- extract ds model riUsed
+      eused <- case eused' of
+        Value (Bool b) -> return b
+        _ -> fail $ "Resource `" ++ show rn ++ "` in elem `" ++ show elem ++ "`"
+          ++ "has isUsed value of wrong type `" ++ show eused' ++ "`"
+      euid' <- extract ds model riUid
+      euid <- case euid' of
+        Value (UID u) -> return u
+        _ -> fail $ "Resource `" ++ show rn ++ "` in elem `" ++ show elem ++ "`"
+          ++ "has uid value of wrong type `" ++ show euid' ++ "`"
+      euser <- case eused of
+        False -> return Nothing
+        True -> Just <$> do
+          euser' <- extract ds model riUser
+          case euser' of
+            Value (UID u) -> return u
+            _ -> fail $ "Resource `" ++ show rn ++ "` in elem `"
+              ++ show elem ++ "has user value of wrong type `"
+              ++ show euser' ++ "`"
+      return ResourceOut{roUsed=eused,roUid=euid,roUser=euser}
     )
   eoresourcecons <- flip Map.traverseWithKey (ei ^. eResourceCons)
-    (\ rcn (ev,mrti) -> do undefined
-      -- ebv' <- extract ds model bv
-      -- ebv <-  case ebv' of
-      --   Value (Bool b) -> return b
-      --   _ -> fail $ "ResourceConstraint `" ++ rcn ++ "` in elem `"
-      --     ++ show elem ++ "` has expression value of wrong type `"
-      --     ++ show ebv' ++ "`"
-      -- emt <- {- case ebv of
-      --   False -> Nothing
-      --   True -> -} Just <$> flip Map.traverseWithKey mrt (\ tn uv -> do
-      --       euv' <- extract ds model uv
-      --       case euv' of
-      --         Value (UID u) -> return u
-      --         _ -> fail $ "ResourceConstraint `" ++ show rcn ++ "` in elem `"
-      --           ++ show elem ++ "` has tag `" ++ tn ++ "` with value of wrong "
-      --           ++ "type `" ++ show euv' ++ "`"
-      --     )
-      -- return (ebv, emt)
+    (\ rcn (bv,mrti) -> trace (show rcn) $ do
+      ebv' <- (\s -> trace (show bv ++ " | " ++ show s) s) $ extract ds model bv
+      ebv <- trace "foo" $ case ebv' of
+        Value (Bool b) -> return b
+        _ -> fail $ "ResourceConstraint `" ++ rcn ++ "` in elem `"
+          ++ show elem ++ "` has expression value of wrong type `"
+          ++ show ebv' ++ "`"
+      emt <- case ebv of
+        False -> {- trace "boo" $ -} return Nothing
+        True -> {- trace "bar" $ -} Just <$> flip Map.traverseWithKey mrti
+          (\ tn ResourceTagInfo{..} -> {- trace ("t: " ++ show tn) $ -} do
+            eused' <- extract ds model rtiUsed
+            eused <- case eused' of
+              Value (Bool u) -> return u
+              _ -> fail $ "ResourceConstraint `" ++ show rcn ++ "` in elem `"
+                ++ show elem ++ "` has tag `" ++ tn
+                ++ "` with value of wrong " ++ "type `" ++ show eused' ++ "`"
+            euid' <- extract ds model rtiUid
+            euid <- case euid' of
+              Value (UID u) -> return u
+              _ -> fail $ "ResourceCons `" ++ show rcn ++ "` in elem `"
+                ++ show elem ++ "` has tag `" ++ tn ++ "` with uid of "
+                ++ "wrong type `" ++ show euid' ++ "`"
+            eusing <- case eused of
+              False -> return Nothing
+              True -> Just <$> do
+                eusing' <- extract ds model rtiUsing
+                case eusing' of
+                  Value (UID u) -> return u
+                  _ -> fail $ "ResourceCons `" ++ show rcn ++ "` in elem"
+                    ++ show elem ++ "` has tag `" ++ tn ++ "` with using of"
+                    ++ " wrong type `" ++ show eusing' ++ "`"
+            return ResourceTagOut{rtoUsed=eused,rtoUid=euid,rtoUsing=eusing}
+          )
+      return (ebv, emt)
     )
   return (eouid, ElemOut{
       eoEIdent= eoident

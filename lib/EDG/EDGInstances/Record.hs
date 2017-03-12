@@ -340,8 +340,7 @@ assertValKind' d v k = errContext context $ do
     (Record rc, KVBot eq) -> generateDatum eq ref Record
     -- IF there's no contraint, there's no contraint
     (KVBot (),_) -> return ()
-    (KVTop (),_) -> throw $ "Tried to assert that kind of `" ++ show v ++ "` "
-      ++ "is KVTop. This is kinda silly."
+    (KVTop v,_) -> absurd v
     (_,KVTop v) -> absurd v
     _ -> throw $ "Tried asserting that `" ++ show v ++ "` has kind `" ++
           show k ++ "` but it has conflicting info `" ++ show vi ++ "`."
@@ -566,10 +565,8 @@ intersectKinds = intersectKinds' 0
 intersectKinds' :: Int -> ValKind -> ValKind -> EDGMonad ValKind
 intersectKinds' d vka vkb
   -- Error cases for KVTop
-  | KVTop () <- vka = errContext context . throw $ "Found an invalid "
-    ++ "KVTop () when checking kind for ka `" ++ show vka ++ "`"
-  | KVTop () <- vkb = errContext context . throw $ "Found an invalid "
-    ++ "KVTop () when checking kind for kb `" ++ show vkb ++ "`"
+  | KVTop v <- vka = absurd v
+  | KVTop v <- vkb = absurd v
   -- Simple ones, where we're just checking equality
   | Int    () <- vka, Int    () <- vkb = return $ Int    ()
   | Bool   () <- vka, Bool   () <- vkb = return $ Bool   ()
@@ -807,6 +804,7 @@ instance SBVAble Value where
             vr = vinfo ^. valRef
             rn = unpack r
         ks <- sbv kr
+        constrain (ks S..== (S.literal $ getKindNum vr))
         vs <- valRefSBV vr
         let s = ValueSBV{vsKindSBV = ks, vsValSBV = vs, vsRefName = Just rn}
         add r s
@@ -882,10 +880,11 @@ instance SBVAble Value where
 instance InvertSBV Value where
 
   extract :: Modelable a => DecodeState -> a -> Ref Value -> Maybe Value
-  extract ds model ref = do
+  extract ds model ref = {- trace (":=> " ++ show ref) $ -} do
     let valInfo = getDSValInfo ds
     vi <- Map.lookup ref valInfo
     kind <- extract ds model (vi ^. kindRef)
+    {- trace (":K " ++ show kind) $ return () -}
     if | kind == getKindNum' (Int ()) -> do
             let Int dref = vi ^. valRef
             d <- extract ds model dref
@@ -910,7 +909,8 @@ instance InvertSBV Value where
             let Record dref = vi ^. valRef
             d <- extract ds model dref
             return . pack . Record $ d
-       | otherwise -> fail "no valid element"
+       | otherwise -> error $ "Value `" ++ show ref ++ "` with vi `" ++ show vi
+          ++ "` and kind `" ++ show kind ++ "` is somehow an invalid option."
 
 allEqOp ::  (forall a. S.EqSymbolic a => a -> a -> SBV Bool) -> String
         -> Bool -> Ref Value -> Ref Value -> String -> EDGMonad (Ref Bool)

@@ -12,6 +12,7 @@ module EDG.Elements where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Debug.Trace
 
 import Algebra.Lattice (
     bottom
@@ -143,7 +144,7 @@ solveProblem edgm = do
   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
   sbvState <- readIORef ss
   let decodeState = buildDecodeState gatherState sbvState
-  pPrint solution
+  -- pPrint decodeState
   flip mapM_ pl $ \ portRef -> do
     putStrLn $ "Next Port :"
     pPrint $ extractPort decodeState solution portRef
@@ -169,12 +170,6 @@ unknown = bottom
 
 pattern Unknown = KVBot ()
 
--- Example Problem --
-portPart = do
-    pvSetIdent "testPort"
-    pvSetClass "p"
-
-
 testProblem :: EDGMonad ([Ref Port],[Ref Link],[Ref Module])
 testProblem = do
   m1 <- addModule "seedModule" $ do
@@ -197,20 +192,20 @@ testProblem = do
           ]
         return ()
 
-      -- rt <- evNewResource "timer"
-      -- rd <- evNewResource "dma"
+      rt <- evNewResource "timer"
+      rd <- evNewResource "dma"
 
-      -- evNewResCons "useTimer"
-      --   (evType "f4") $ Map.fromList [("e1",[rt,rd])]
+      evNewResCons "useTimer"
+        (evType "f4") $ Map.fromList [("e1",[rt,rd])]
 
-      -- evNewResCons "useTimer2"
-      --   (Not $ evType "f4") $ Map.fromList [("e2",[rd])]
+      evNewResCons "useTimer2"
+        (Not $ evType "f1" :/= evType "f6") $ Map.fromList [("e2",[rt])]
 
 
       constrain (evType "f4" :: Exp Module)
       constrain (evType "f3" :== evUID :: Exp Module)
       constrain (evType "f1" :/= evType "f5" :: Exp Module)
-      constrain ((evType "f1" :* evType "f5") :== evType "f6" :: Exp Module)
+      constrain ((Negate $ evType "f1" :* evType "f5") :== evType "f6" :: Exp Module)
       -- constrain (evPortVal "port1" PVConnected :: Exp Module)
 
       return ()
