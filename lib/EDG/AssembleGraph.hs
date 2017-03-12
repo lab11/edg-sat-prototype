@@ -100,7 +100,7 @@ type Ident = String
 type ResourceName = String
 
 data DecodeElem n = Elem {
-    deName :: Ref n
+    deName :: String
   , deIdent :: Ident
   , dePorts :: Map PortName (Maybe (Ident,PortName))
   , deResourceConstraints :: Map ResConName
@@ -179,8 +179,9 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
       | Map.member rm (idc ^. block . modules) = Right idc
       -- actual work this time :V
       | Nothing <- modOut = Left $ "Could not extract module `" ++ show rm
-      | Just mo <- modOut = let em = makeDEM rm mo in
-          Right . (block . modules %~ Map.insert rm mo)
+      | Just mo <- modOut = let (em,nl) = makeDEM rm mo in
+          Right . (linkQueue %~ Set.union nl)
+                . (block . modules %~ Map.insert rm mo)
                 . (block . graph . modules %~ Map.insert rm em) $ idc
         where
           modOut = snd <$> extractModule ds model rm
@@ -191,25 +192,28 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
       | Map.member rl (idc ^. block . links) = Right idc
       -- actual work this time
       | Nothing <- linkOut = Left $ "Could not extract link `" ++ show rl
-      | Just lo <- linkOut = let el = makeDEL rl lo in
-          Right . (block . links %~ Map.insert rl lo)
+      | Just lo <- linkOut = let (el,nm) = makeDEL rl lo in
+          Right . (moduleQueue %~ Set.union nm)
+                . (block . links %~ Map.insert rl lo)
                 . (block . graph . links %~ Map.insert rl el) $ idc
         where
           linkOut = snd <$> extractLink ds model rl
 
-    makeDEL :: Ref Link ->  ElemOut Link LinkPort -> DecodeElem Link
-    makeDEL = makeDE linkPorts linkPortParents
+    makeDEL :: Ref Link ->  ElemOut Link LinkPort
+            -> (DecodeElem Link, Set (Ref Module))
+    makeDEL = makeDE modPorts modPortParents
 
-    makeDEM :: Ref Module ->  ElemOut Module ModPort -> DecodeElem Module
-    makeDEM = makeDE modPorts modPortParents
+    makeDEM :: Ref Module ->  ElemOut Module ModPort
+            -> (DecodeElem Module, Set (Ref Link))
+    makeDEM = makeDE linkPorts linkPortParents
 
     makeDE :: ()
-           => Lens' UIDData (Map (UID') (Ref b))
-           -> Lens' UIDData (Map (Ref b) (String,Ref a))
-           -> Ref a ->  ElemOut a b -> DecodeElem a
-    makeDE pulens parlens r ElemOut{..} = Elem{
-        -- deName :: Ref n
-        deName = r
+           => Lens' UIDData (Map (UID') (Ref c))
+           -> Lens' UIDData (Map (Ref c) (String,Ref d))
+           -> Ref a ->  ElemOut a b -> (DecodeElem a, Set (Ref d))
+    makeDE pulens parlens r ElemOut{..} = (Elem{
+        -- deName :: String
+        deName = unpack r
         -- deIdent :: Ident
       , deIdent = eoEIdent
         -- dePorts :: Map PortName (Maybe (Ident,PortName))
@@ -217,13 +221,17 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
         -- deResourceConstraints :: Map ResConName
         --   (Maybe (Map ResourceTag ResourceName))
       , deResourceConstraints = recCons
-      }
+      },neighbors)
       where
-        ports = flip Map.map eoEPorts (\ (_, po@PortOut{..}) -> do
+        ports = Map.map (fmap fst) pAndN
+        neighbors = Set.fromList . Map.elems . Map.mapMaybe (fmap snd) $ pAndN
+
+        -- Get both the ports and neighbors in one pass.
+        pAndN = flip Map.map eoEPorts (\ (_, po@PortOut{..}) -> do
             connUID <- poPConnectedTo
             connRef <- Map.lookup connUID (uidData ^. pulens)
             (portname,parRef) <- Map.lookup connRef (uidData ^. parlens)
-            return (unpack parRef,portname)
+            return ((unpack parRef,portname),parRef)
           )
 
         recCons = Map.map (fmap $ Map.map lookupResName). Map.map snd

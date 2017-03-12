@@ -117,6 +117,7 @@ import EDG.Elements.Elem (
   , assertLinkUsed
   , createOptionalConnection
   , createAllOptionalConnections
+  , finishUpConstraints
   )
 import EDG.AssembleGraph (
     DecodeBlock
@@ -145,12 +146,11 @@ import EDG.AssembleGraph (
 solveProblem :: EDGMonad ([Ref Port],[Ref Link],[Ref Module]) -> IO ()
 solveProblem edgm = do
   ss <- newIORef (undefined :: SBVState)
-  let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) edgm
+  let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) modEDGm
   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
   sbvState <- readIORef ss
   let decodeState = buildDecodeState gatherState sbvState
   -- pPrint decodeState
-  pPrint $ decodeResult decodeState solution (head ml)
   -- flip mapM_ pl $ \ portRef -> do
   --   putStrLn $ "Next Port :"
   --   pPrint $ extractPort decodeState solution portRef
@@ -160,7 +160,18 @@ solveProblem edgm = do
   -- flip mapM_ ml $ \ moduleRef -> do
   --   putStrLn $ "Next Module :"
   --   pPrint $ extractModule decodeState solution moduleRef
+  putStrLn $ "Decoded Result :"
+  pPrint $ decodeResult decodeState solution (head ml)
   return ()
+
+  where
+    modEDGm = do
+      output <- edgm
+      -- We can only correctly constrain the ports once we know all of the
+      -- potential connections they may have.
+      finishUpConstraints
+      return output
+
 
 addBarePort :: String -> PortM Port () -> EDGMonad (Ref Port)
 addBarePort s m = embedPort s $ runPortM m
@@ -211,116 +222,117 @@ testProblem = do
       constrain (Not $ evType "f4" :: Exp Module)
       constrain (evType "f3" :== evUID :: Exp Module)
       constrain (evType "f1" :/= evType "f5" :: Exp Module)
-      constrain ((Negate $ evType "f1" :* evType "f5") :== evType "f6" :: Exp Module)
-      -- constrain (evPortVal "port1" PVConnected :: Exp Module)
+      constrain ((Negate $ evType "f1" :* evType "f5")
+        :== evType "f6" :: Exp Module)
+      constrain (evPortVal "port1" PVConnected :: Exp Module)
 
       return ()
 
-  -- m2 <- addModule "otherModule" $ do
-  --     evSetIdent "otherModule"
-  --     evSetClass "other"
-  --     evSetType [
-  --         "f1" <~= Int [greaterThan 5, lessThan 12]
-  --       , "f2" <~= String $ oneOf ["test1","test2"]
-  --       , "f3" <~= UID $ bottom
-  --       ]
+  m2 <- addModule "otherModule" $ do
+      evSetIdent "otherModule"
+      evSetClass "other"
+      evSetType [
+          "f1" <~= Int [greaterThan 5, lessThan 12]
+        , "f2" <~= String $ oneOf ["test1","test2"]
+        , "f3" <~= UID $ bottom
+        ]
 
-  --     p1 <- evNewPort "port1" $ do
-  --       pvSetIdent "port1"
-  --       pvSetClass "a"
-  --       pvSetType [
-  --           "p3" <~= UID bottom
-  --         ]
-  --       return ()
+      p1 <- evNewPort "port1" $ do
+        pvSetIdent "port1"
+        pvSetClass "a"
+        pvSetType [
+            "p3" <~= UID bottom
+          ]
+        return ()
 
-  --     -- F3 is our UID
-  --     constrain (evType "f3" :== evUID :: Exp Module)
-  --     -- Out UID is equal to the UID in the port
-  --     constrain (evType "f3"
-  --       :== evPortVal "port1" (PVType ["p3"]) :: Exp Module)
-  --     -- our port is connected
-  --     constrain (evPortVal "port1" PVConnected :: Exp Module)
+      -- F3 is our UID
+      constrain (evType "f3" :== evUID :: Exp Module)
+      -- Out UID is equal to the UID in the port
+      constrain (evType "f3"
+        :== evPortVal "port1" (PVType ["p3"]) :: Exp Module)
+      -- our port is connected
+      constrain (evPortVal "port1" PVConnected :: Exp Module)
 
-  --     -- constrain (mkLit $ Bool False :: Exp Module)
-  --     return ()
+      -- constrain (mkLit $ Bool False :: Exp Module)
+      return ()
 
-  -- m3 <- addModule "otherModule" $ do
-  --     evSetIdent "otherModule"
-  --     evSetClass "other"
-  --     evSetType [
-  --         "f1" <~= Int [greaterThan 5, lessThan 12]
-  --       , "f2" <~= String $ oneOf ["test1","test2"]
-  --       , "f3" <~= UID $ bottom
-  --       ]
+  m3 <- addModule "otherModule" $ do
+      evSetIdent "otherModule"
+      evSetClass "other"
+      evSetType [
+          "f1" <~= Int [greaterThan 5, lessThan 12]
+        , "f2" <~= String $ oneOf ["test1","test2"]
+        , "f3" <~= UID $ bottom
+        ]
 
-  --     p1 <- evNewPort "port1" $ do
-  --       pvSetIdent "port1"
-  --       pvSetClass "a"
-  --       pvSetType [
-  --           "p3" <~= UID bottom
-  --         ]
-  --       return ()
+      p1 <- evNewPort "port1" $ do
+        pvSetIdent "port1"
+        pvSetClass "a"
+        pvSetType [
+            "p3" <~= UID bottom
+          ]
+        return ()
 
-  --     -- F3 is our UID
-  --     constrain (evType "f3" :== evUID :: Exp Module)
-  --     -- Out UID is equal to the UID in the port
-  --     constrain (evType "f3"
-  --       :== evPortVal "port1" (PVType ["p3"]) :: Exp Module)
-  --     -- our port is connected
-  --     constrain (evPortVal "port1" PVConnected :: Exp Module)
-  --     -- constrain (mkLit $ Bool False :: Exp Module)
-  --     return ()
+      -- F3 is our UID
+      constrain (evType "f3" :== evUID :: Exp Module)
+      -- Out UID is equal to the UID in the port
+      constrain (evType "f3"
+        :== evPortVal "port1" (PVType ["p3"]) :: Exp Module)
+      -- our port is connected
+      constrain (evPortVal "port1" PVConnected :: Exp Module)
+      -- constrain (mkLit $ Bool False :: Exp Module)
+      return ()
 
-  -- l1 <- addLink "testLink" $ do
-  --   evSetIdent "testLink"
-  --   evSetClass "aLink"
+  l1 <- addLink "testLink" $ do
+    evSetIdent "testLink"
+    evSetClass "aLink"
 
-  --   p1 <- evNewPort "port1" $ do
-  --     pvSetIdent "port1"
-  --     pvSetClass "a"
-  --     pvSetType [
-  --         "p3" <~= UID bottom
-  --       ]
-  --     return ()
+    p1 <- evNewPort "port1" $ do
+      pvSetIdent "port1"
+      pvSetClass "a"
+      pvSetType [
+          "p3" <~= UID bottom
+        ]
+      return ()
 
-  --   p2 <- evNewPort "port2" $ do
-  --     pvSetIdent "port2"
-  --     pvSetClass "a"
-  --     pvSetType [
-  --         "p3" <~= UID bottom
-  --       ]
-  --     return ()
+    p2 <- evNewPort "port2" $ do
+      pvSetIdent "port2"
+      pvSetClass "a"
+      pvSetType [
+          "p3" <~= UID bottom
+        ]
+      return ()
 
-  --   constrain (evPortVal "port1" PVConnected
-  --     :== evPortVal "port2" PVConnected :: Exp Link)
+    constrain (evPortVal "port1" PVConnected
+      :== evPortVal "port2" PVConnected :: Exp Link)
 
 
-  -- l2 <- addLink "testLink" $ do
-  --   evSetIdent "testLink"
-  --   evSetClass "aLink"
+  l2 <- addLink "testLink" $ do
+    evSetIdent "testLink"
+    evSetClass "aLink"
 
-  --   p1 <- evNewPort "port1" $ do
-  --     pvSetIdent "port1"
-  --     pvSetClass "a"
-  --     pvSetType [
-  --         "p3" <~= UID bottom
-  --       ]
-  --     return ()
+    p1 <- evNewPort "port1" $ do
+      pvSetIdent "port1"
+      pvSetClass "a"
+      pvSetType [
+          "p3" <~= UID bottom
+        ]
+      return ()
 
-  --   p2 <- evNewPort "port2" $ do
-  --     pvSetIdent "port2"
-  --     pvSetClass "a"
-  --     pvSetType [
-  --         "p3" <~= UID bottom
-  --       ]
-  --     return ()
+    p2 <- evNewPort "port2" $ do
+      pvSetIdent "port2"
+      pvSetClass "a"
+      pvSetType [
+          "p3" <~= UID bottom
+        ]
+      return ()
 
-  --   constrain (evPortVal "port1" PVConnected
-  --     :== evPortVal "port2" PVConnected :: Exp Link)
+    constrain (evPortVal "port1" PVConnected
+      :== evPortVal "port2" PVConnected :: Exp Link)
 
   createAllOptionalConnections
 
   assertModuleUsed m1
 
-  return ([],[],[m1])
+  return ([],[l1,l2],[m1,m2,m3])
 

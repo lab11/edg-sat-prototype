@@ -159,7 +159,7 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
             constrain ((Val rcexp :&& Val econstrained)
               :=> Val tused :: Exp EDG)
             -- for each possibility get the constraint.
-            tagEqVals <- flip mapM rs (\ r -> do
+            tagEqVals <- unzip $ flip mapM rs (\ r -> do
               case Map.lookup r eresources of
                 Nothing -> throw $ "No resource `" ++ show r ++ "` found "
                   ++ "when generating constraints for tag `" ++ tn ++ "`"
@@ -172,7 +172,7 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
                   , Val riUid :== Val tusing
                   , Val tused
                   , Val riUsed
-                  ] :: Exp EDG)
+                  ] :: Exp EDG, Map.singleton riUser [tuid])
               )
             -- There must be a matching tag if the expression is true and the
             -- system is being constrained.
@@ -313,6 +313,13 @@ getAllLinkPorts = errContext context $ do
   concat <$> mapM getLinkPorts lrs
   where
     context = "getAllLinkPorts"
+
+-- | Operations to be run at the end of the SMT generation phase
+--   since that's the only time we have all the neccesary data.
+finishUpConstraints :: EDGMonad ()
+finishUpConstraints = do
+  mapM_ constrainModPortConn =<< getAllModulePorts
+  mapM_ constrainLinkPortConn =<< getAllLinkPorts
 
 createOptionalConnection :: Ref LinkPort -> Ref ModPort
                          -> EDGMonad (Maybe (Ref Value))

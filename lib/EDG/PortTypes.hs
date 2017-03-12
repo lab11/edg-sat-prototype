@@ -218,9 +218,7 @@ data PortInfo n = PortInfo {
   , piPUsed :: Ref Value -- Bool -- Are we being used in the design?
     -- What potential connections? and what Port are they pointing to?
     -- typed so that they'll only ever point to their `opposite` kind
-    -- NOTE :: Probably not actually needed since we can make things
-    --         aggregate nicely without it, even preserving recoverability..
-  -- , piPConnections :: Map UID' (Ref Bool, Ref n)
+  , piPConnections :: [Ref Value] -- UIDs that we can be connected to
   }
 
 deriving instance Ord UID'

@@ -259,10 +259,8 @@ constrainPortConn :: Lens' GS (Map (Ref a) (PortInfo a))
 constrainPortConn lens s p = errContext context $ do
   -- retieve the portInfo data
   pi@PortInfo{..} <- getPortInfo' s lens p
-  let options = map (\ c -> (Val piPConnectedTo :== Val c :: Exp EDG))
-                  piPConnections
-  constrain $ (Val piPConstrained :: Exp EDG)
-      :=> (Val piPConnected :=> (Any options))
+  let options = map (\ c -> (Val piConnectedTo :== Val c)) piPConnections
+  constrain $ (Val piPConstrained) :=> (Val piPConnected :=> (Any options))
   where
     context = "constrainPortConn `" ++ s ++ "` `" ++ show p ++ "`"
 
@@ -303,8 +301,8 @@ arePortsConnected lens lens' s s' p p' = errContext context $ do
   constrain $ whenConn :== ((p1 <!> pConnectedTo) :== (p2 <!> pUidRef))
   constrain $ whenConn :== ((p2 <!> pConnectedTo) :== (p1 <!> pUidRef))
   -- Update both sets of port info
-  lens  %= (Map.adjust (pConnections %~ ((p2 ^. pUidRef):)) p)
-  lens' %= (Map.adjust (pConnections %~ ((p1 ^. pUidRef):)) p')
+  lens  %= (Map.adjust (pConnections %~ (vo:)) p)
+  lens' %= (Map.adjust (pConnections %~ (vo:)) p')
   -- Return the boolean that describes whether the variables are connected
   return vo
   where
