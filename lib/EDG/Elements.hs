@@ -66,8 +66,11 @@ import EDG.EDGMonad (
   )
 import qualified Data.SBV as SBV (
     satWith
+  , allSatWith
   , defaultSMTCfg
   , SMTConfig(..)
+  , AllSatResult(..)
+  , SMTResult
   )
 import Data.IORef (IORef,newIORef,readIORef)
 import EDG.ElemIncludes (pPrint)
@@ -120,7 +123,8 @@ import EDG.Elements.Elem (
   , finishUpConstraints
   )
 import EDG.AssembleGraph (
-    DecodeBlock
+    DecodeBlock(dbGraph)
+  , DecodeGraph
   , decodeResult
   )
 
@@ -161,7 +165,7 @@ solveProblem edgm = do
   --   putStrLn $ "Next Module :"
   --   pPrint $ extractModule decodeState solution moduleRef
   putStrLn $ "Decoded Result :"
-  pPrint $ decodeResult decodeState solution (head ml)
+  pPrint $ (decodeResult decodeState solution (head ml))
   return ()
 
   where
@@ -172,6 +176,30 @@ solveProblem edgm = do
       finishUpConstraints
       return output
 
+-- | Feh it just fiddles with minor parameters. If we want an actual search
+--   of the space I'm going to have to find a good way to recover and reset
+--   all the connection information so that the conjunction of all the chosen
+--   options is disallowed.
+solveAllProblems :: EDGMonad ([Ref Port],[Ref Link],[Ref Module]) -> IO ()
+solveAllProblems edgm = do
+  ss <- newIORef (undefined :: SBVState)
+  let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) modEDGm
+  solution <- SBV.allSatWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
+  sbvState <- readIORef ss
+  let decodeState = buildDecodeState gatherState sbvState
+  let SBV.AllSatResult (_,sols) = solution
+  flip mapM_ sols $ \ sol -> do
+    putStrLn $ "Decoded Result :"
+    pPrint $ decodeResult decodeState sol (head ml)
+  return ()
+
+  where
+    modEDGm = do
+      output <- edgm
+      -- We can only correctly constrain the ports once we know all of the
+      -- potential connections they may have.
+      finishUpConstraints
+      return output
 
 addBarePort :: String -> PortM Port () -> EDGMonad (Ref Port)
 addBarePort s m = embedPort s $ runPortM m

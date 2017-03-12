@@ -130,7 +130,7 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
         :=> (All $ map (Val . snd) consRefVals)
     let econstraints = Map.fromAscList consRefVals
     -- And the resource constraints
-    eresourcecons <- flip Map.traverseWithKey edEResourceCons
+    eresourceconsAndUseMaps <- flip Map.traverseWithKey edEResourceCons
       -- for each resource constraint
       (\ rcn ResourceCons{..} -> do
         -- name for the resourcecons variables
@@ -139,7 +139,7 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
         -- predicated on.
         rcexp <- express =<< transformExp elemInfo rcPredicate
         -- get the map of specific tagUIDs
-        rctags <- flip Map.traverseWithKey rcUsageMap
+        rctagsAndUseMaps <- flip Map.traverseWithKey rcUsageMap
           -- For each tag
           (\ tn (Set.toList -> rs) -> do
             let tname = rcname ++ ".tag." ++ tn
@@ -159,7 +159,9 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
             constrain ((Val rcexp :&& Val econstrained)
               :=> Val tused :: Exp EDG)
             -- for each possibility get the constraint.
-            tagEqVals <- unzip $ flip mapM rs (\ r -> do
+            (tagEqVals :: [Exp EDG],resUseMaps
+              :: [Map (Ref Value,Ref Value) [Ref Value]]) <- unzip <$>
+              flip mapM rs (\ r -> do
               case Map.lookup r eresources of
                 Nothing -> throw $ "No resource `" ++ show r ++ "` found "
                   ++ "when generating constraints for tag `" ++ tn ++ "`"
@@ -172,20 +174,34 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
                   , Val riUid :== Val tusing
                   , Val tused
                   , Val riUsed
-                  ] :: Exp EDG, Map.singleton riUser [tuid])
+                  ] :: Exp EDG, Map.singleton (riUser,riUsed) [tuid])
               )
             -- There must be a matching tag if the expression is true and the
             -- system is being constrained.
             constrain $ ((Val rcexp) :&& (Val econstrained))
               :=> (Any tagEqVals)
-            return ResourceTagInfo{
+            return (ResourceTagInfo{
                 rtiUsed=tused
               , rtiUid=tuid
               , rtiUsing=tusing
-              }
+              },resUseMaps)
           )
-        return (rcexp,rctags)
+        let rctags = Map.map fst rctagsAndUseMaps
+            recUseMaps = concat . map snd . Map.elems $ rctagsAndUseMaps
+        return ((rcexp,rctags),recUseMaps)
       )
+    -- Now that we've (tediously) gotten the backwards mapping of resources
+    -- to the set of tags that can use them, we constrain the resources so
+    -- that they are *only* usable by those tags.
+    let eresourcecons = Map.map fst eresourceconsAndUseMaps
+        recUseMap = Map.unionsWith (++) . concat . map snd . Map.elems
+          $ eresourceconsAndUseMaps
+    flip Map.traverseWithKey recUseMap (\ (ruser,rused) lusers -> do
+      let terms = map (\ l -> (Val ruser :: Exp EDG) :== (Val l)) lusers
+      constrain $ ((Val econstrained) :&& (Val rused) :: Exp EDG)
+        :=> (Any terms)
+      )
+    -- go through the use map and constrain the shit out of each tag
     -- Basic important constraints applicable to all elements.
     constrain $ (Val eused :: Exp EDG) :=> (Val econstrained)
     -- Make sure all the ports' used flags are equal to ours
