@@ -424,9 +424,10 @@ extractElem retfun pretfun ds model elem = do
       return ResourceOut{roUsed=eused,roUid=euid,roUser=euser}
     )
   eoresourcecons <- flip Map.traverseWithKey (ei ^. eResourceCons)
-    (\ rcn (bv,mrti) -> trace (show rcn) $ do
-      ebv' <- (\s -> trace (show bv ++ " | " ++ show s) s) $ extract ds model bv
-      ebv <- trace "foo" $ case ebv' of
+    (\ rcn (bv,mrti) -> {- trace (show rcn) $ -} do
+      ebv' <- {- (\s -> trace (show bv ++ " | " ++ show s) s) $ -}
+          extract ds model bv
+      ebv <- {- trace "foo" $ -} case ebv' of
         Value (Bool b) -> return b
         _ -> fail $ "ResourceConstraint `" ++ rcn ++ "` in elem `"
           ++ show elem ++ "` has expression value of wrong type `"

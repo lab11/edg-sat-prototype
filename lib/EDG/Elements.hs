@@ -199,10 +199,10 @@ testProblem = do
         (evType "f4") $ Map.fromList [("e1",[rt,rd])]
 
       evNewResCons "useTimer2"
-        (Not $ evType "f1" :/= evType "f6") $ Map.fromList [("e2",[rt])]
+        (Not $ evType "f4") $ Map.fromList [("e2",[rt]),("e3",[rd])]
 
 
-      constrain (evType "f4" :: Exp Module)
+      constrain (Not $ evType "f4" :: Exp Module)
       constrain (evType "f3" :== evUID :: Exp Module)
       constrain (evType "f1" :/= evType "f5" :: Exp Module)
       constrain ((Negate $ evType "f1" :* evType "f5") :== evType "f6" :: Exp Module)
