@@ -180,8 +180,9 @@ solveProblem edgm = do
 --   of the space I'm going to have to find a good way to recover and reset
 --   all the connection information so that the conjunction of all the chosen
 --   options is disallowed.
-solveAllProblems :: EDGMonad ([Ref Port],[Ref Link],[Ref Module]) -> IO ()
-solveAllProblems edgm = do
+shittySolveAllProblems :: EDGMonad ([Ref Port],[Ref Link],[Ref Module])
+                       -> IO ()
+shittySolveAllProblems edgm = do
   ss <- newIORef (undefined :: SBVState)
   let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) modEDGm
   solution <- SBV.allSatWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
@@ -200,6 +201,37 @@ solveAllProblems edgm = do
       -- potential connections they may have.
       finishUpConstraints
       return output
+
+-- TODO :: When you feel up to it, use the gsConnectionVars variable to create
+--         a better AllSAT. At each round, run the symbolic calculation, use
+--         the solution to find the full list of connections that are used,
+--         extend the symbolic monad with a thing that keeps their conjunction
+--         from appearing, and loop until heat death of the universe.
+--
+-- solveAllProblems :: EDGMonad ([Ref Port],[Ref Link],[Ref Module]) -> IO ()
+-- solveAllProblems edgm = do
+--   ss <- newIORef (undefined :: SBVState)
+--   let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) modEDGm
+--   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
+--   sbvState <- readIORef ss
+--   let decodeState = buildDecodeState gatherState sbvState
+--   -- let SBV.AllSatResult (_,sols) = solution
+--   -- flip mapM_ sols $ \ sol -> do
+--   --   putStrLn $ "Decoded Result :"
+--   --   pPrint $ decodeResult decodeState sol (head ml)
+--   -- return ()
+--
+--   where
+--     solveNextProblem :: Symbolic Bool
+--
+--     modEDGm = do
+--       output <- edgm
+--       -- We can only correctly constrain the ports once we know all of the
+--       -- potential connections they may have.
+--       finishUpConstraints
+--       return output
+
+
 
 addBarePort :: String -> PortM Port () -> EDGMonad (Ref Port)
 addBarePort s m = embedPort s $ runPortM m

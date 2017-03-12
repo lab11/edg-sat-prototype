@@ -89,6 +89,9 @@ data GatherState = GatherState {
   -- And Linkwise for each class of element
   , gsLinkInfo       :: Map (Ref Link  ) (ElemInfo Link   LinkPort)
   , gsModuleInfo     :: Map (Ref Module) (ElemInfo Module ModPort )
+  -- Convinience Store for all the connection booleans that we're
+  -- going to be using for allSat
+  , gsConnectionVars :: Set (Ref Bool)
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -119,6 +122,7 @@ initialGatherState = GatherState {
   , gsModulePortInfo = Map.empty
   , gsLinkInfo = Map.empty
   , gsModuleInfo = Map.empty
+  , gsConnectionVars = Set.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard

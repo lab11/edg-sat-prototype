@@ -3,6 +3,8 @@ module EDG.Elements.Port where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Algebra.Lattice
 import Algebra.Constrainable
@@ -305,6 +307,7 @@ arePortsConnected lens lens' s s' p p' = errContext context $ do
   -- Update both sets of port info
   lens  %= (Map.adjust (pConnections %~ ((p2 ^. pUidRef):)) p)
   lens' %= (Map.adjust (pConnections %~ ((p1 ^. pUidRef):)) p')
+  connectionVars @GS %= (Set.insert o)
   -- Return the boolean that describes whether the variables are connected
   return vo
   where
