@@ -219,7 +219,8 @@ newRecEqClass = do
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
 errContext s e = do
   n <- monadName
-  T.trace (n ++ ": " ++ s) $  catch e (appendContext n)
+  {- T.trace (n ++ ": " ++ s) $ return () -}
+  catch e (appendContext n)
   where
     appendContext n = throw . unlines
       . (\ e -> [("In Context ("++n++") : ") ++ s] ++ e )

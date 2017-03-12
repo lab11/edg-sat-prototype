@@ -131,6 +131,8 @@ library
     EDG.Elements.Elem
     -- 
     EDG.Expression
+    -- 
+    EDG.AssembleGraph
 
   -- Modules included in this library but not exported.
   other-modules:

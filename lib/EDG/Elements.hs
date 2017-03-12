@@ -118,6 +118,11 @@ import EDG.Elements.Elem (
   , createOptionalConnection
   , createAllOptionalConnections
   )
+import EDG.AssembleGraph (
+    DecodeBlock
+  , decodeResult
+  )
+
 -- ABSOLUTE MINIMAL IMPORT SET --
 
 -- Utility Functions / Syntax Sugar --
@@ -145,15 +150,16 @@ solveProblem edgm = do
   sbvState <- readIORef ss
   let decodeState = buildDecodeState gatherState sbvState
   -- pPrint decodeState
-  flip mapM_ pl $ \ portRef -> do
-    putStrLn $ "Next Port :"
-    pPrint $ extractPort decodeState solution portRef
-  flip mapM_ ll $ \ linkRef -> do
-    putStrLn $ "Next Link :"
-    pPrint $ extractLink decodeState solution linkRef
-  flip mapM_ ml $ \ moduleRef -> do
-    putStrLn $ "Next Module :"
-    pPrint $ extractModule decodeState solution moduleRef
+  pPrint $ decodeResult decodeState solution (head ml)
+  -- flip mapM_ pl $ \ portRef -> do
+  --   putStrLn $ "Next Port :"
+  --   pPrint $ extractPort decodeState solution portRef
+  -- flip mapM_ ll $ \ linkRef -> do
+  --   putStrLn $ "Next Link :"
+  --   pPrint $ extractLink decodeState solution linkRef
+  -- flip mapM_ ml $ \ moduleRef -> do
+  --   putStrLn $ "Next Module :"
+  --   pPrint $ extractModule decodeState solution moduleRef
   return ()
 
 addBarePort :: String -> PortM Port () -> EDGMonad (Ref Port)
@@ -318,40 +324,3 @@ testProblem = do
 
   return ([],[],[m1])
 
---   p1 <- addBarePort "p1" $ do
---     portPart
---     setIdent "Foo"
---     setType [
---         "f1" <:= Int 2
---       , "f2" <~= Unknown
---       , "f3" <~= Record ["f3" <~= Bool unknown
---                         ,"F8" <~= Int $ oneOf [6,7,8]
---                         ]
---       ]
---     return ()
---
---   p2 <- addBarePort "p2" $ do
---     portPart
---     setType [
---         "f1" <:= Int 2
---       , "f2" <~= Int [oneOf [8,12,16]]
---       , "f3" <~= Unknown
---       ]
---     return ()
---
---   p3 <- addBarePort "p3" $ do
---     portPart
---     setType [
---         "f1" <:= Int 2
---       , "f2" <~= Int [oneOf [8,12,16]]
---       , "f3" <~= Record ["f4" <:= String "test"]
---       ]
---     return ()
---
---   p1p2 <- areBarePortsConnected p1 p2
---   p2p3 <- areBarePortsConnected p2 p3
---
---   assertPortUsed p1
---
---   constrain $ (Val p1p2 :: Exp EDG) :|| (Val p2p3)
---   constrain $ (Val p2p3 :: Exp EDG)
