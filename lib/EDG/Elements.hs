@@ -12,7 +12,11 @@ module EDG.Elements where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Debug.Trace
+import Control.Lens.Ether.Implicit
+import Data.Maybe (fromJust)
 
 import Algebra.Lattice (
     bottom
@@ -35,6 +39,8 @@ import EDG.Predicates (
   )
 import Control.Monad.MonadSymbolic (
     constrain
+  , Symbolic
+  , SBV
   )
 import EDG.Library.Types (
     Value(..)
@@ -48,6 +54,9 @@ import EDG.Expression (
     Exp(..)
   )
 import EDG.EDGInstances (runEDGMonad)
+import EDG.EDGInstances.Bool (
+    preventConjunction
+  )
 import EDG.EDGDatatype (
     Ref(..)
   , Port
@@ -63,6 +72,9 @@ import EDG.EDGMonad (
   , DecodeState
   , buildDecodeState
   , EDGMonad
+  , SBVMonad
+  , connectionVars
+  , extract
   )
 import qualified Data.SBV as SBV (
     satWith
@@ -211,18 +223,27 @@ shittySolveAllProblems edgm = do
 -- solveAllProblems :: EDGMonad ([Ref Port],[Ref Link],[Ref Module]) -> IO ()
 -- solveAllProblems edgm = do
 --   ss <- newIORef (undefined :: SBVState)
---   let (symbolicMonad,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) modEDGm
---   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = False} symbolicMonad
---   sbvState <- readIORef ss
---   let decodeState = buildDecodeState gatherState sbvState
+--   let (symbolicMonad ,gatherState,(pl,ll,ml)) = runEDGMonad (Just ss) modEDGm
 --   -- let SBV.AllSatResult (_,sols) = solution
 --   -- flip mapM_ sols $ \ sol -> do
 --   --   putStrLn $ "Decoded Result :"
 --   --   pPrint $ decodeResult decodeState sol (head ml)
 --   -- return ()
---
+--   undefined
 --   where
---     solveNextProblem :: Symbolic Bool
+--     solveOnce :: IORef SBVState
+--               -> GatherState
+--               -> Ref Module
+--               -> SBVMonad ()
+--               -> IO (Either String DecodeBlock, SBVMonad ())
+--     solveOnce ss gatherState seed symb = do
+--       solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = False} symb
+--       sbvState <- readIORef ss
+--       let decodeState = buildDecodeState gatherState sbvState
+--           decodeBlk = decodeResult decodeState solution seed
+--           conns = decodeState ^. _1 . connectionVars
+--           usedConns = Set.filter (fromJust . extract decodeState solution) conns
+--       trace (show usedConns) $ return (decodeBlk,symb >> preventConjunction usedConns)
 --
 --     modEDGm = do
 --       output <- edgm

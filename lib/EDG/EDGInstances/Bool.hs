@@ -37,6 +37,15 @@ import EDG.Predicates
 import EDG.EDGMonad
 import EDG.EDGDatatype
 
+-- Find better place to put this
+preventConjunction :: Set (Ref Bool) -> SBVMonad ()
+preventConjunction (Set.toList -> bls) = errContext context $ do
+  terms <- mapM sbv bls
+  constrain $ S.bnot (S.bAnd terms)
+  where
+    context = "preventConjunction `" ++ show bls ++ "`"
+
+
 -- * Instances for Bool
 
 instance SBVAble Bool where
