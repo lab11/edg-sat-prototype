@@ -1,7 +1,7 @@
 
 module Examples.Simon where
 
--- ## Simon Example ##
+import EDG
 
 -- | This is a simple example of a microcontroller encoded so that we can
 --   perform synthesis over it.
@@ -232,7 +232,7 @@ gpioSW = do
   setKind "GPIOSW"
   setType [
       "bandwidth" <:= FloatC $ unknown -- Hz
-    , "direction" <:= StringC $ oneOf ["producer","consumer"]
+    , "direction" <:= StringC $ oneOf ["I","O","IO"]
     , "data" <:= unknown
     ]
   return ()
@@ -240,8 +240,8 @@ gpioSW = do
 -- The MCU resource that a GPIO port represents.
 gpioRes :: (IsPort p) => p ()
 gpioRes = do
-  setIdent "GPIO SW Port"
-  setKind "GPIOSW"
+  setIdent "gpio-resource"
+  setKind "GPIORES"
   setType [
       -- Pin proerties
       "maxCurrent" <:= FloatC $ unknown -- Amps
@@ -340,8 +340,9 @@ swPort = do
   setKind "SW"
   setType [
       "data" <:= unknown
-    , "direction" <:= StringC $ oneof ["producer","consumer"]
+    , "apiDir" <:= StringC $ oneof ["producer","consumer"]
     ]
+  return ()
 
 ledDriver :: Module ()
 ledDriver = do
@@ -351,16 +352,48 @@ ledDriver = do
     setIdent "LEDDriver"
     setType [
         "bandwidth" <:= FloatC $ greaterThan 500 -- Hz
-      , "direction" <:= StringV $ ""
+      , "direction" <:= StringV $ "I"
       , "data" <:= Record [
-            "signal" <:= StringC unknown
+            "signal" <:= StringV "LED"
           , "id" <:= UID
           ]
       ]
-  output <- addPort "swAPIOut"
+  output <- addPort "swAPIOut" $ do
+    swPort
+    setIdent "LEDDriver"
+    setType [
+        "data" <:= unknown
+      , "apiDir" <:= StringV "producer"
+      ]
+  constrain $ (port input  $ typeVal "data")
+          :== (port output $ typeVal "data")
+  constrain $ port input connected :=> port output connected
+  return ()
 
 buttonDriver :: Module ()
-buttonDriver = undefined
+buttonDriver = do
+  setIdent "ButtonDriver"
+  input <- addPort "gpioIn" $ do
+    gpioSW
+    setIdent "ButtonDriver"
+    setType [
+        "direction" <:= StringV $ "O"
+      , "data" <:= Record [
+            "signal" <:= StringV "Momentary Switch"
+          , "id" <:= UID
+          ]
+      ]
+  output <- addPort "swAPIOut" $ do
+    swPort
+    setIdent "ButtonDriver"
+    setType [
+        "data" <:= unknown
+      , "apiDir" <:= StringV "producer"
+      ]
+  constrain $ (port input  $ typeVal "data")
+          :== (port output $ typeVal "data")
+  constrain $ port input connected :=> port output connected
+  return ()
 
 gpioLink :: Link ()
 gpioLink = undefined

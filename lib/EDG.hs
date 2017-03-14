@@ -612,7 +612,7 @@ class (IsElem m, IsPort (PortType m)
   -- further calls successively refine the type
   -- addPort returns an identifier, which may or may no be useful
   -- can refer to ports by either string name or identifier
-  -- This happens in the module context, 
+  -- This happens in the module context,
   addPort :: String -> PortType m () -> m PortName
 
   -- | TODO :: Further Documentation
