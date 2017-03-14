@@ -34,6 +34,8 @@ import Control.Applicative
 
 import GHC.Exts
 
+import Debug.Trace
+
 import Data.Functor.Identity
 
 -- The Subtypes we're going to be working with.
@@ -197,12 +199,13 @@ type RecCons = RecordCons Value
 -- | Merge two records, while adding fields if they're not found, instead of
 --   returning Top.
 recordMerge :: RecCons -> RecCons -> RecCons
-recordMerge RCTop _ = RCTop
-recordMerge _ RCTop = RCTop
-recordMerge a RCBottom = a
-recordMerge RCBottom a = a
+recordMerge RCTop c    = {- trace ("<1>" ++ show c) $ -} RCTop
+recordMerge c RCTop    = {- trace ("<2>" ++ show c) $ -} RCTop
+recordMerge a RCBottom = {- trace ("<3>" ++ show a) $ -} a
+recordMerge RCBottom a = {- trace ("<4>" ++ show a) $ -} a
 recordMerge (rcMap -> m1) (rcMap -> m2)
-  = RCAmbig $ Map.intersectionWith (\ a b -> flattenAmbig $ a \/ b) m1 m2
+  = {- trace (show m1 ++ " <-> " ++ show m2) $ traceShowId -} (RCAmbig $ Map.intersectionWith
+    (\ a b -> {- (\ s -> trace ("<||> " ++ show a ++ "  " ++ show b ++ " -- " ++ show s) s) $ -} flattenAmbig $ a \/ b) m1 m2)
 
 instance AsPredicate (Constrained' a) where
   type PredicateDomain (Constrained' a) = (Value' a)
@@ -291,8 +294,8 @@ instance PartialOrd Constrained where
   leq (unpack -> c) (unpack -> c') = c `leq` c'
 
 instance (Eq a,Constrainable a, JoinSemiLattice (Ambiguous a)) => JoinSemiLattice (Constrained' a) where
-  (\/) a _ | isSAT a = KVTop ()
-  (\/) _ a | isSAT a = KVTop ()
+  (\/) a _ | unSAT a = trace "||1" $ KVTop ()
+  (\/) _ a | unSAT a = trace "||2" $ KVTop ()
   (\/) KVBot{} a = a
   (\/) a KVBot{} = a
   (\/) (Int    c) (Int    c') = Int    $ c \/ c'
@@ -301,7 +304,7 @@ instance (Eq a,Constrainable a, JoinSemiLattice (Ambiguous a)) => JoinSemiLattic
   (\/) (String c) (String c') = String $ c \/ c'
   (\/) (UID    c) (UID    c') = UID    $ c \/ c'
   (\/) (Record c) (Record c') = Record $ c \/ c'
-  (\/) _ _ = KVTop ()
+  (\/) _ _ = trace "||3" $ KVTop ()
 
 instance JoinSemiLattice Constrained where
   (\/) (unpack -> c) (unpack -> c') = pack $ c \/ c'
@@ -310,8 +313,8 @@ instance JoinSemiLattice Constrained where
 instance (Eq a,Constrainable a, MeetSemiLattice (Ambiguous a)) => MeetSemiLattice (Constrained' a) where
   (/\) KVBot{} _ = KVBot ()
   (/\) _ KVBot{} = KVBot ()
-  (/\) a b | isSAT a = b
-  (/\) b a | isSAT a = b
+  (/\) a b | unSAT a = b
+  (/\) b a | unSAT a = b
   (/\) (Int    c) (Int    c') = Int    $ c /\ c'
   (/\) (Bool   c) (Bool   c') = Bool   $ c /\ c'
   (/\) (Float  c) (Float  c') = Float  $ c /\ c'

@@ -21,6 +21,8 @@ import Control.Newtype.Util
 
 import Control.Applicative
 
+import Debug.Trace
+
 import GHC.Exts
 
 -- | The Datatype for constraints over floats. This one is a bit iffy because
@@ -39,8 +41,8 @@ instance AsPredicate FloatCons where
   asPredicate (FCBottom ) = const True
 
 instance SATAblePredicate FloatCons where
-  isSAT (FCOneOf a) = isSAT a
-  isSAT (FCRange a) = isSAT a
+  isSAT (FCOneOf a) = {- trace (show a ++ "<3") $ -} isSAT a
+  isSAT (FCRange a) = {- trace (show a ++ "<4") $ -} isSAT a
   isSAT (FCBottom)  = True
 
 instance CollapseablePredicate FloatCons where
@@ -75,11 +77,11 @@ instance PartialOrd FloatCons where
     | otherwise = False
 
 instance JoinSemiLattice FloatCons where
-  (\/) FCBottom a = a
-  (\/) a FCBottom = a
-  (\/) (FCOneOf a) p = FCOneOf $ joinOneOf p a
-  (\/) p (FCOneOf a) = FCOneOf $ joinOneOf p a
-  (\/) (FCRange a) (FCRange b) = FCRange $ a \/ b
+  (\/) FCBottom a = {- trace (show a ++ " |- ") -} a
+  (\/) a FCBottom = {- trace (show a ++ " |- ") -} a
+  (\/) (FCOneOf a) p = {- trace (show a ++ " |1 " ++  show p ++ " :> " ++ show (joinOneOf p a)) $ -} FCOneOf $ joinOneOf p a
+  (\/) p (FCOneOf a) = {- trace (show a ++ " |2 " ++  show p ++ " :> " ++ show (joinOneOf p a)) $ -}  FCOneOf $ joinOneOf p a
+  (\/) (FCRange a) (FCRange b) = {- trace (show a ++ " |3 " ++ show b ++ " :> " ++ show (FCRange $ a \/ b)) $ -} FCRange $ a \/ b
 
 instance MeetSemiLattice FloatCons where
   (/\) FCBottom _ = FCBottom

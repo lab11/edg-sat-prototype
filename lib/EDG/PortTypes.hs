@@ -133,7 +133,7 @@ pvAddLiteral = return . Lit
 --   So the assumption that everything that is connected to
 instance ExpContext Port where
   type ExpValue   Port = PortValue Port
-  type ExpLiteral Port = Constrained' Value
+  type ExpLiteral Port = Ambiguous Value
 
 -- | This is how we're representing adding data to a port in order to get
 --   more useful output. It nicely synergizes with the structure of a

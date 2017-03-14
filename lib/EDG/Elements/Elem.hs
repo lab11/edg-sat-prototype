@@ -51,8 +51,8 @@ embedLink = embedElem linkInfo linkPortInfo
 --
 --   TODO :: Clear this up, move all the traverses into their own functions.
 embedElem :: forall a b. (ExpContext a,ExpContext b
-          , ExpValue a ~ ElemValue a b, ExpLiteral a ~ Constrained' Value
-          , ExpValue b ~ PortValue b  , ExpLiteral b ~ Constrained' Value)
+          , ExpValue a ~ ElemValue a b, ExpLiteral a ~ Ambiguous Value
+          , ExpValue b ~ PortValue b  , ExpLiteral b ~ Ambiguous Value)
           -- The port embedding function
           -- => (String -> PortDesc b -> EDGMonad (Ref b))
           -- lens for adding this sort of elem
@@ -228,8 +228,8 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
     transformExp :: (ElemInfo a b) -> Exp a -> EDGMonad (Exp EDG)
     transformExp ei = convertExpressionM litc (varc ei)
 
-    litc :: Constrained' Value -> EDGMonad (Ambiguous Value)
-    litc = return . Abstract . Constrained
+    litc :: Ambiguous Value -> EDGMonad (Ambiguous Value)
+    litc = return
 
     varc :: ElemInfo a b -> ElemValue a b -> EDGMonad (Ref Value)
     varc ei@ElemInfo{..} ev

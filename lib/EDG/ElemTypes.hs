@@ -123,20 +123,20 @@ data ElemValue a b
 -- | So this is about how information is stored relative to a module
 instance ExpContext Module where
   type ExpValue   Module = ElemValue Module ModPort
-  type ExpLiteral Module = Constrained' Value
+  type ExpLiteral Module = Ambiguous Value
 
 instance ExpContext ModPort where
   type ExpValue   ModPort = PortValue ModPort
-  type ExpLiteral ModPort = Constrained' Value
+  type ExpLiteral ModPort = Ambiguous Value
 
 -- | So this is about how information is stored relative to a link
 instance ExpContext Link where
   type ExpValue   Link = ElemValue Link LinkPort
-  type ExpLiteral Link = Constrained' Value
+  type ExpLiteral Link = Ambiguous Value
 
 instance ExpContext LinkPort where
   type ExpValue   LinkPort = PortValue LinkPort
-  type ExpLiteral LinkPort = Constrained' Value
+  type ExpLiteral LinkPort = Ambiguous Value
 
 evNewResource :: forall a. String -> ElemM a (Resource a)
 evNewResource (pack -> r) = do

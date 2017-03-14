@@ -27,6 +27,8 @@ import Algebra.AsPredicate
 
 import Text.Read
 
+import Debug.Trace
+
 -- | Class for elements that can be represented as either a concrete value or
 --   a set of constraints on the concrete value.
 class (AsPredicate           (Constraints t)
@@ -53,7 +55,7 @@ validate = asPredicate
 --   This gets called often as part of the normalization procedure of an
 --   ambiguous value and any implementation should be fast.
 consistent :: Constrainable t => Constraints t -> Bool
-consistent = isSAT
+consistent a = {- traceStack "consistent" $ -} isSAT a
 
 -- | Attempt to lift a concrete value into a constraint that covers it. This
 --   is used to allow us to more easily define the MeetSemiLattice instances
@@ -96,7 +98,7 @@ data Ambiguous t where
 transformAmbig :: (Constrainable t,Constrainable t')
                => (t -> t') -> (Constraints t -> Constraints t')
                -> Ambiguous t -> Ambiguous t'
-transformAmbig _ _  Impossible  = Impossible
+transformAmbig _ _  Impossible  = trace "transform" $ Impossible
 transformAmbig f _ (Concrete v) = Concrete (f v)
 transformAmbig _ f (Abstract c) = Abstract (f c)
 
@@ -104,7 +106,7 @@ transformAmbig _ f (Abstract c) = Abstract (f c)
 --   representation.
 flattenAmbig :: (Constrainable t) => Ambiguous t -> Ambiguous t
 flattenAmbig a@(Abstract c) | Just v <- collapse c = Concrete v
-                            | True  <- unSAT c    = Impossible
+                            | True  <- unSAT c    =  trace "flatten" $ Impossible
                             | otherwise            = a
 flattenAmbig a = a
 
@@ -159,13 +161,13 @@ instance (Constrainable t,Eq t,PartialOrd (Constraints t)) => PartialOrd (Ambigu
   leq (Impossible) (Impossible ) = True
 
 instance (Constrainable t,Eq t,JoinSemiLattice (Constraints t)) => JoinSemiLattice (Ambiguous t) where
-  (\/)   (Impossible)    _             = Impossible
-  (\/)   _               (Impossible ) = Impossible
-  (\/) a@(Concrete t)    (Concrete t') = if t == t'        then a  else Impossible
-  (\/) a@(Concrete t)    (Abstract c') = if validate c' t  then a  else Impossible
-  (\/)   (Abstract c) a'@(Concrete t') = if validate c  t' then a' else Impossible
+  (\/)   (Impossible)    _             = trace "\\/1" $ Impossible
+  (\/)   _               (Impossible ) = trace "\\/2" $ Impossible
+  (\/) a@(Concrete t)    (Concrete t') = if t == t'        then a  else trace "\\/3" $ Impossible
+  (\/) a@(Concrete t)    (Abstract c') = if validate c' t  then a  else trace "\\/4" $ Impossible
+  (\/)   (Abstract c) a'@(Concrete t') = if validate c  t' then a' else trace "\\/5" $ Impossible
   (\/)   (Abstract c)    (Abstract c')
-    | inconsistent c'' = Impossible
+    | inconsistent c'' = trace ("\\/6 " ++ show (inconsistent c'')) $ Impossible
     | otherwise        = fromMaybe (Abstract c'') (Concrete <$> collapse c'')
     where c'' = c \/ c'
 
