@@ -77,6 +77,7 @@ import qualified Data.Set as Set
 -- import Debug.Trace
 import Control.Lens.Ether.Implicit
 import Data.Maybe (fromJust)
+import GHC.Exts (Item,IsList)
 
 import qualified Algebra.Lattice as A (
     bottom
@@ -112,6 +113,9 @@ import qualified EDG.Library.Types.TypeVal as E (
   )
 import qualified EDG.Expression as E (
     Exp(..)
+  , ExpContext
+  , ExpValue
+  , ExpLiteral
   )
 import qualified EDG.EDGInstances as E (
     runEDGMonad
@@ -308,6 +312,12 @@ lessThan = E.lessThan
 lessThanEq :: E.LTConstraint a => A.PredDom a -> a
 lessThanEq = E.lessThanEq
 
+-- | TODO
+(+/-) :: forall a. (E.LTConstraint a, E.GTConstraint a
+          , Num (A.PredDom a), GHC.Exts.IsList a, GHC.Exts.Item a ~ a)
+          => A.PredDom a -> A.PredDom a -> a
+a +/- b = [(greaterThanEq $ a - b :: a),(lessThanEq $ a + b :: a)]
+
 -- | TODO :: The type of a portion of a record.
 type AmbigRec = E.RecCons
 
@@ -329,6 +339,8 @@ infixr 0 <:=
 -- * Expressions
 
 -- | TODO
+pattern Lit :: (Constrainable a, Exp a ~ E.Exp b
+   , E.ExpContext b, E.ExpLiteral b ~ AmbigVal) => AmbigVal -> Exp a
 pattern Lit a = E.Lit a
 
 -- | TODO
@@ -429,31 +441,41 @@ pattern (:|=) :: IsBlock m => String -> [Resource m] -> (String, [Resource m])
 pattern a :|= b = (a,b)
 
 -- | TODO :: Further Documentation
-class Monad m => Constrainable m where
+class (Monad m
+  , Exp m ~ E.Exp (PExp m)
+  , E.ExpContext (PExp m)
+  , E.ExpLiteral (PExp m) ~ AmbigVal)
+  => Constrainable m where
 
   -- | TODO :: Further Documentation
   type Exp m = f | f -> m
+
+  type PExp m = b | b -> m
 
   -- | TODO :: Further Documentation
   constrain :: Exp m -> m ()
 
 instance Constrainable Module where
   type Exp Module = E.Exp E.Module
+  type PExp Module = E.Module
   constrain :: Exp Module -> Module ()
   constrain = S.constrain
 
 instance Constrainable Link where
   type Exp Link = E.Exp E.Link
+  type PExp Link = E.Link
   constrain :: Exp Link -> Link ()
   constrain = S.constrain
 
 instance Constrainable ModulePort where
   type Exp ModulePort = E.Exp E.ModPort
+  type PExp ModulePort = E.ModPort
   constrain :: Exp ModulePort -> ModulePort ()
   constrain = S.constrain
 
 instance Constrainable LinkPort where
   type Exp LinkPort = E.Exp E.LinkPort
+  type PExp LinkPort = E.LinkPort
   constrain :: Exp LinkPort -> LinkPort ()
   constrain = S.constrain
 
@@ -701,3 +723,8 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seedName seedModule = do
       = map (\ (num,m) -> (name ++ "[" ++ show num ++ "]",m))
         . zip [1..] . replicate count $ b
 
+-- * Utility Functions
+
+-- | TODO
+endDef :: Monad m => m ()
+endDef = return ()
