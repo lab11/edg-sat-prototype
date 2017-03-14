@@ -13,6 +13,7 @@ import qualified Data.Bimap as Bimap
 import Control.Newtype
 
 import Data.Void
+import Data.String
 
 import Control.Monad.Ether.Implicit
 import Control.Monad.MonadSymbolic
@@ -171,6 +172,9 @@ newtype Resource a = Resource String
 instance Newtype (Resource a) String where
   pack = Resource
   unpack (Resource s) = s
+
+instance IsString (Resource a) where
+  fromString = pack
 
 -- Exists for debugging purposes.
 class Monad m => NamedMonad m where

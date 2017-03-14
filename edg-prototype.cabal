@@ -82,6 +82,18 @@ executable edg-prototype
 library
   -- Modules exported by the library.
   exposed-modules:
+    EDG
+
+  -- Modules included in this library but not exported.
+  other-modules:
+    EDG.SBVWrap
+    EDG.EDGDatatype
+    Control.Monad.Scribe
+    Control.Monad.MonadSymbolic
+    Control.Newtype.Util
+    Control.Lens.TupleLens
+    Control.Lens.Ether.Implicit
+    -- Control.Lens.MakePolyFields
     -- Algebraic Objects
     Algebra
     Algebra.GenOrd
@@ -133,17 +145,6 @@ library
     EDG.Expression
     -- 
     EDG.AssembleGraph
-
-  -- Modules included in this library but not exported.
-  other-modules:
-    EDG.SBVWrap
-    EDG.EDGDatatype
-    Control.Monad.Scribe
-    Control.Monad.MonadSymbolic
-    Control.Newtype.Util
-    Control.Lens.TupleLens
-    Control.Lens.Ether.Implicit
-    -- Control.Lens.MakePolyFields
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 

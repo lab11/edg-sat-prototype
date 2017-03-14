@@ -238,7 +238,7 @@ convertElemState ElemState{..}
         ++ "proceed."
       Just v -> return v
     c = case esEClass of
-      Nothing -> throw @String $ "This element has no class, cannot "
+      Nothing -> throw @String $ "This element has no signature, cannot "
         ++ "proceed."
       Just v -> return v
     t = return $ Abstract esEType

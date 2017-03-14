@@ -97,33 +97,36 @@ pvSetIdent :: forall a. String -> PortM a ()
 pvSetIdent s = tell @(PS a) mempty{psPIdent=Just s}
 
 -- | The UID as usabe in an expression
-pvUID :: Exp Port
+pvUID :: (ExpContext a, ExpValue a ~ PortValue a) => Exp a
 pvUID = Val PVUID
 
 -- | is the port connec
-pvConnected :: Exp Port
+pvConnected :: (ExpContext a, ExpValue a ~ PortValue a) => Exp a
 pvConnected = Val PVConnected
 
-pvSetClass :: forall a. String ->  PortM a (Exp Port)
+pvSetClass :: forall a. (ExpContext a, ExpValue a ~ PortValue a)
+           => String ->  PortM a (Exp a)
 pvSetClass s = do
   tell @(PS a) mempty{psPClass=Just s}
   return $ Val PVClass
 
-pvClass :: Exp Port
+pvClass :: (ExpContext a, ExpValue a ~ PortValue a) => Exp a
 pvClass = Val PVClass
 
-pvConnectedTo :: Exp Port
+pvConnectedTo :: (ExpContext a, ExpValue a ~ PortValue a) => Exp a
 pvConnectedTo = Val PVConnectedTo
 
-pvSetType :: forall a. RecordCons Value -> PortM a (Exp Port)
+pvSetType :: forall a. (ExpContext a, ExpValue a ~ PortValue a)
+          => RecordCons Value -> PortM a (Exp a)
 pvSetType cons = do
   tell @(PS a) mempty{psPType = cons}
   return $ Val (PVType [])
 
-pvType :: String -> Exp Port
+pvType :: (ExpContext a, ExpValue a ~ PortValue a) => String -> Exp a
 pvType s = Val $ PVType (split '.' s)
 
-pvAddLiteral :: Constrained' Value -> PortM a (Exp Port)
+pvAddLiteral :: (ExpContext a, ExpLiteral a ~ Constrained' Value)
+             => Constrained' Value -> PortM a (Exp a)
 pvAddLiteral = return . Lit
 
 -- | Right this just stores information relative to the port itself.

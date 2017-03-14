@@ -40,7 +40,7 @@ data Exp m where
   (:+)   :: Exp m -> Exp m -> Exp m
   (:-)   :: Exp m -> Exp m -> Exp m
   (:*)   :: Exp m -> Exp m -> Exp m
-  -- (:/)   :: Exp m -> Exp m -> Exp m
+  -- | (:/)   :: Exp m -> Exp m -> Exp m
   Sum    :: [Exp m] -> Exp m
   Mult   :: [Exp m] -> Exp m
   Negate :: Exp m -> Exp m
@@ -309,7 +309,7 @@ convertExpression lconv vconv e
   | a :+ b    <- e = (conv a) :+  (conv b)
   | a :- b    <- e = (conv a) :-  (conv b)
   | a :* b    <- e = (conv a) :*  (conv b)
-  -- | a :/ b    <- e = (conv a) :/  (conv b)
+  -- XX | a :/ b    <- e = (conv a) :/  (conv b)
   | Negate a  <- e = Negate $ conv a
   | Sum l     <- e = Sum    $ map conv l
   | Mult l    <- e = Mult   $ map conv l
@@ -346,7 +346,7 @@ convertExpressionM lconv vconv e
   | a :+ b    <- e = (:+ ) <$> (conv a) <*> (conv b)
   | a :- b    <- e = (:- ) <$> (conv a) <*> (conv b)
   | a :* b    <- e = (:* ) <$> (conv a) <*> (conv b)
-  -- | a :/ b    <- e = (:/ ) <$> (conv a) <*> (conv b)
+  -- XX | a :/ b    <- e = (:/ ) <$> (conv a) <*> (conv b)
   | Negate a  <- e = Negate <$> conv a
   | Sum l     <- e = Sum    <$> mapM conv l
   | Mult l    <- e = Mult   <$> mapM conv l
