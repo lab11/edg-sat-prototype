@@ -23,6 +23,9 @@ executable edg-prototype
 
   main-is:
     Main.hs
+
+  other-modules: 
+    Examples.Simon
   
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
