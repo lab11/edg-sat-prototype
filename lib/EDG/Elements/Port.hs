@@ -140,8 +140,8 @@ embedPort n pd =
       transform :: (PortInfo Port) -> Exp Port -> EDGMonad (Exp EDG)
       transform pi = convertExpressionM litc (varc pi)
 
-      litc :: Constrained' Value -> EDGMonad (Ambiguous Value)
-      litc = return . Abstract . Constrained
+      litc :: Ambiguous Value -> EDGMonad (Ambiguous Value)
+      litc = return
 
       varc :: PortInfo Port -> PortValue Port -> EDGMonad (Ref Value)
       varc pi@PortInfo{..} pv

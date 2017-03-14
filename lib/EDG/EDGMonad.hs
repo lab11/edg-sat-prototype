@@ -382,7 +382,7 @@ refAmbiguous name (Abstract c)
 -- | Given an ambiguous value, return the corresponding Reference, throwing
 --   an error if the value is unsatisfiable.
 fixAmbiguous :: SBVAble t => Ambiguous t -> EDGMonad (Ambiguous t)
-fixAmbiguous Impossible   = return Impossible
+fixAmbiguous Impossible   = trace "fixAmbigImp" $ return Impossible
 fixAmbiguous (Concrete v) = Concrete <$> fixConcrete v
 fixAmbiguous (Abstract c) = Abstract <$> fixAbstract c
 
