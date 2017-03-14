@@ -318,6 +318,13 @@ lessThanEq = E.lessThanEq
           => A.PredDom a -> A.PredDom a -> a
 a +/- b = [(greaterThanEq $ a - b :: a),(lessThanEq $ a + b :: a)]
 
+-- | TODO
+between :: forall a. (E.LTConstraint a, E.GTConstraint a
+          , Num (A.PredDom a), Ord (A.PredDom a)
+          ,GHC.Exts.IsList a, GHC.Exts.Item a ~ a)
+          => A.PredDom a -> A.PredDom a -> a
+between a b = [greaterThanEq (min a b),lessThanEq (max a b)]
+
 -- | TODO :: The type of a portion of a record.
 type AmbigRec = E.RecCons
 
