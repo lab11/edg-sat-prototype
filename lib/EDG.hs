@@ -237,11 +237,11 @@ import qualified EDG.Library.Types as E (
   )
 -- * Values and Constraints
 
--- | TODO
+-- | Integer value type, define using <:=
 pattern IntV :: Integer -> AmbigVal
 pattern IntV a = A.Concrete(E.Value (E.Int a))
 
--- | TODO
+-- | Integer constraint type, still define using <:=
 pattern IntC :: E.IntCons -> AmbigVal
 pattern IntC a = A.Abstract(E.Constrained (E.Int a))
 
@@ -273,7 +273,7 @@ pattern StringC a = A.Abstract(E.Constrained (E.String a))
 pattern UID :: AmbigVal
 pattern UID = A.Abstract(E.Constrained (E.UID (E.UCBottom)))
 
--- | TODO
+-- | Allocate a new unique UID
 pattern NewUID :: AmbigVal
 pattern NewUID = A.Abstract(E.Constrained (E.UID (E.UCNew)))
 
@@ -553,7 +553,8 @@ instance IsElem LinkPort where
 -- | TODO :: Further Documentation
 class (IsElem p) => IsPort p where
 
-  -- | TODO :: Further Documentation
+  -- Ports can only be attached to ports of the same Kind
+  -- (this saves effort for the SAT solver)
   setKind :: String -> p (Exp p)
 
   -- | TODO
@@ -600,13 +601,21 @@ class (IsElem m, IsPort (PortType m)
 
   type PortType m :: * -> *
 
-  -- | TODO :: Further Documentation
+  -- addPort: first call defines the port,
+  -- further calls successively refine the type
+  -- addPort returns an identifier, which may or may no be useful
+  -- can refer to ports by either string name or identifier
+  -- This happens in the module context, 
   addPort :: String -> PortType m () -> m PortName
 
   -- | TODO :: Further Documentation
   setSignature :: String -> m (Exp m)
 
-  -- | TODO :: Further Documentation
+  -- Create resources (single-use things the system can use)
+  -- i.e. pins, timer registers, DMA - unique entities which have to be
+  -- conserved
+  -- In synthesis process, all you care about is their name, it has no actual
+  -- understanding
   newResource :: String -> m (Resource m)
 
   -- | TODO :: Further Documentation

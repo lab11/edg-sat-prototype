@@ -175,6 +175,7 @@ simonPowerOut identPrefix v vErr maxI = do
   setType [
       "voltage" <:= FloatC $ v +/- vErr
     , "maxCurrent" <:= FloatV maxI
+    , "fluffyDucks" <:= IntV 10
     ]
 
   -- You can even set constraints over them.
@@ -189,7 +190,8 @@ simonPowerOut identPrefix v vErr maxI = do
   --
   -- Could instead be rendered as:
   --
-  setType ["maxCurrent" <:= FloatC [greaterThanEq 0.0, lessThanEq 20.0]]
+  setType ["maxCurrent" <:= FloatC [greaterThanEq 0.0, lessThanEq (-1.0)]]
+  setType ["fluffyDucks" <:= IntC [greaterThanEq 0, lessThanEq (-10)]]
   --
   -- Which should have the added benefit of informing you that the value is
   -- unusable in the pre-processing state, where there is some debug info.
