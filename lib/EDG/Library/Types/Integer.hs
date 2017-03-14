@@ -1,17 +1,17 @@
 
 module EDG.Library.Types.Integer where
 
--- TODO :: Convert this to use Data.IntSet from containers, so that it's a
---         more efficient representation? Mind we're currently using infinite
---         precision Integers, and moving to Ints will be somewhat limiting.
---         Though probably not for practical purposes.
-
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import Algebra.Lattice
+import Algebra.PartialOrd
+import Algebra.AsPredicate
 import Algebra.Constrainable
-import EDG.Classes.Constraints
-import Data.Maybe
+
+import EDG.Predicates
+
+import EDG.Classes.Normalizable
 
 import Algebra.Lattice
 import Algebra.PartialOrd
@@ -23,279 +23,279 @@ import Control.Applicative
 
 import GHC.Exts
 
-data IntConstraints = IntConstraints {
-    icOneOf         :: Maybe (Set Integer)
-  , icNoneOf        :: Maybe (Set Integer)
-  , icLessThanEq    :: Maybe Integer
-  , icGreaterThanEq :: Maybe Integer
-  } deriving (Show, Read, Eq)
+-- | The canonical constraint type for Integers.
+data IntCons
+  -- | All other constraint types fold into the OneOf
+  = ICOneOf (OneOf Integer)
+  -- | A combination of the other likely constraints over integers
+  --   which combine in various convinient ways
+  | ICOther {
+      none  :: Maybe (NoneOf Integer)
+    , lower :: Maybe (LowerBound Integer)
+    , upper :: Maybe (UpperBound Integer)
+    }
+  -- | Universal predicate
+  | ICBottom
+  deriving (Show, Read)
+
+instance Normalizable (PredEq IntCons) where
+  normalize = over PredEq icNorm
+
+instance Eq IntCons where
+  (==) a b = (icNorm a) `icStructuralEq` (icNorm b)
+
+instance PartialOrd IntCons where
+  leq a b = nleq nra nrb
+    where
+      nra = icNorm a
+      nrb = icNorm b
+      nleq ICBottom _ = True
+      nleq _ ICBottom = False
+      nleq (ICOneOf a) (ICOneOf b) = a `leq` b
+      -- TODO :: This case is wrong, fix it
+      --
+      -- It's possible to have a really spare OneOf shadow a really tiny noneOf
+      -- over its entire range. Something like:
+      --
+      -- a =      >--o---<
+      -- b = - -   -- ---  -   -  -       --         -       ---     -
+      --
+      -- Likely slow-but-correct solution is pick the set with the smallest
+      -- total number of elements and just check each one.
+      nleq (ICOneOf _) (ICOther _ _ _) = False
+      -- TODO :: So is this one, for a similar reason as the above. False is
+      --         just a placeholder that shouldn't mess things up too much in
+      --         this part of the project.
+      nleq (ICOther _ _ _) (ICOneOf _) = False
+      -- TODO :: This should only compare na and nb within the overlap of
+      --         (la,ua) and (lb,ub), fix this too at some point.
+      nleq (ICOther na la ua) (ICOther nb lb ub) = (na `leq` nb) && (la `leq` lb) && (ua `leq` ub)
+
+instance JoinSemiLattice IntCons where
+  (\/) ICBottom a = a
+  (\/) a ICBottom = a
+  (\/) (ICOneOf o) a = icNorm . ICOneOf $ joinOneOf a o
+  (\/) a (ICOneOf o) = icNorm . ICOneOf $ joinOneOf a o
+  (\/) (ICOther na la ua) (ICOther nb lb ub)
+    = icNorm $ ICOther (na \/ nb) (la \/ lb) (ua \/ ub)
+
+instance MeetSemiLattice IntCons where
+  (/\) ICBottom _ = ICBottom
+  (/\) _ ICBottom = ICBottom
+  (/\) (ICOneOf a) (ICOneOf b) = icNorm $ ICOneOf (a /\ b)
+  (/\) (ICOneOf o) (ICOther na la ua) = icNorm $ ICOther no lo bo
+    where
+      -- TODO :: Fliping is woefully painful in those cases where the OneOf
+      -- is pretty sparse, we should probably find a better way to do this
+      -- in the longer term.
+      (nb,lb,ub) = flipOneOf o
+      (no,lo,bo) = (Just nb,Just lb,Just ub) /\ (na,la,ua)
+  (/\) (ICOther na la ua) (ICOneOf o) = icNorm $ ICOther no lo bo
+    where
+      -- TODO :: Split thisout into its own function and call it with flipped
+      -- parameters :V don't leave duplicated code lying around.
+      (nb,lb,ub) = flipOneOf o
+      (no,lo,bo) = (Just nb,Just lb,Just ub) /\ (na,la,ua)
+  (/\) (ICOther na la ua) (ICOther nb lb ub) = icNorm $ ICOther no lo bo
+    where (no,lo,bo) = (na,la,ua) /\ (nb,lb,ub)
+
+instance BoundedJoinSemiLattice IntCons where
+  bottom = ICBottom
+
+instance BoundedMeetSemiLattice IntCons where
+  top = ICOneOf top
+
+instance AsPredicate IntCons where
+  type PredicateDomain IntCons = Integer
+  asPredicate (ICOneOf o) = asPredicate o
+  asPredicate (ICOther n l u) = asPredicate (n,l,u)
+  asPredicate (ICBottom) = const True
+
+instance SATAblePredicate IntCons where
+  isSAT (ICOneOf o) = isSAT o
+  isSAT (ICBottom) = True
+  isSAT i = case icNorm i of
+    (ICOneOf o) -> isSAT o
+    _ -> True
+
+instance CollapseablePredicate IntCons where
+  collapse (ICOneOf o) = collapse o
+  collapse _ = Nothing
+
+instance LiftablePredicate IntCons where
+  liftPredicate i = ICOneOf $ liftPredicate i
+
+instance BottomPredicate IntCons where
+  isBottom i = case icNorm i of
+    ICBottom -> True
+    _ -> False
 
 instance Constrainable Integer where
-  data Constraints Integer = IntCnstr IntConstraints
+  type Constraints Integer = IntCons
 
-  validate :: Constraints Integer -> Integer -> Bool
-  validate (IntCnstr (IntConstraints{..})) i
-    =  all ($ i) . catMaybes $ vList
+instance OneOfConstraint IntCons where
+  oneOf i = icNorm . ICOneOf $ oneOf i
 
-    where
+instance NoneOfConstraint IntCons where
+  noneOf i = icNorm . (\ n -> ICOther n Nothing Nothing) $ noneOf i
 
-      -- | The list of all the checks for validity in a form that easy to
-      --   evaluate in one fell swoop
-      vList :: [Maybe (Integer -> Bool)]
-      vList
-        = [vOneOf <$> icOneOf
-          ,vNoneOf <$> icNoneOf
-          ,vLessThanEq <$> icLessThanEq
-          ,vGreaterThanEq <$> icGreaterThanEq]
+instance GTConstraint IntCons where
+  greaterThan   i = icNorm . (\ l -> ICOther Nothing l Nothing) $ greaterThan i
+  greaterThanEq i = icNorm . (\ l -> ICOther Nothing l Nothing) $ greaterThanEq i
 
-      -- | If there's an oneOf constraint, is it being met?
-      vOneOf :: Set Integer -> Integer ->  Bool
-      vOneOf = flip Set.member
-
-      -- | If there's a noneOf constraint, is it being broken?
-      vNoneOf :: Set Integer -> Integer -> Bool
-      vNoneOf = flip Set.notMember
-
-      -- | Check whether the number is <= what we need
-      vLessThanEq :: Integer -> Integer -> Bool
-      vLessThanEq c i = i <= c
-
-      -- | Check that we're >= to what we need
-      vGreaterThanEq :: Integer -> Integer -> Bool
-      vGreaterThanEq c i = i >= c
-
-  consistent :: Constraints Integer -> Bool
-  consistent = under' $ (/= top) . normalize
-
-  collapse :: Constraints Integer -> Maybe Integer
-  collapse = under' $ (\ c -> cBounds c <|> cOneOf c <|> cNoneOf c) . normalize
-
-    where
-
-      -- | If the Upper and Lower bounds are equal, that's clearl the number we
-      --   want, so return that.
-      cBounds :: IntConstraints -> Maybe Integer
-      cBounds IntConstraints{icLessThanEq = Just ub,icGreaterThanEq = Just lb}
-        | ub == lb = Just ub
-        | otherwise = Nothing
-      cBounds _ = Nothing
-
-      -- | If there's only a single element in the OneOf list after
-      --   normalization then that's the value we want to returnEq.
-      cOneOf :: IntConstraints -> Maybe Integer
-      cOneOf IntConstraints{icOneOf = Just s}
-        | Set.size s == 1 = Just $ Set.findMin s
-        | otherwise = Nothing
-      cOneOf _ = Nothing
-
-      -- | If the none-of set has one less element than the range, then return
-      --   the element it doesn't have.
-      --
-      --   TODO :: Implement this so that it's not a no-op.
-      --
-      cNoneOf :: IntConstraints -> Maybe Integer
-      cNoneOf _ = Nothing
-
-
-  makeConstraint :: Integer -> Constraints Integer
-  makeConstraint = is
-
--- | Map value of IntConstraints into a subset of that type. The codomain is
---   a portion of the type where structural and value equality are identical,
---   and the mapping preserves the `validate` function.
---
---   TODO :: This isn't quite correct, since you can invert a noneOf set into
---           a one of set, and vice versa. And we don't actually remove that
---           symmetry for reasons of efficiency. Fix that, see if you can do
---           it without sacrificing efficiency. Possibly, if one set becomes
---           larger than half the range then turn it into the oppposite set.
---           A normalized value will already never have more than one so that
---           should work?
---
---   TODO :: Add a test to make sure that normalization doesn't change the
---           validation set of the set of constraints.
---
-normalize :: IntConstraints -> IntConstraints
-normalize = nmTop . nmNoneOfGT . nmNoneOfLT . nmOneOfNone . nmOneOfGT .  nmOneOfLT
-
-  where
-
-    -- | Remove all elements from the OneOf set that break the LT bound
-    nmOneOfLT :: IntConstraints -> IntConstraints
-    nmOneOfLT c@IntConstraints{icOneOf = Just s,icLessThanEq = Just ub}
-      = c {icOneOf = Just $ Set.filter (<= ub) s}
-    nmOneOfLT c = c
-
-    -- | Remove all elements from the OneOf set that break the GT bound
-    nmOneOfGT :: IntConstraints -> IntConstraints
-    nmOneOfGT c@IntConstraints{icOneOf = Just s,icGreaterThanEq = Just lb}
-      = c {icOneOf = Just $ Set.filter (>= lb) s}
-    nmOneOfGT c = c
-
-    -- | Remove all elements from the OneOf set that break the noneOf bound
-    --   then remove the NoneOf set, since all the information is already
-    --   in the oneOf set.
-    nmOneOfNone :: IntConstraints -> IntConstraints
-    nmOneOfNone c@IntConstraints{icOneOf = Just s,icNoneOf = Just ns}
-      = c {icOneOf = Just $ s `Set.difference` ns,icNoneOf = Nothing}
-    nmOneOfNone c = c
-
-    -- | Remove all elements from the NoneOf set that break the LT bound
-    nmNoneOfLT :: IntConstraints -> IntConstraints
-    nmNoneOfLT c@IntConstraints{icNoneOf = Just s,icLessThanEq = Just ub}
-      = c {icNoneOf = Just $ Set.filter (<= ub) s}
-    nmNoneOfLT c = c
-
-    -- | Remove all elements from the NoneOf set that break the LT bound
-    nmNoneOfGT :: IntConstraints -> IntConstraints
-    nmNoneOfGT c@IntConstraints{icNoneOf = Just s,icGreaterThanEq = Just lb}
-      = c {icNoneOf = Just $ Set.filter (>= lb) s}
-    nmNoneOfGT c = c
-
-    -- | Check whether the elements are consistent so far, and if not replace
-    --   with the unique top element.
-    nmTop :: IntConstraints -> IntConstraints
-    nmTop c
-      | icConsistent c = c
-      | otherwise      = top
-
-    -- | Combines all the individual checks to produce a global consistency
-    --   check for the integer constraint element.
-    icConsistent :: IntConstraints -> Bool
-    icConsistent c = all ($ c) $ list [icEmpty,icRange,icNoneOf]
-
-    -- | If there's no empty one of set, then this is consistent.
-    icEmpty :: IntConstraints -> Bool
-    icEmpty IntConstraints{icOneOf = Just s} = not $ Set.null s
-    icEmpty _ = True
-
-    -- | If the greater than and less than constraints overlap then
-    --   this is consistent.
-    icRange :: IntConstraints -> Bool
-    icRange IntConstraints{icGreaterThanEq=Just lb,icLessThanEq=Just ub}
-      = lb <= ub
-    icRange _ = True
-
-    -- | If both range bounds exist, and we're allowed to be at least of the
-    --   integers in between, then this is inconsistent.
-    --
-    --   We just make sure that, after filtering, there aren't enough unique
-    --   elements to bridge the gap between the bounds.
-    icNoneOf :: IntConstraints -> Bool
-    icNoneOf IntConstraints{icGreaterThanEq=Just lb,icLessThanEq=Just up,icNoneOf=Just ns}
-      = fromIntegral (up - lb + 1) <= Set.size ns
-    icNoneOf _ = True
-
-instance Newtype (Constraints Integer) IntConstraints where
-  pack = IntCnstr
-  unpack (IntCnstr a) = a
-
-instance Eq (Constraints Integer) where
-  (==) = under2 (\ a b -> normalize a == normalize b)
-
-instance PartialOrd IntConstraints where
-
-  -- | a `leq` b if each of their internal constraints are induvidually
-  --   less than or equal.
-  leq a b
-      =  leqMaybe leqOneOf  (icOneOf         a') (icOneOf         b')
-      && leqMaybe leqNoneOf (icNoneOf        a') (icNoneOf        b')
-      && leqMaybe leqGTEq   (icGreaterThanEq a') (icGreaterThanEq b')
-      && leqMaybe leqLTEq   (icLessThanEq    a') (icLessThanEq    b')
-
-    where
-
-      -- Normalize the two inputs because there's too many edge cases otherwise
-      a' = normalize a
-      b' = normalize b
-
-      leqOneOf :: Set Integer -> Set Integer -> Bool
-      leqOneOf a b = not $ Set.isProperSubsetOf a b
-
-      leqNoneOf :: Set Integer -> Set Integer -> Bool
-      leqNoneOf = Set.isSubsetOf
-
-      leqGTEq :: Integer -> Integer -> Bool
-      leqGTEq = (<=)
-
-      leqLTEq :: Integer -> Integer -> Bool
-      leqLTEq = (>=)
-
-instance PartialOrd (Constraints Integer) where
-  leq = under2 leq
-
-instance JoinSemiLattice IntConstraints where
-  (\/) a b = normalize IntConstraints {
-       icOneOf         = joinMaybe joinOneOf  (icOneOf         a) (icOneOf         b)
-      ,icNoneOf        = joinMaybe joinNoneOf (icNoneOf        a) (icNoneOf        b)
-      ,icGreaterThanEq = joinMaybe joinGTEq   (icGreaterThanEq a) (icGreaterThanEq b)
-      ,icLessThanEq    = joinMaybe joinLTEq   (icLessThanEq    a) (icLessThanEq    b)}
-
-   where
-
-      joinOneOf :: Set Integer -> Set Integer -> Set Integer
-      joinOneOf = Set.intersection
-
-      joinNoneOf :: Set Integer -> Set Integer -> Set Integer
-      joinNoneOf = Set.union
-
-      joinGTEq :: Integer -> Integer -> Integer
-      joinGTEq = max
-
-      joinLTEq :: Integer -> Integer -> Integer
-      joinLTEq = min
-
-instance JoinSemiLattice (Constraints Integer) where
-  (\/) a b = pack $ under2 (\/) a b
-
-instance BoundedJoinSemiLattice IntConstraints where
-  bottom = IntConstraints Nothing Nothing Nothing Nothing
-
-instance BoundedJoinSemiLattice (Constraints Integer) where
-  bottom = pack $ bottom
-
--- TODO :: The instance of meet over a set of integer constraints. This is
---         used as a generalize operation, to fund supersets where possible.
-
-instance MeetSemiLattice IntConstraints where
-  (/\) a b = undefined
-
-instance MeetSemiLattice (Constraints Integer) where
-  (/\) a b = pack $ under2 (/\) a b
-
-instance BoundedMeetSemiLattice IntConstraints where
-  top = bottom {icOneOf = Just Set.empty}
-
-instance BoundedMeetSemiLattice (Constraints Integer) where
-  top = pack $ top
-
-instance OneOfConstraint Integer where
-  oneOf i = pack $ bottom {icOneOf = Just $ Set.fromList i}
-
-instance NoneOfConstraint Integer where
-  noneOf i = pack $ bottom {icNoneOf = Just $ Set.fromList i}
-
-instance GTConstraint Integer where
-  greaterThan   i = pack $ bottom {icGreaterThanEq = Just $ i + 1}
-  greaterThanEq i = pack $ bottom {icGreaterThanEq = Just i}
-
-instance LTConstraint Integer where
-  lessThan   i = pack $ bottom {icLessThanEq = Just $ i - 1}
-  lessThanEq i = pack $ bottom {icLessThanEq = Just i}
+instance LTConstraint IntCons where
+  lessThan   i = icNorm . (\ u -> ICOther Nothing Nothing u) $ lessThan i
+  lessThanEq i = icNorm . (\ u -> ICOther Nothing Nothing u) $ lessThanEq i
 
 -- | Used along with the above contraint classes to allow for defining an
 --   constraints as a list of things. As in the following example.
 --
---   > test :: Constraints Integer
+--   > test :: IntCons
 --   > test = [oneOf [2,3,4], noneOf [2,3], greaterThan 4]
 --
-instance IsList (Constraints Integer) where
-  type Item (Constraints Integer) = Constraints Integer
+instance IsList IntCons where
+  type Item IntCons = IntCons
   fromList = foldr (\/) bottom
   toList t = [t]
 
--- TODO :: Whenever you get around to it, rewrite the show and read instances
---         so that they use the above list syntax.
+-- | Structural Equality over the intCons type, which is different from
+--   predicate equality for non-normalized values of IntCons
+--
+-- TODO :: In the long term this should probably just use the `eq` typeclass
+-- with our own class hierarchy that captures predicate equality, predicate
+-- partial orderings, predicate joins, etc..
+icStructuralEq :: IntCons -> IntCons -> Bool
+icStructuralEq (ICOneOf a)     (ICOneOf b)        = a == b
+icStructuralEq (ICOther n l u) (ICOther n' l' u') = (l == l') && (u == u') && (n == n')
+icStructuralEq ICBottom        ICBottom           = True
+icStructuralEq _               _                  = False
 
-deriving instance Show (Constraints Integer)
-deriving instance Read (Constraints Integer)
+-- | Normalize the representation of an IntCons such that structural equality
+--   is the same as predicate equality in the normalized subspace.
+--
+--  TODO :: Double check that this is correct. If it isn't acting as an
+--  idempotent projection into a subspace where structural equality is the
+--  same as predicate equality, this entire module is broken! Everything here
+--  depends on that property.
+--
+icNorm :: IntCons -> IntCons
+icNorm i@ICBottom        = i
+icNorm i@(ICOneOf _)     = normOneOf i
+  where
+    -- | Given an instance of ICOneOf, check that it's not overly large, if so
+    --   convert it to an instance of ICOther.
+    normOneOf :: IntCons -> IntCons
+    normOneOf i@(ICOneOf (OneOf s))
+      | Set.null s = i
+      -- TODO :: replace this with a call to `flipOneOf`
+      | tooLarge   = icNorm (ICOther (noneOf inverseList) (greaterThanEq sMin) (lessThanEq sMax))
+      | otherwise  = i
+      where
+
+        sMin :: Integer
+        sMin = Set.findMin s
+
+        sMax :: Integer
+        sMax = Set.findMax s
+
+        sSize :: Integer
+        sSize = toInteger $ Set.size s
+
+        -- | Is the set larger than 1/2 of its range?
+        --
+        -- TODO :: Split this function out into it's thing, so it can be used
+        -- in both this and `normNoneOf`, we'll need to tweak the parameters
+        -- to minimize the amount of effort taken and doing it in one place is
+        -- better.
+        --
+        tooLarge :: Bool
+        tooLarge = (sSize > 20) && (range `div` 2) <= sSize
+          where range = sMax - sMin + 1
+
+        --   TODO :: Make this use the flip* functions in EDG.Predicates
+        --   instead of duplicating code.
+        inverseList = [i | i <- [sMin .. sMax], Set.notMember i s]
+    normOneOf i = i
+
+-- TODO :: Seriously though, this one is tough, I think I'm removing all the
+-- symmetries in the space but I'm by no means sure. It might also be worth
+-- splitting much of this code out into EDG.Predicates if other constraints
+-- use it.
+icNorm i@(ICOther _ _ _)
+  = normNoneOf . normDelNoneOf . normFilterNone . normTightenUB . normTightenLB . normUB . normLB $ i
+  where
+
+    -- | Normalize the lower bound if needed
+    normLB i@ICOther{lower = Just lb} = i{lower = Just $ normalizeEnumLB lb}
+    normLB i = i
+
+    -- | Normalize the lower bound if needed
+    normUB i@ICOther{upper = Just ub} = i{upper = Just $ normalizeEnumUB ub}
+    normUB i = i
+
+    -- | Given instances of bottom, turns them into ICBottom
+    normBottom :: IntCons -> IntCons
+    normBottom ICBottom = ICBottom
+    normBottom (ICOther Nothing Nothing Nothing) = ICBottom
+    normBottom i = i
+
+
+    -- | Given an other list, tighten the lower bounds and remove unneccesary elements
+    --   from the noneOf list.
+    --
+    --   this requires that you have a normLB'ed predicate.
+    normTightenLB :: IntCons -> IntCons
+    normTightenLB i@ICOther{none = Just (NoneOf ns), lower = Just (LowerBound True lb)}
+      | Set.member lb ns = normTightenLB i{none  = Just (NoneOf (Set.delete lb ns)),
+                                           lower = Just (LowerBound True (succ lb))}
+      | otherwise = i
+    normTightenLB i = i
+
+    -- | Given an other list, tighten the upper bounds and remove unneccesary elements
+    --   from the noneOf list.
+    --
+    --   this requires that you have a normLB'ed predicate.
+    normTightenUB :: IntCons -> IntCons
+    normTightenUB i@ICOther{none = Just (NoneOf ns), upper = Just (UpperBound True ub)}
+      | Set.member ub ns = normTightenUB i{none  = Just (NoneOf (Set.delete ub ns)),
+                                           upper = Just (UpperBound True (pred ub))}
+      | otherwise = i
+    normTightenUB i = i
+
+    -- | filter out elements from the NoneOf that are outside the bounds.
+    normFilterNone :: IntCons -> IntCons
+    normFilterNone i@ICOther{none = Just (NoneOf ns),lower,upper}
+      = i{none = Just (NoneOf (Set.filter (asPredicate @(Range Integer) $ pack (lower,upper)) ns))}
+    normFilterNone i = i
+
+    -- | replace an empty NoneOf list with nothing, propagate the bottom upward.
+    normDelNoneOf :: IntCons -> IntCons
+    normDelNoneOf i@ICOther{none = Just (NoneOf ns),lower,upper}
+      | Set.null ns = case (lower,upper) of
+                        (Nothing, Nothing) -> ICBottom
+                        _ -> i{none = Nothing}
+      | otherwise = i
+    normDelNoneOf i = i
+
+    -- | If the NoneOf Set is too large, convert it to a oneOf Set
+    --
+    --   TODO :: This and `normOneOf` are very likely to have an off by one
+    --           error of some sort. So find it and fix it.
+    normNoneOf :: IntCons -> IntCons
+    normNoneOf i@ICOther{none = Just (NoneOf ns)
+                       ,lower = Just (LowerBound True lb)
+                       ,upper = Just (UpperBound True ub)}
+      | Set.null ns = i{none = Nothing}
+      | tooLarge = ICOneOf $ oneOf [i| i <- [lb..ub], Set.notMember i ns]
+      | otherwise = i
+      where
+        nSize :: Integer
+        nSize = toInteger $ Set.size ns
+
+        tooLarge :: Bool
+        tooLarge = (range `div` 2 > sSize) || (sSize <= 20)
+          where
+            range = ub - lb + 1
+            sSize = range - nSize
+    normNoneOf i = i
+

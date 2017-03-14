@@ -1,218 +1,208 @@
 module Main where
 
-import Control.Monad
-import Control.Monad.Fix
-import Data.SBV
+import EDG
 
-import Data.Generics
+-- ## Simon Example ##
 
-import Control.Monad.RWS.Lazy
+-- | This is a simple example of a microcontroller encoded so that we can
+--   perform synthesis over it.
+simonMCU :: Module ()
+simonMCU = do
+  -- Mandatory : A human readable identifier.
+  -- This isn't used in synthesis anywhere, but makes reading the output of a
+  -- run a damn sight easier.
+  -- Optimize for convinience.
+  setIdent "Arduino Pro Mini 3.3v 8MHz"
 
-import Data.Map (Map,(!))
-import qualified Data.Map as Map
+  -- Mandatory : A signature used to map parts with their implementation
+  -- details in when doing reification and whatnot.
+  setSignature "SFE DEV-11114"
 
-import Data.Set (Set)
-import qualified Data.Set as Set
+  -- Mandatory : The type of the module, works pretty much how you'd expect.
+  setType [
 
-data IntCons = IGT Integer | ILT Integer | IGTE Integer | ILTE Integer
-  deriving (Eq, Ord, Show, Read, Data, SymWord, HasKind, SatModel)
+      -- There's only one operator for adding stuff to records now '<:='.
+      -- It is used for everything, but you have to tag the types of your
+      -- values correctly. Types like "IntV","FloatV", and "StringV", are
+      -- used for concrete values, while types like "IntC", "FloatC", and
+      -- "StringC" are used for constrained values.
+      -- This kludge exists to save you having to annotate everything with
+      -- explicit types, which gets old fast.
+      "MHz" <:= FloatV 8.0
 
-type ICMap = Map String IntCons
+      -- As before, there's a pile of different types of constraints you can
+      -- use to bound values, 'oneOf','noneOf','lessThan', and '+/-' being
+      -- good examples.
+      -- Putting multiple such constraints in a list is analogous to and-ing
+      -- all of the subcosntraints together.
+    , "exampleVoltage" <:= FloatC [5 +/- 0.5, lessThan 12]
 
-newtype MapID = MapID Integer
-  deriving (Eq, Ord, Show, Read)
+      -- It's probably also good practice making values like this part of the
+      -- type, though if you're doing something generic, don't set a single
+      -- value like this, set a range of possible values.
+      --
+      -- Future calls to 'setType' and 'updateType' (literally the same
+      -- function) can only add fields or *further constrain* the type.
+    , "maxCurrent" <:= FloatC $ greaterThan 0.0
+    ]
 
-type FieldName = String
+  -- The 'addPort' function in a module or link allows you to add ports.
+  -- The name given is the primary differentiator for ports.
+  --
+  -- **If you add two ports with the same name the system will see them as
+  -- one port with the constraints of both!!**
+  addPort "5vOut" $ simonPowerOut "5v" 5.0 0.5  0.5
 
-type STMap = Map FieldName SInteger
+  -- In the context of a module, you can get a nice identifier for the port
+  -- as a return value for the addPort action.
+  -- This can be used in place of the name of the port, if you want your code
+  -- to be a little more robust.
+  p3v3 <- addPort "3v3Out" $ simonPowerOut "3v3" 3.3 0.25 0.25
 
-type PMap = Lnk MapID STMap
+  -- We can even add multiple ports at one by chaining actions together using
+  -- the standard combinators. For instance mapM maps over a list and uses some
+  -- function to turn it into
+  --
+  -- flip f a b = f b a -- flips the arguments around
+  gpios <- flip mapM ["gpio1","gpio2","gpio3","gpio4"] $ \ name ->
+    -- In the function we're mapping with, we take the name of the port,
+    -- constrain it further, and add it to the module.
+    addPort name $ do
+      -- We can then include our external global gpio port definition
+      simonGPIO
 
-type LoopM a = RWST Oracle [Info] State Symbolic a
+      -- Add useful information to the idents.
+      appendIdent name
 
-data Oracle = Oracle {
-  oracleIDFields :: Map MapID (Set FieldName)
-}
+      -- And constrain the type signature a bit more.
+      setType [
+          "maxCurrent" <:= FloatC $ oneOf [0,3.3] -- Amps
+        , "voltage" <:= FloatC $ 0.0 +/- 0.02 -- Volts
+        ]
 
-data Info = HasFields MapID (Set FieldName)
-          | LinkMap MapID MapID
+      return ()
 
-data State = State {
-  stateMapIDCounter :: Integer
-}
+  -- Now we can use further constrain the type signature of this module.
+  -- Admittedly, in this case this is useless, but in cases where you're
+  -- repeating a lot of work, it is probably useful to abstract the major
+  -- constraints away, pull them into the type, and then constrain them
+  -- for the specific element you're working with.
+  updateType ["maxCurrent" <:= FloatV 5.0]
 
+  -- We can also assemble constraints as if they were values here, it's
+  -- super nice.
+  --
+  -- 'Sum' takes a list of numerical values and gives you their sum.
+  -- It just unwraps into iterated ':+' under the hood, but whatever.
+  --
+  -- Note: ':' is the haskell cons operator so '[1,2,3] == (1:2:3:[])'
+  constrain $ typeVal "maxCurrent" :>= Sum (
+    -- We can refer to ports by their names
+    (port "5vOut" $ typeVal "maxCurrent") :
+    -- Or using the identifiers we've gotten for them.
+    (port p3v3 $ typeVal "maxCurrent") :
+    -- and we can use normal Haskell syntax here
+    (map (\ gpio -> port gpio $ typeVal "maxCurrent") gpios))
 
-data Lnk first second = Lnk first second
+  -- For a number of reasons we need to end each definition of a module or
+  -- port with either an 'endDef' or 'return ()' if you want to use it
+  -- directly.
+  --
+  -- You can return some other value (like a reference to a value in the
+  -- element) in order to do more advanced things, but we can talk about
+  -- those later.
+  --
+  -- using 'return ()' is better practise but works slightly differently to
+  -- how 'return' works in imperative languages. (It doesn't end the
+  -- definition and close the block, it's only useful as the very last
+  -- statement in a block)
+  endDef
 
-combinePasses :: FirstPass f d -> SecondPass s d -> LoopM (Lnk f s)
-combinePasses f s = do
-  (fo,d) <- f
-  so <- s d
-  return $ Lnk fo so
+-- | Since these are all normal haskell objects, it's easy enough to use
+--   functions to create a port, module, or link.
+--
+--   The 'IsPort' constraint lets you use this function as a ModulePort or
+--   a LinkPort.
+--
+--   In general you should use port names that are relative to the module side
+--   of the port. e.g. use "powerOut" for "power flowing out of the module" and
+--   not "powerIn" for "power flowing into the link".
+simonPowerOut :: forall p. (IsPort p)
+              => String -- Identifier prefix
+              -> Float -- Voltage
+              -> Float -- Error
+              -> Float -- Max Current Out
+              -> p ()
+simonPowerOut identPrefix v vErr maxI = do
+  -- Ports also have mandatory human-readable identifiers.
+  setIdent (identPrefix ++ "PowerOut")
 
-combinePasses_ :: FirstPass f d -> SecondPass s d -> LoopM ()
-combinePasses_ f s = const () <$> combinePasses f s
+  -- They also have kinds, which are **very important**
+  --
+  -- Ports can only connect to other ports with the **same kind**, the system
+  -- won't even try tentative connections with ports that don't match.
+  --
+  -- This is a very good reason to have port definitions that can be used on
+  -- both links and modules, since it lets you be significantly more precise
+  -- with their kinds, and limit the number of possible connections.
+  setKind "powerOut"
 
-combinePasses1 :: (fi -> FirstPass fo d)
-               -> (si -> SecondPass so d)
-               -> Lnk fi si -> LoopM (Lnk fo so)
-combinePasses1 f s (Lnk fi si) = combinePasses (f fi) (s si)
+  -- Also they have mandatory types.
+  setType [
+      "voltage" <:= FloatC $ v +/- vErr
+    , "maxCurrent" <:= FloatV maxI
+    ]
 
-combinePasses1_ :: (fi -> FirstPass fo d)
-                -> (si -> SecondPass so d)
-                -> Lnk fi si -> LoopM ()
-combinePasses1_ f s (Lnk fi si) = combinePasses_ (f fi) (s si)
+  -- You can even set constraints over them.
+  constrain $ typeVal "voltage" :>= (Lit $ FloatV 0.0 :: Exp p)
 
-combinePasses2 :: (f1 -> f2 -> FirstPass fo d)
-               -> (s1 -> s2 -> SecondPass so d)
-               -> Lnk f1 s1 -> Lnk f2 s2 -> LoopM (Lnk fo so)
-combinePasses2 f s (Lnk fi si) = combinePasses1 (f fi) (s si)
+  -- These will be expressed in the SMT solver, so prefer constraints in the
+  -- types themselves when possible.
+  -- For instance these constraints:
+  --
+  -- > constrain $ typeVal "maxCurrent" :>= (Lit $ FloatV 0.0 )
+  -- > constrain $ typeVal "maxCurrent" :<= (Lit $ FloatV 20.0)
+  --
+  -- Could instead be rendered as:
+  --
+  setType ["maxCurrent" <:= FloatC [greaterThanEq 0.0, lessThanEq 20.0]]
+  --
+  -- Which should have the added benefit of informing you that the value is
+  -- unusable in the pre-processing state, where there is some debug info.
+  -- It's not perfect, but a lot better than a flat "Unsatisfiable" from the
+  -- SAT solver.
 
-combinePasses2_ :: (f1 -> f2 -> FirstPass fo d)
-                -> (s1 -> s2 -> SecondPass so d)
-                -> Lnk f1 s1 -> Lnk f2 s2 -> LoopM ()
-combinePasses2_ f s (Lnk fi si) = combinePasses1_ (f fi) (s si)
+  -- You can also end a definition for a port, link, or module with a
+  -- 'return ()` instead of an endDef.
+  -- They are identical, and 'return ()' is probably better practice.
+  return ()
 
+-- | A more generic GPIO port definition that we can use as needed elsewhere.
+simonGPIO :: (IsPort p) => p ()
+simonGPIO = do
+  setIdent "GPIO Port"
+  setKind "GPIO"
+  setType [
+      -- 'unknown' is used for elements where we don't know anything about the
+      -- value at all. It's the constraint that every value is a member of.
+      "maxCurrent" <:= FloatC $ unknown -- Amps
 
-type FirstPassM f = forall m. (MonadWriter [Info] m,MonadState State m)  => m f
-type FirstPass f d = forall m. (MonadWriter [Info] m,MonadState State m)  => m (f,d)
+      -- I'm pretty sure we want to split voltage/properties for
+      -- multistate pins like this by state.
+    , "voltage" <:= FloatC $ unknown -- Volts
 
-type SecondPassM s = forall t. (MonadReader Oracle (t Symbolic),MonadTrans t) => t Symbolic s
-type SecondPass s d = forall t. (MonadReader Oracle (t Symbolic),MonadTrans t) => d -> t Symbolic s
+    , "direction" <:= StringC $ oneOf ["I","O","IO"]
+    ]
 
-runLoopM :: LoopM a -> Symbolic a
-runLoopM m = mdo
-  (a,_,w) <- runRWST m (convertInfo w) (State 0)
-  return a
+  return ()
 
-type IDRef = Map MapID (Either MapID (Set FieldName))
-
-convertInfo :: [Info] -> Oracle
-convertInfo is = cleanMap $ foldr inf Map.empty is
-  where
-    inf (HasFields i f) m = addFields i f m
-    inf (LinkMap i i') m = forceEq i i' m
-
-lookupFinal :: MapID -> IDRef -> MapID
-lookupFinal i m = case Map.lookup i m of
-  Just (Left i') -> lookupFinal i' m
-  _ -> i
-
-ensureExists :: MapID -> IDRef -> IDRef
-ensureExists i m = case Map.lookup i m of
-  Just _ -> m
-  Nothing -> Map.insert i (Right Set.empty) m
-
-addFields :: MapID -> Set FieldName -> IDRef -> IDRef
-addFields id fs m = Map.adjust adj (lookupFinal id m') m'
-
-  where
-
-  m' = ensureExists id m
-
-  adj (Right s) = Right (Set.union s fs)
-  adj _ = error "There should alwys be a terminating Right in here"
-
-forceEq :: MapID -> MapID -> IDRef -> IDRef
-forceEq id id' m = Map.insert idf (Right nfs) . Map.insert id' (Left idf) $ m'
-
-  where
-  idf = lookupFinal id m'
-  Right fs  = m' ! (lookupFinal id m')
-  Right fs' = m' ! (lookupFinal id' m')
-  nfs = Set.union fs fs'
-  m' = ensureExists id . ensureExists id' $ m
-
-cleanMap :: IDRef -> Oracle
-cleanMap i = Oracle $ foldr (\ k m -> case i ! (lookupFinal k i) of Right s -> Map.insert k s m) Map.empty (Map.keys i)
-
-setEqMap :: PMap -> PMap -> LoopM ()
-setEqMap = combinePasses2_ fp sp
-
-  where
-
-    -- Record the info for later
-    fp :: MapID -> MapID -> FirstPass () ()
-    fp idA idB = const ((),()) <$> tell [LinkMap idA idB]
-
-    -- Generate the neccesary constraints.
-    sp :: STMap -> STMap -> SecondPass () ()
-    sp smA smB _ = forM_ (Map.keys smA) (\ key -> lift . constrain $ (smA ! key) .== (smB ! key))
-
-setEqVal :: FieldName -> PMap -> PMap -> LoopM ()
-setEqVal name = combinePasses2_ fp sp
--- const () <$> combinePasses (fp idA idB) (sp smA smB)
-
-  where
-
-  fp :: MapID -> MapID -> FirstPass () ()
-  fp idA idB = const ((),()) <$> tell [HasFields idA [name],HasFields idB [name]]
-
-  sp :: STMap -> STMap -> SecondPass () ()
-  sp smA smB _ = lift . constrain $ (smA ! name) .== (smB ! name)
-
-liftMap :: String -> ICMap -> LoopM PMap
-liftMap name ic = combinePasses fp sp
-
-  where
-
-  fp :: FirstPass MapID MapID
-  fp = do
-    id <- getNewID
-    tell [HasFields id (Map.keysSet ic)]
-    return (id,id)
-
-  sp :: SecondPass STMap MapID
-  sp id = do
-    Oracle fm <- ask
-    let fields = Set.toList (fm ! id)
-    -- Create the actual sInteger variables and store them in the stmap
-    stmap <- Map.fromList <$> (lift $ forM fields (\ f -> do
-      let vn = name ++ "[" ++ f ++ "]"
-      si <- sInteger vn
-      return (f,si)))
-    -- Apply the constraints to them as needed
-    lift $ forM_ (Map.keys ic) (\ f -> constrain $ addConst (ic ! f) (stmap ! f))
-    -- Return just the stMap
-    return stmap
-
-addConst :: IntCons -> SInteger -> SBool
-addConst (IGT  i) s = s .>  (literal i)
-addConst (IGTE i) s = s .>= (literal i)
-addConst (ILT  i) s = s .<  (literal i)
-addConst (ILTE i) s = s .<= (literal i)
-
-getNewID :: FirstPassM MapID
-getNewID = do
-  State id <- get
-  put $ State (id + 1)
-  return $ MapID id
-
-loopProblem :: LoopM SBool
-loopProblem = do
-  m1' <- liftMap "M1" m1
-  m2' <- liftMap "M2" m2
-  m3' <- liftMap "M3" m3
-  m4' <- liftMap "M4" m4
-  setEqMap m1' m2'
-  setEqVal "C" m3' m4'
-  setEqVal "D" m3' m4'
-  return (true :: SBool)
+testLibrary :: EDGLibrary
+testLibrary = EDGLibrary{
+    modules = [
+      ]
+  , links   = [
+      ]
+  }
 
 main :: IO ()
-main = print <=< sat $ runLoopM loopProblem
-
---- Test Data
-
-m1 :: ICMap
-m1 = [("A", IGT 3),  ("B", ILTE 4)]
-
-m2 :: ICMap
-m2 = [               ("B", IGT 3), ("C", ILTE 15)]
-
-m3 :: ICMap
-m3 = [("A", ILT 13),               ("C", IGTE 12)]
-
-m4 :: ICMap
-m4 = [("A", IGT 42), ("B", IGT 6), ("C", ILTE 24), ("D",IGT 25)]
-
+main = synthesize testLibrary "Seed" simonMCU

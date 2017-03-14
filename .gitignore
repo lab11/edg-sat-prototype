@@ -23,6 +23,7 @@ cabal.sandbox.config
 ###############
 # OS-specific #
 ###############
+
 .DS_Store
 
 ###########
@@ -35,3 +36,10 @@ boxes/*
 /website/docs/.vagrant
 /website/www/.vagrant
 /vagrant-spec.config.rb
+
+
+####################
+# Project Specific #
+####################
+
+.tmp

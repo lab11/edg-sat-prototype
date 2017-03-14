@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-7.9
+resolver: lts-8.2
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -37,12 +37,13 @@ resolver: lts-7.9
 # will not be run. This is useful for tweaking upstream packages.
 packages:
   - location: '.'
-  - location:
-      git: git@github.com:rohit507/sbv.git
-      commit: 13d3544b83c20e9b5ed6770b729f5c07ab3b23df
+
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps: 
+  - 'data-fix-0.0.3'
+  - 'overload-0.1.0.3'
+  - 'simple-effects-0.7.0.1'
 
 # Override default flag values for local packages and extra-deps
 flags: {}

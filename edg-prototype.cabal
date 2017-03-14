@@ -26,34 +26,41 @@ executable edg-prototype
   
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
-    MultiParamTypeClasses 
-    FunctionalDependencies
-    ExistentialQuantification
-    GADTs
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
     DuplicateRecordFields
-    OverloadedLabels
-    TypeFamilies
     EmptyDataDecls
-    TemplateHaskell
-    RankNTypes
+    ExistentialQuantification
     FlexibleContexts
     FlexibleInstances
-    KindSignatures
-    ScopedTypeVariables
-    ConstraintKinds
-    NamedFieldPuns
-    RecordWildCards
+    FunctionalDependencies
+    GADTs
     InstanceSigs
-    DataKinds
+    KindSignatures
     LambdaCase
-    OverloadedStrings
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    OverloadedLabels
     OverloadedLists
-    TupleSections
-    StandaloneDeriving
-    DefaultSignatures
-    DeriveDataTypeable
-    DeriveAnyClass
+    OverloadedStrings
+    PatternGuards
+    PatternSynonyms
+    RankNTypes
+    RecordWildCards
     RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeFamilyDependencies
+    TypeOperators
+    ViewPatterns
 
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   
@@ -75,52 +82,110 @@ executable edg-prototype
 library
   -- Modules exported by the library.
   exposed-modules:
-    Algebra
-    Algebra.GenOrd
-    Algebra.Constrainable
-    --EDG.Classes
-    EDG.Classes.Constraints
-    EDG.Classes.Fields
-    EDG.Library
-    EDG.Library.Types
-    EDG.Library.Types.Integer
-    EDG.Library.Types.Float
-    EDG.Library.Types.String
+    EDG
 
   -- Modules included in this library but not exported.
   other-modules:
+    EDG.SBVWrap
+    EDG.EDGDatatype
+    Control.Monad.Scribe
+    Control.Monad.MonadSymbolic
     Control.Newtype.Util
+    Control.Lens.TupleLens
+    Control.Lens.Ether.Implicit
     -- Control.Lens.MakePolyFields
+    -- Algebraic Objects
+    Algebra
+    Algebra.GenOrd
+    Algebra.Constrainable
+    Algebra.AsPredicate
+    --EDG.Predicates -- generic predicates
+    EDG.Predicates
+    EDG.Predicates.Predicate
+    EDG.Predicates.Tuple
+    EDG.Predicates.OneOf
+    EDG.Predicates.NoneOf
+    EDG.Predicates.Bounds
+    EDG.Predicates.Range
+    EDG.Predicates.Maybe
+    -- Special Data Structures 
+    Data.EqMap 
+    --EDG.Classes -- Classes which may or maynot be useful
+    EDG.Classes.Fields
+    EDG.Classes.Normalizable
+    -- EDG.Library -- Low-level types and constraints over them
+    EDG.Library.Types
+    EDG.Library.Types.Bool
+    EDG.Library.Types.String
+    EDG.Library.Types.Float
+    EDG.Library.Types.UID
+    EDG.Library.Types.Integer
+    EDG.Library.Types.Record 
+    EDG.Library.Types.TypeVal
+    -- EDG.EDGInstances -- Converting low level types into something SBV can handle
+    -- TODO :: Reorganize these. 
+    EDG.EDGMonad
+    EDG.EDGProblem
+    EDG.EDGInstances
+    EDG.EDGInstances.Bool
+    EDG.EDGInstances.String
+    EDG.EDGInstances.Float
+    EDG.EDGInstances.UID
+    EDG.EDGInstances.Integer
+    EDG.EDGInstances.Record
+    -- EDG.Elements -- High level design elements
+    EDG.ElemIncludes 
+    EDG.ElemTypes
+    EDG.PortTypes
+    EDG.ElemProblem
+    EDG.Elements
+    EDG.Elements.Port
+    EDG.Elements.Elem
+    -- 
+    EDG.Expression
+    -- 
+    EDG.AssembleGraph
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
-    MultiParamTypeClasses 
-    FunctionalDependencies
-    ExistentialQuantification
-    GeneralizedNewtypeDeriving
-    GADTs
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
     DuplicateRecordFields
-    OverloadedLabels
-    TypeFamilies
     EmptyDataDecls
-    TemplateHaskell
-    RankNTypes
+    ExistentialQuantification
     FlexibleContexts
     FlexibleInstances
-    KindSignatures
-    ScopedTypeVariables
-    ConstraintKinds
-    NamedFieldPuns
-    RecordWildCards
+    FunctionalDependencies
+    GADTs
     InstanceSigs
-    DataKinds
+    KindSignatures
     LambdaCase
-    OverloadedStrings
+    LiberalTypeSynonyms
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    OverloadedLabels
     OverloadedLists
-    TupleSections
-    StandaloneDeriving
-    DefaultSignatures
+    OverloadedStrings
+    PatternGuards
+    PatternSynonyms
+    PolyKinds
+    RankNTypes
+    RecordWildCards
     RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeFamilyDependencies
+    TypeOperators
+    ViewPatterns
+
 
   -- Other library packages from which modules are imported.
   build-depends:
@@ -134,17 +199,22 @@ library
     -- Utility functions. 
     newtype >= 0.2,
     -- Used to build bindings to z3 and other theorem provers as needed
-    sbv >= 5.12,
+    sbv >= 5.14,
     -- Basic Containers
+    bimap >= 0.3.2,
     containers,
+    -- Fixed point type
+    data-fix >= 0.0.3,
     -- heaps >= 0.3.2.1,
     -- vector >= 0.10, 
     -- -- Monad Transformers
-    -- mtl >= 2.2.1,
-    -- transformers >= 0.4.2,
-    -- -- Provides tagged monads, so that we can remove all those 
-    -- --   fucking `(lift . lift)`s
-    -- ether >= 0.3.0.0,
+    ether >= 0.4.0.2, 
+    mtl >= 2.2.1,
+    transformers >= 0.4.2,
+    -- Generics 
+    syb >= 0.6,
+    -- Generates the Typeclass tree for generic overloading 
+    overload >= 0.1.0.3,
     -- -- Convinient ordered list functions 
     -- data-ordlist >= 0.4.7.0,
     -- -- Used to interleave monadic actions in weird ways 
@@ -152,7 +222,7 @@ library
     -- template-haskell >= 2.10,
     -- vector >= 0.10,
     -- Pretty Printing of Haskell Datatypes 
-    pretty-show
+    pretty-simple
 
   -- Directories containing source files.
   hs-source-dirs:      
@@ -163,7 +233,10 @@ library
     Haskell2010
 
   ghc-options: 
-    -ddump-splices
+    -ddump-splices 
+    -fwarn-incomplete-patterns 
+    -fwarn-incomplete-uni-patterns
+    -fprint-potential-instances
 
 test-suite edg-prototype-test
   type: exitcode-stdio-1.0 
@@ -209,26 +282,39 @@ test-suite edg-prototype-test
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions: 
-    MultiParamTypeClasses 
-    FunctionalDependencies
-    ExistentialQuantification
-    GeneralizedNewtypeDeriving
-    DuplicateRecordFields
-    OverloadedLabels
-    TypeFamilies
-    EmptyDataDecls
-    TemplateHaskell
-    RankNTypes
-    FlexibleContexts
-    FlexibleInstances
-    KindSignatures
-    InstanceSigs
     ConstraintKinds
     DataKinds
-    LambdaCase
-    ScopedTypeVariables
-    OverloadedStrings
     DefaultSignatures
-    -- OverloadedLists
+    DeriveAnyClass
+    DeriveDataTypeable
+    DuplicateRecordFields
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    OverloadedLabels
+    OverloadedLists
+    OverloadedStrings
+    PatternGuards
+    PatternSynonyms
+    RankNTypes
+    RecordWildCards
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
     TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeFamilyDependencies
+    TypeOperators
+    ViewPatterns
 
