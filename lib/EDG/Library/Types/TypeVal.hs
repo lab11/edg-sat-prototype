@@ -199,13 +199,14 @@ type RecCons = RecordCons Value
 -- | Merge two records, while adding fields if they're not found, instead of
 --   returning Top.
 recordMerge :: RecCons -> RecCons -> RecCons
-recordMerge RCTop c    = {- trace ("<1>" ++ show c) $ -} RCTop
-recordMerge c RCTop    = {- trace ("<2>" ++ show c) $ -} RCTop
-recordMerge a RCBottom = {- trace ("<3>" ++ show a) $ -} a
-recordMerge RCBottom a = {- trace ("<4>" ++ show a) $ -} a
+-- recordMerge a b | trace ("<:| " ++ show a ++ " <> " ++ show b ++ " :|>") False = undefined
+recordMerge RCTop c    = trace ("<1>" ++ show c) $  traceShowId $ RCTop
+recordMerge c RCTop    = trace ("<2>" ++ show c) $  traceShowId $ RCTop
+recordMerge a RCBottom = {- trace ("<3>" ++ show a) $  traceShowId $ -} a
+recordMerge RCBottom a = {- trace ("<4>" ++ show a) $  traceShowId $ -} a
 recordMerge (rcMap -> m1) (rcMap -> m2)
-  = {- trace (show m1 ++ " <-> " ++ show m2) $ traceShowId -} (RCAmbig $ Map.intersectionWith
-    (\ a b -> {- (\ s -> trace ("<||> " ++ show a ++ "  " ++ show b ++ " -- " ++ show s) s) $ -} flattenAmbig $ a \/ b) m1 m2)
+  = {- trace (show m1 ++ " <-> " ++ show m2) $  traceShowId -} (RCAmbig $ Map.unionWith
+    (\ a b -> {- (\ s -> trace ("   <||> " ++ show a ++ "  " ++ show b ++ " -- " ++ show s) s) $ -} flattenAmbig $ a \/ b) m1 m2)
 
 instance AsPredicate (Constrained' a) where
   type PredicateDomain (Constrained' a) = (Value' a)
