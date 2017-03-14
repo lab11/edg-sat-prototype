@@ -592,7 +592,8 @@ instance IsPort LinkPort where
   connected = E.pvConnected
 
 -- | TODO :: Further Documentation
-class (IsElem m, IsPort (PortType m)) => IsBlock m where
+class (IsElem m, IsPort (PortType m)
+  ,Resource m ~ E.Resource (PExp m)) => IsBlock m where
 
   -- | TODO
   type Resource m :: *
