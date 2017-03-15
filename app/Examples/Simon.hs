@@ -290,8 +290,8 @@ button = do
       ]
     return ()
   -- Ports must both be connected for design to work
-  constrain $ port vin connected
-  constrain $ port gpio connected
+  --constrain $ port vin connected
+  --constrain $ port gpio connected
   -- The ID of this part must end up in the port somehow
   constrain $ (port gpio $ typeVal "data.id") :== uid
   -- We can't draw more current through the thing than the
@@ -407,7 +407,24 @@ buttonDriver = do
 -- we'll replace this with the correct driver, in the meantime this
 -- reduces our part load.
 gpioLink :: Link ()
-gpioLink = undefined
+gpioLink = do
+  setIdent "gpio link"
+  setSignature "gpio link"
+  -- the resource the link needs
+  res <- addPort "resource" $ do
+    return ()
+  -- the sw interface port
+  sw  <- addPort "software" $ do
+    return ()
+  -- the hw interface port
+  hw <- addPort "hardware" $ do
+    return ()
+  -- ensure the software direction types are correct.
+
+  -- ensure that all the properties between all the ports match up
+
+  -- ensure that the correct port connection requirements exist
+  return ()
 
 powerLink :: Link ()
 powerLink = undefined
@@ -436,5 +453,11 @@ seed = do
   return ()
 
 
+-- Some general notes about this:
+--
+-- - We don't keep track of which MCU each piece of software is running
+--   on, there's nothing stopping the system from plopping down two MCUs and
+--   not realizing there's no way to split the SW across them.
+--   Fixing this is left as an exercise for the reader.
 main :: IO ()
-main = synthesize testLibrary "Seed" mcu
+main = synthesize testLibrary "Seed" button
