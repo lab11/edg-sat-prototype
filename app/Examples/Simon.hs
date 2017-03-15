@@ -227,7 +227,7 @@ gpioHW = do
 -- The software side of a GPIO port
 gpioSW :: (IsPort p) => p ()
 gpioSW = do
-  simonSWPort
+  swPort
   setIdent "GPIO"
   setKind "GPIOSW"
   setType [
@@ -340,13 +340,14 @@ swPort = do
   setKind "SW"
   setType [
       "data" <:= unknown
-    , "apiDir" <:= StringC $ oneof ["producer","consumer"]
+    , "apiDir" <:= StringC $ oneOf ["producer","consumer"]
     ]
   return ()
 
 ledDriver :: Module ()
 ledDriver = do
   setIdent "LedDriver"
+  setSignature "leddriver"
   input <- addPort "gpioIn" $ do
     gpioSW
     setIdent "LEDDriver"
@@ -358,6 +359,7 @@ ledDriver = do
           , "id" <:= UID
           ]
       ]
+    return ()
   output <- addPort "swAPIOut" $ do
     swPort
     setIdent "LEDDriver"
@@ -365,6 +367,7 @@ ledDriver = do
         "data" <:= unknown
       , "apiDir" <:= StringV "producer"
       ]
+    return ()
   constrain $ (port input  $ typeVal "data")
           :== (port output $ typeVal "data")
   constrain $ port input connected :=> port output connected
@@ -373,6 +376,7 @@ ledDriver = do
 buttonDriver :: Module ()
 buttonDriver = do
   setIdent "ButtonDriver"
+  setSignature "signature"
   input <- addPort "gpioIn" $ do
     gpioSW
     setIdent "ButtonDriver"
@@ -383,6 +387,7 @@ buttonDriver = do
           , "id" <:= UID
           ]
       ]
+    return ()
   output <- addPort "swAPIOut" $ do
     swPort
     setIdent "ButtonDriver"
@@ -390,11 +395,17 @@ buttonDriver = do
         "data" <:= unknown
       , "apiDir" <:= StringV "producer"
       ]
+    return ()
   constrain $ (port input  $ typeVal "data")
           :== (port output $ typeVal "data")
   constrain $ port input connected :=> port output connected
   return ()
 
+-- This is an interesting one, we're making the GPIO driver here
+-- implicit, so that a single generic linktype is capable of capturing
+-- all gpio connections, the assumption is that during reification
+-- we'll replace this with the correct driver, in the meantime this
+-- reduces our part load.
 gpioLink :: Link ()
 gpioLink = undefined
 
@@ -407,12 +418,11 @@ swLink = undefined
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
-      --   ("button",3,simonButton)
-      -- , ("buttonDriver",3,simonButtonDriver)
-      -- , ("led",3,simonLed)
-      -- , ("ledDriver",3,simonLEDDriver)
-      -- , ("mcu",1,simonMCU)
-      -- , ("gpioDriver",
+        ("button",3,button)
+      , ("buttonDriver",3,buttonDriver)
+      , ("led",3,led)
+      , ("ledDriver",3,ledDriver)
+      , ("mcu",1,mcu)
       ]
   , links   = [
       ]
