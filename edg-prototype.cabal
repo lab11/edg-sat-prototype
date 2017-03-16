@@ -25,7 +25,10 @@ executable edg-prototype
     Main.hs
 
   other-modules:
+    Examples.CommonPorts
+    Examples.CommonModules
     Examples.Simon
+    Examples.Logger
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
