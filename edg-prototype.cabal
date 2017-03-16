@@ -18,17 +18,20 @@ source-repository head
 
 executable edg-prototype
 
-  hs-source-dirs:      
+  hs-source-dirs:
     app
 
   main-is:
     Main.hs
 
-  other-modules: 
+  other-modules:
+    Examples.CommonPorts
+    Examples.CommonModules
     Examples.Simon
-  
+    Examples.Logger
+
   -- LANGUAGE extensions used by modules in this package.
-  default-extensions: 
+  default-extensions:
     ConstraintKinds
     DataKinds
     DefaultSignatures
@@ -66,12 +69,12 @@ executable edg-prototype
     ViewPatterns
 
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  
-  build-depends:       
-    base >= 4.9, 
+
+  build-depends:
+    base >= 4.9,
     -- Used to build bindings to z3 and other theorem provers as needed
     sbv >= 5.12,
-    -- Monad Transformers we can wrap around symbolic 
+    -- Monad Transformers we can wrap around symbolic
     mtl >= 2.2.1,
     -- Datastructures and containers
     containers >= 0.5.7,
@@ -111,8 +114,8 @@ library
     EDG.Predicates.Bounds
     EDG.Predicates.Range
     EDG.Predicates.Maybe
-    -- Special Data Structures 
-    Data.EqMap 
+    -- Special Data Structures
+    Data.EqMap
     --EDG.Classes -- Classes which may or maynot be useful
     EDG.Classes.Fields
     EDG.Classes.Normalizable
@@ -123,10 +126,10 @@ library
     EDG.Library.Types.Float
     EDG.Library.Types.UID
     EDG.Library.Types.Integer
-    EDG.Library.Types.Record 
+    EDG.Library.Types.Record
     EDG.Library.Types.TypeVal
     -- EDG.EDGInstances -- Converting low level types into something SBV can handle
-    -- TODO :: Reorganize these. 
+    -- TODO :: Reorganize these.
     EDG.EDGMonad
     EDG.EDGProblem
     EDG.EDGInstances
@@ -137,20 +140,20 @@ library
     EDG.EDGInstances.Integer
     EDG.EDGInstances.Record
     -- EDG.Elements -- High level design elements
-    EDG.ElemIncludes 
+    EDG.ElemIncludes
     EDG.ElemTypes
     EDG.PortTypes
     EDG.ElemProblem
     EDG.Elements
     EDG.Elements.Port
     EDG.Elements.Elem
-    -- 
+    --
     EDG.Expression
-    -- 
+    --
     EDG.AssembleGraph
 
   -- LANGUAGE extensions used by modules in this package.
-  default-extensions: 
+  default-extensions:
     ConstraintKinds
     DataKinds
     DefaultSignatures
@@ -193,13 +196,13 @@ library
   -- Other library packages from which modules are imported.
   build-depends:
     base >=4.9,
-    -- Used for Lens operations 
+    -- Used for Lens operations
     lens >= 4.12.3,
     template-haskell >= 2.10,
     -- Lattice Ordering Types
     lattices >= 1.5.0,
     -- Used to help compose and decompose newtypes, and for the corresponding
-    -- Utility functions. 
+    -- Utility functions.
     newtype >= 0.2,
     -- Used to build bindings to z3 and other theorem provers as needed
     sbv >= 5.14,
@@ -209,82 +212,82 @@ library
     -- Fixed point type
     data-fix >= 0.0.3,
     -- heaps >= 0.3.2.1,
-    -- vector >= 0.10, 
+    -- vector >= 0.10,
     -- -- Monad Transformers
-    ether >= 0.4.0.2, 
+    ether >= 0.4.0.2,
     mtl >= 2.2.1,
     transformers >= 0.4.2,
-    -- Generics 
+    -- Generics
     syb >= 0.6,
-    -- Generates the Typeclass tree for generic overloading 
+    -- Generates the Typeclass tree for generic overloading
     overload >= 0.1.0.3,
-    -- -- Convinient ordered list functions 
+    -- -- Convinient ordered list functions
     -- data-ordlist >= 0.4.7.0,
-    -- -- Used to interleave monadic actions in weird ways 
+    -- -- Used to interleave monadic actions in weird ways
     -- monad-control >= 1.0.0.4,
     -- template-haskell >= 2.10,
     -- vector >= 0.10,
-    -- Pretty Printing of Haskell Datatypes 
+    -- Pretty Printing of Haskell Datatypes
     pretty-simple
 
   -- Directories containing source files.
-  hs-source-dirs:      
+  hs-source-dirs:
     lib
-  
+
   -- Base language which the package is written in.
-  default-language:   
+  default-language:
     Haskell2010
 
-  ghc-options: 
-    -ddump-splices 
-    -fwarn-incomplete-patterns 
+  ghc-options:
+    -ddump-splices
+    -fwarn-incomplete-patterns
     -fwarn-incomplete-uni-patterns
     -fprint-potential-instances
 
 test-suite edg-prototype-test
-  type: exitcode-stdio-1.0 
-  
-  hs-source-dirs: test, lib
-  
-  Main-is: 
-    Main.hs 
+  type: exitcode-stdio-1.0
 
-  default-language:   
+  hs-source-dirs: test, lib
+
+  Main-is:
+    Main.hs
+
+  default-language:
     Haskell2010
- 
-  -- Dpendencies that are solely for TESTING 
-  build-depends: 
+
+  -- Dpendencies that are solely for TESTING
+  build-depends:
     hspec >= 1.3,
     QuickCheck >= 2.8
 
-  -- Dependencies that are IDENTICAL to the library dependencies. 
+  -- Dependencies that are IDENTICAL to the library dependencies.
   build-depends:
-    base >=4.8 && <4.9,
-    -- Used for Lens operations 
+    base >=4.8,
+    -- Used for Lens operations
     lens >= 4.12.3,
     template-haskell >= 2.10,
     -- Basic Containers
     containers,
     -- heaps >= 0.3.2.1,
-    -- vector >= 0.10, 
+    -- vector >= 0.10,
     -- -- Monad Transformers
     -- mtl >= 2.2.1,
     -- transformers >= 0.4.2,
-    -- -- Provides tagged monads, so that we can remove all those 
+    -- -- Provides tagged monads, so that we can remove all those
     -- --   fucking `(lift . lift)`s
     -- ether >= 0.3.0.0,
-    -- -- Convinient ordered list functions 
+    -- -- Convinient ordered list functions
     -- data-ordlist >= 0.4.7.0,
-    -- -- Used to interleave monadic actions in weird ways 
+    -- -- Used to interleave monadic actions in weird ways
     -- monad-control >= 1.0.0.4,
     -- template-haskell >= 2.10,
     -- vector >= 0.10,
-    -- Pretty Printing of Haskell Datatypes 
+    -- Pretty Printing of Haskell Datatypes
     pretty-show
 
 
   -- LANGUAGE extensions used by modules in this package.
-  default-extensions: 
+  default-extensions:
     ConstraintKinds
     DataKinds
     DefaultSignatures
