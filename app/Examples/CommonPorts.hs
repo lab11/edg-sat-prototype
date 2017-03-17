@@ -30,7 +30,7 @@ powerOut = do
   setKind "VOUT"
   setType [
       "voltage" <:= FloatC $ unknown
-    , "maxCurrent" <:= FloatC $ unknown
+    , "current" <:= FloatC $ unknown
     ]
   return ()
 
@@ -55,29 +55,28 @@ fixedPowerOut identPrefix v vErr maxI = do
   powerOut
 
   -- Ports also have mandatory human-readable identifiers.
-  setIdent (identPrefix ++ "PowerOut")
+  appendIdent identPrefix
 
   -- Also they have mandatory types.
   setType [
       "voltage" <:= FloatC $ v +/- vErr
-    , "maxCurrent" <:= FloatV maxI
     ]
 
   -- You can even set constraints over them.
-  -- TODO: example to be moved elsewhere
-  constrain $ typeVal "voltage" :>= (Lit $ FloatV 0.0)
+  -- TODO: example to be moved elsewhere, we already statically set the voltage
+  -- constrain $ typeVal "voltage" :>= (Lit $ FloatV 0.0)
 
   -- These will be expressed in the SMT solver, so prefer constraints in the
   -- types themselves when possible.
   -- For instance these constraints:
   --
-  -- > constrain $ typeVal "maxCurrent" :>= (Lit $ FloatV 0.0 )
-  -- > constrain $ typeVal "maxCurrent" :<= (Lit $ FloatV 20.0)
+  -- > constrain $ typeVal "current" :>= (Lit $ FloatV 0.0 )
+  -- > constrain $ typeVal "current" :<= (Lit $ FloatV 20.0)
   --
   -- Could instead be rendered as:
   -- TODO: example to be moved elsewhere
   --
-  setType ["maxCurrent" <:= FloatC $ between 0 20.0]
+  setType ["current" <:= FloatC $ between 0 maxI]
   --
   -- Which should have the added benefit of informing you that the value is
   -- unusable in the pre-processing state, where there is some debug info.
@@ -96,9 +95,9 @@ powerIn = do
   setKind "VIN"
   setType [
       "voltage" <:= FloatC $ unknown
-    , "maxCurrent" <:= FloatC $ unknown
+    , "current" <:= FloatC $ unknown
     ]
-  constrain $ typeVal "voltage" :>= (Lit $ FloatV 0.0)
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
 -- The hardware side of a GPIO port
@@ -110,7 +109,7 @@ gpioHW = do
       -- 'unknown' is used for elements where we don't know
       -- anything about the value at all.
       -- It's the constraint that every value is a member of.
-      "maxCurrent" <:= FloatC $ unknown -- Amps
+      "current" <:= FloatC $ unknown -- Amps
       -- I'm pretty sure we want to split voltage/properties for
       -- multistate pins like this by state.
     , "voltage" <:= FloatC $ unknown -- Volts
@@ -161,8 +160,31 @@ gpioLink = do
   -- ensure that the correct port connection requirements exist
   return ()
 
-powerLink :: Link ()
-powerLink = undefined
+powerLink :: Int  -- number of sinks
+    -> Link ()
+powerLink numSinks = do
+  setIdent "power link"
+  setSignature "power link"
 
+  source <- addPort "source" $ do
+    powerOut
+    return()
+
+  sinks <- flip mapM [1..numSinks] $ \ id ->
+    addPort ("sink" ++ (show id)) $ do
+      powerIn
+      return()
+
+  constrain $ port source connected
+  -- Ensure at lease one sink is connected
+  constrain $ Sum(map (\ sink -> If (port sink connected) ((Lit $ IntV 1)) ((Lit $ IntV 0))) sinks)
+    :>= (Lit $ IntV 1)
+  flip mapM sinks $ \ sink ->
+    constrain $ (port source $ typeVal "voltage")
+            :== (port sink   $ typeVal "voltage")
+  constrain $ (port source $ typeVal "current")
+          :== Sum(map (\ sink -> port sink $ typeVal "current") sinks)
+
+  return ()
 swLink :: Link ()
 swLink = undefined
