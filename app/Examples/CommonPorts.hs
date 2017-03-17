@@ -160,8 +160,9 @@ gpioLink = do
   -- ensure that the correct port connection requirements exist
   return ()
 
-powerLink :: Link ()
-powerLink = do
+powerLink :: Int  -- number of sinks
+    -> Link ()
+powerLink numSinks = do
   setIdent "power link"
   setSignature "power link"
 
@@ -169,9 +170,8 @@ powerLink = do
     powerOut
     return()
 
-  -- TODO: multiple sinks
-  sinks <- flip mapM ["sink1","sink2","sink3","sink4"] $ \ name ->
-    addPort name $ do
+  sinks <- flip mapM [1..numSinks] $ \ id ->
+    addPort ("sink" ++ (show id)) $ do
       powerIn
       return()
 

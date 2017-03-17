@@ -165,10 +165,10 @@ testLibrary = EDGLibrary{
       , ("buttonDriver",3,buttonDriver)
       , ("led",3,led)
       , ("ledDriver",3,ledDriver)
-      , ("mcu",2,mcu)
+      , ("mcu",1,mcu)
       ]
   , links   = [
-        ("powerLink",2,powerLink)
+        ("powerLink",2,powerLink 3)
 --      , ("gpioLink",1,gpioLink)
       ]
   }
