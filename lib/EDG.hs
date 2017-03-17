@@ -604,7 +604,7 @@ class (IsElem m, IsPort (PortType m)) => IsBlock m where
   -- further calls successively refine the type
   -- addPort returns an identifier, which may or may no be useful
   -- can refer to ports by either string name or identifier
-  -- This happens in the module context, 
+  -- This happens in the module context,
   addPort :: String -> PortType m () -> m PortName
 
   -- | TODO :: Further Documentation
@@ -701,12 +701,12 @@ data EDGLibrary = EDGLibrary {
 
 -- | TODO
 synthesize :: EDGLibrary -> String -> Module () -> IO ()
-synthesize = synthesizeWithSettings defaultSettings
+synthesize l n s = synthesizeWithSettings defaultSettings l [(n,s)]
 
 -- | TODO
 synthesizeWithSettings :: EDGSettings
-                       -> EDGLibrary -> String -> Module () -> IO ()
-synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seedName seedModule = do
+                       -> EDGLibrary -> [(String,Module ())] -> IO ()
+synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
   ss <- IO.newIORef (undefined :: E.SBVState)
   let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
@@ -717,15 +717,17 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seedName seedModule = do
 
   where
     edgm = do
-      seed <- E.addModule seedName seedModule
       let ls = concat . map makeDups $ links
           ms = concat . map makeDups $ modules
       mapM_ (uncurry E.addLink) ls
       mapM_ (uncurry E.addModule) ms
       E.createAllOptionalConnections
-      E.assertModuleUsed seed
+      seedRefs <- flip mapM seeds $ \(seedName,seedModule) -> do
+        seed <- E.addModule seedName seedModule
+        E.assertModuleUsed seed
+        return seed
       E.finishUpConstraints
-      return seed
+      return (head seedRefs)
 
     makeDups :: (String,Int,b) -> [(String,b)]
     makeDups (name, count, b)
