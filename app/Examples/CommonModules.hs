@@ -1,0 +1,132 @@
+
+module Examples.CommonModules where
+
+import EDG
+import Examples.CommonPorts
+
+-- | A button module
+button :: Module ()
+button = do
+  setIdent "button"
+  setSignature "momentarySwitch"
+  setType []
+  vin <- addPort "vin" $ do
+    powerIn
+    setIdent "buttonVIN"
+    setType [
+        "maxCurrent" <:= FloatC [greaterThan 0.0, lessThan 0.001]
+      ]
+    return ()
+  gpio <- addPort "gpio" $ do
+    gpioHW
+    setIdent "buttonGPIO"
+    setType [
+        "maxCurrent" <:= FloatC unknown
+      , "direction" <:= StringV "O"
+      , "data" <:= Record [
+            "signal" <:= StringV "Momentary Switch"
+          , "id" <:= UID
+          ]
+      ]
+    return ()
+  -- Ports must both be connected for design to work
+  --constrain $ port vin connected
+  --constrain $ port gpio connected
+  -- The ID of this part must end up in the port somehow
+  constrain $ (port gpio $ typeVal "data.id") :== uid
+  -- We can't draw more current through the thing than the
+  -- GPIO pin can sink
+  constrain $ (port vin $ typeVal "maxCurrent")
+    :== (port gpio $ typeVal "maxCurrent")
+  -- The voltage of our powersource and control pin must be the same.
+  constrain $ (port vin $ typeVal "voltage")
+    :== (port gpio $ typeVal "voltage")
+  return ()
+
+buttonDriver :: Module ()
+buttonDriver = do
+  setIdent "ButtonDriver"
+  setSignature "signature"
+  input <- addPort "gpioIn" $ do
+    gpioSW
+    setIdent "ButtonDriver"
+    setType [
+        "direction" <:= StringV $ "O"
+      , "data" <:= Record [
+            "signal" <:= StringV "Momentary Switch"
+          , "id" <:= UID
+          ]
+      ]
+    return ()
+  output <- addPort "swAPIOut" $ do
+    swPort
+    setIdent "ButtonDriver"
+    setType [
+        "data" <:= unknown
+      , "apiDir" <:= StringV "producer"
+      ]
+    return ()
+  constrain $ (port input  $ typeVal "data")
+          :== (port output $ typeVal "data")
+  constrain $ port input connected :=> port output connected
+  return ()
+
+led :: Module ()
+led = do
+  setIdent "led"
+  setSignature "led"
+  setType []
+  vin <- addPort "vin" $ do
+    powerIn
+    setIdent "ledVin"
+    setType [
+        "voltage" <:= FloatC $ greaterThan 2
+      , "maxCurrent" <:= FloatV 0.01
+      ]
+    return ()
+  gpio <- addPort "gpio" $ do
+    gpioHW
+    setIdent "ledGPIO"
+    setType [
+        "direction" <:= StringV "I"
+      , "data" <:= Record [
+              "signal" <:= StringV "LED"
+            , "id" <:= UID
+          ]
+      ]
+    return ()
+  constrain $ port vin connected
+  constrain $ port gpio connected
+  constrain $ (port gpio $ typeVal "data.id") :== uid
+  constrain $ (port vin $ typeVal "voltage")
+    :== (port gpio $ typeVal "voltage")
+  return ()
+
+ledDriver :: Module ()
+ledDriver = do
+  setIdent "LedDriver"
+  setSignature "leddriver"
+  input <- addPort "gpioIn" $ do
+    gpioSW
+    setIdent "LEDDriver"
+    setType [
+        "bandwidth" <:= FloatC $ greaterThan 500 -- Hz
+      , "direction" <:= StringV $ "I"
+      , "data" <:= Record [
+            "signal" <:= StringV "LED"
+          , "id" <:= UID
+          ]
+      ]
+    return ()
+  output <- addPort "swAPIOut" $ do
+    swPort
+    setIdent "LEDDriver"
+    setType [
+        "data" <:= unknown
+      , "apiDir" <:= StringV "producer"
+      ]
+    return ()
+  constrain $ (port input  $ typeVal "data")
+          :== (port output $ typeVal "data")
+  constrain $ port input connected :=> port output connected
+  return ()
