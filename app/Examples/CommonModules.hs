@@ -14,14 +14,15 @@ button = do
     powerIn
     setIdent "buttonVIN"
     setType [
-        "maxCurrent" <:= FloatC [greaterThan 0.0, lessThan 0.001]
+        -- temporary static current draw, TODO: actual computed current draw
+        "current" <:= FloatV 0.001
       ]
     return ()
   gpio <- addPort "gpio" $ do
     gpioHW
     setIdent "buttonGPIO"
     setType [
-        "maxCurrent" <:= FloatC unknown
+        "current" <:= FloatC unknown
       , "direction" <:= StringV "O"
       , "data" <:= Record [
             "signal" <:= StringV "Momentary Switch"
@@ -30,14 +31,14 @@ button = do
       ]
     return ()
   -- Ports must both be connected for design to work
-  --constrain $ port vin connected
-  --constrain $ port gpio connected
+  constrain $ port vin connected
+  --constrain $ port gpio connected  -- TODO: when we have GPIO links working
   -- The ID of this part must end up in the port somehow
   constrain $ (port gpio $ typeVal "data.id") :== uid
   -- We can't draw more current through the thing than the
   -- GPIO pin can sink
-  constrain $ (port vin $ typeVal "maxCurrent")
-    :== (port gpio $ typeVal "maxCurrent")
+  constrain $ (port vin $ typeVal "current")
+    :== (port gpio $ typeVal "current")
   -- The voltage of our powersource and control pin must be the same.
   constrain $ (port vin $ typeVal "voltage")
     :== (port gpio $ typeVal "voltage")
@@ -81,7 +82,7 @@ led = do
     setIdent "ledVin"
     setType [
         "voltage" <:= FloatC $ greaterThan 2
-      , "maxCurrent" <:= FloatV 0.01
+      , "current" <:= FloatV 0.01  -- TODO: make this parameterizable / autocomputed?
       ]
     return ()
   gpio <- addPort "gpio" $ do

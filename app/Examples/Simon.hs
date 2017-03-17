@@ -76,7 +76,7 @@ mcu = do
 
       -- And constrain the type signature a bit more.
       setType [
-          "maxCurrent" <:= FloatC $ oneOf [0,3.3] -- Amps
+          "current" <:= FloatC $ oneOf [0,3.3] -- Amps
         , "voltage" <:= FloatC $ 0.0 +/- 0.02 -- Volts
         , "bandwidth" <:= FloatV 1000 -- Hz
         ]
@@ -112,7 +112,7 @@ mcu = do
   -- repeating a lot of work, it is probably useful to abstract the major
   -- constraints away, pull them into the type, and then constrain them
   -- for the specific element you're working with.
-  updateType ["maxCurrent" <:= FloatV 5.0]
+  updateType ["current" <:= FloatV 5.0]
 
   -- We can also assemble constraints as if they were values here, it's
   -- super nice.
@@ -123,11 +123,11 @@ mcu = do
   -- Note: ':' is the haskell cons operator so '[1,2,3] == (1:2:3:[])'
   constrain $ typeVal "maxSourceCurrent" :>= Sum (
     -- We can refer to ports by their names
-    (port "5vOut" $ typeVal "maxCurrent") :
+    (port "5vOut" $ typeVal "current") :
     -- Or using the identifiers we've gotten for them.
-    (port p3v3 $ typeVal "maxCurrent") :
+    (port p3v3 $ typeVal "current") :
     -- and we can use normal Haskell syntax here
-    (map (\ gpio -> port gpio $ typeVal "maxCurrent") gpios))
+    (map (\ gpio -> port gpio $ typeVal "current") gpios))
 
   -- For a number of reasons we need to end each definition of a module or
   -- port with either an 'endDef' or 'return ()' if you want to use it
@@ -150,7 +150,7 @@ gpioRes = do
   setKind "GPIORES"
   setType [
       -- Pin proerties
-      "maxCurrent" <:= FloatC $ unknown -- Amps
+      "current" <:= FloatC $ unknown -- Amps
     , "voltage" <:= FloatC $ unknown -- Volts
       -- Interface pro
     , "direction" <:= StringC $ oneOf ["I","O","IO"]
@@ -165,9 +165,11 @@ testLibrary = EDGLibrary{
       , ("buttonDriver",3,buttonDriver)
       , ("led",3,led)
       , ("ledDriver",3,ledDriver)
-      , ("mcu",1,mcu)
+      , ("mcu",2,mcu)
       ]
   , links   = [
+        ("powerLink",2,powerLink)
+--      , ("gpioLink",1,gpioLink)
       ]
   }
 
