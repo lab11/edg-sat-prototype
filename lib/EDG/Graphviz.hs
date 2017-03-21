@@ -257,23 +257,10 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
             H.tableFontAttrs = Nothing
           , H.tableAttrs = []
           , H.tableRows = [
-              H.Cells [
-                  H.LabelCell [] $ H.Text [
-                      H.Format H.Bold [H.Str $ T.pack deName]
-                    ]
-                ]
-            , H.Cells [
-                  H.LabelCell [] $ H.Text [
-                      H.Format H.Bold [H.Str "Sig : "]
-                    , H.Str (T.pack deSignature)
-                    ]
-                ]
-            , H.Cells [
-                  H.LabelCell [] $ H.Text [
-                      H.Format H.Bold [H.Str "Ident : "]
-                    , H.Str (T.pack deIdent)
-                    ]
-                ]
+              H.Cells [headerCell deName]
+            , H.Cells [dataCell "Signature" deSignature]
+            , H.Cells [dataCell "Ident" deIdent]
+            , H.Cells [dataCell "UID" $ show (unpack eoEUID)]
             ]
           }
 
@@ -290,21 +277,22 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
             H.tableFontAttrs = Nothing
           , H.tableAttrs = []
           , H.tableRows = [
-              H.Cells [
-                  H.LabelCell [] $ H.Text [
-                      H.Format H.Bold [H.Str $ T.pack poPName]
-                    ]
-                ]
-            , H.Cells [
-                  H.LabelCell [] $ H.Text [
-                      H.Format H.Bold [H.Str "Kind : "]
-                    , H.Str (T.pack poPClass)
-                    ]
-                ]
+              H.Cells [headerCell poPName]
+            , H.Cells [dataCell "PortName" pn]
+            , H.Cells [dataCell "Kind" poPClass]
+            , H.Cells [dataCell "UID" $ show (unpack poPUID)]
             ]
           }
 
 
+headerCell :: String -> H.Cell
+headerCell s = H.LabelCell [] $ H.Text [H.Format H.Bold [H.Str $ T.pack s]]
+
+dataCell :: String -> String -> H.Cell
+dataCell label dat = H.LabelCell [H.Align H.HLeft] $ H.Text [
+    H.Format H.Italics [H.Str . T.pack $ label ++ ": "]
+  , H.Str (T.pack dat)
+  ]
 
 writeGraph :: DotGraph String -> FilePath -> IO FilePath
 writeGraph dg fp = runGraphvizCommand Fdp dg Png fp

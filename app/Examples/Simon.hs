@@ -186,4 +186,4 @@ seed = do
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
 main :: IO ()
-main = synthesize testLibrary "Seed" led
+main = synthesize testLibrary "Seed" mcu
