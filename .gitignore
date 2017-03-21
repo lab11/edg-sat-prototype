@@ -43,6 +43,8 @@ boxes/*
 ####################
 
 .tmp
+# Temporary single file for testing purposes. 
+test.png
 
 ########
 # IDEs #

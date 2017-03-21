@@ -129,38 +129,40 @@ type BlockName = String
 genGraph :: DecodeBlock -> DotGraph String
 genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
   graph' $ do
+    mapM_ mkModule (Map.keys dbModules)
+    mapM_ mkLink (Map.keys dbLinks)
 
-    graphAttrs [
-        GV.Overlap GV.ScaleXYOverlaps
-      , GV.Splines GV.SplineEdges
-      , GV.K 1
-      ]
+  --  graphAttrs [
+  --      GV.Overlap GV.ScaleXYOverlaps
+  --    , GV.Splines GV.SplineEdges
+  --    , GV.K 1
+  --    ]
 
-    cluster (Num $ GV.Int 0) $ do
-      graphAttrs [style filled, color LightGray, GV.K 0.1]
-      nodeAttrs [style filled, color White]
-      edgeAttrs [GV.Weight (GV.Int 12)]
-      "a0" --> "a1"
-      "a1" --> "a2"
-      "a2" --> "a3"
-      graphAttrs [textLabel "process #1"]
+  --  cluster (Num $ GV.Int 0) $ do
+  --    graphAttrs [style filled, color LightGray, GV.K 0.1]
+  --    nodeAttrs [style filled, color White]
+  --    edgeAttrs [GV.Weight (GV.Int 12)]
+  --    "a0" --> "a1"
+  --    "a1" --> "a2"
+  --    "a2" --> "a3"
+  --    graphAttrs [textLabel "process #1"]
 
-    cluster (Num $ GV.Int 1) $ do
-      nodeAttrs [style filled]
-      "b0" --> "b1"
-      "b1" --> "b2"
-      "b2" --> "b3"
-      graphAttrs [textLabel "process #2", color Blue]
+  --  cluster (Num $ GV.Int 1) $ do
+  --    nodeAttrs [style filled]
+  --    "b0" --> "b1"
+  --    "b1" --> "b2"
+  --    "b2" --> "b3"
+  --    graphAttrs [textLabel "process #2", color Blue]
 
-    "start" --> "a0"
-    "start" --> "b0"
-    "a1" --> "b3"
-    "b2" --> "a3"
-    "a3" --> "end"
-    "b3" --> "end"
+  --  "start" --> "a0"
+  --  "start" --> "b0"
+  --  "a1" --> "b3"
+  --  "b2" --> "a3"
+  --  "a3" --> "end"
+  --  "b3" --> "end"
 
-    node "start" [shape MDiamond]
-    node "end" [shape MSquare]
+  --  node "start" [shape MDiamond]
+  --  node "end" [shape MSquare]
 
   where
 
@@ -255,27 +257,23 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
             H.tableFontAttrs = Nothing
           , H.tableAttrs = []
           , H.tableRows = [
-              H.HorizontalRule
-            , H.Cells [
+              H.Cells [
                   H.LabelCell [] $ H.Text [
                       H.Format H.Bold [H.Str $ T.pack deName]
                     ]
                 ]
-            , H.HorizontalRule
             , H.Cells [
                   H.LabelCell [] $ H.Text [
                       H.Format H.Bold [H.Str "Sig : "]
                     , H.Str (T.pack deSignature)
                     ]
                 ]
-            , H.HorizontalRule
             , H.Cells [
                   H.LabelCell [] $ H.Text [
                       H.Format H.Bold [H.Str "Ident : "]
                     , H.Str (T.pack deIdent)
                     ]
                 ]
-            , H.HorizontalRule
             ]
           }
 
@@ -292,20 +290,17 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
             H.tableFontAttrs = Nothing
           , H.tableAttrs = []
           , H.tableRows = [
-              H.HorizontalRule
-            , H.Cells [
+              H.Cells [
                   H.LabelCell [] $ H.Text [
                       H.Format H.Bold [H.Str $ T.pack poPName]
                     ]
                 ]
-            , H.HorizontalRule
             , H.Cells [
                   H.LabelCell [] $ H.Text [
                       H.Format H.Bold [H.Str "Kind : "]
                     , H.Str (T.pack poPClass)
                     ]
                 ]
-            , H.HorizontalRule
             ]
           }
 
