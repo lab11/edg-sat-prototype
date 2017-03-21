@@ -35,6 +35,7 @@ Vagrant.configure(2) do |config|
     sudo apt-get upgrade -y
     sudo apt-get install wget curl fish htop git subversion -y
     sudo apt-get install software-properties-common tree -y 
+    sudo apt-get install graphviz-dev graphviz -y
   SHELL
 
   # Install protocol buffer tools

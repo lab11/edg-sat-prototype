@@ -68,14 +68,83 @@
   @
 -}
 
-module EDG where
+module EDG (
+    pattern IntV
+  , pattern IntC
+  , pattern BoolV
+  , pattern BoolC
+  , pattern FloatV
+  , pattern FloatC
+  , pattern StringV
+  , pattern StringC
+  , pattern UID
+  , pattern NewUID
+  , pattern Record
+  , unknown
+  , oneOf
+  , noneOf
+  , greaterThan
+  , greaterThanEq
+  , lessThan
+  , lessThanEq
+  , (+/-)
+  , between
+  , AmbigRec
+  , AmbigVal
+  , (<:=)
+  , pattern Lit
+  , pattern (:==)
+  , pattern (:/=)
+  , pattern (:&&)
+  , pattern (:||)
+  , pattern (:~&)
+  , pattern (:~|)
+  , pattern (:<+>)
+  , pattern (:=>)
+  , pattern Not
+  , pattern JustOne
+  , pattern All
+  , pattern Any
+  , pattern (:<)
+  , pattern (:<=)
+  , pattern (:>)
+  , pattern (:>=)
+  , pattern (:+)
+  , pattern (:-)
+  , pattern (:*)
+  , pattern Sum
+  , pattern Mult
+  , pattern Negate
+  , pattern If
+  , pattern Count
+  , Module
+  , Link
+  , ModulePort
+  , LinkPort
+  , PortName
+  , ResourceUse
+  , pattern (:|=)
+  , Constrainable (..)
+  , IsElem (..)
+  , IsPort (..)
+  , appendIdent
+  , updateType
+  , IsBlock (..)
+  , replaceSignature
+  , EDGSettings (..)
+  , defaultSettings
+  , EDGLibrary (..)
+  , synthesize
+  , synthesizeWithSettings
+  , endDef
+) where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 -- import Debug.Trace
-import Control.Lens.Ether.Implicit
+import Control.Lens.Ether.Implicit hiding ((:<),(:>))
 import Data.Maybe (fromJust)
 import GHC.Exts (Item,IsList)
 
@@ -280,9 +349,6 @@ pattern NewUID = A.Abstract(E.Constrained (E.UID (E.UCNew)))
 -- | TODO
 pattern Record :: E.RecCons -> AmbigVal
 pattern Record a = A.Abstract(E.Constrained (E.Record a))
-
--- | TODO
-pattern Unknown = E.KVBot ()
 
 -- | TODO
 unknown :: A.BoundedJoinSemiLattice a => a
