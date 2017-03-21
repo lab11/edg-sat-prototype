@@ -33,6 +33,8 @@ import EDG.EDGDatatype
 import EDG.EDGMonad hiding (trace)
 import EDG.EDGInstances
 
+import Control.Monad
+
 import Debug.Trace
 
 import Data.Maybe (fromJust)
@@ -49,6 +51,8 @@ import qualified Data.GraphViz.Types.Monadic as GV
 import Data.GraphViz.Commands
 import Data.GraphViz.Types.Generalised (DotGraph)
 import qualified Data.GraphViz.Types.Generalised as GV
+
+import qualified Data.Text.Lazy as T
 
 -- -- | The output type of a port, what we can extract from the finished
 -- --   sat solver output.
@@ -120,6 +124,8 @@ edge = GV.edge
 (<->) :: String -> String -> Dot String
 (<->) = (GV.<->)
 
+type BlockName = String
+
 genGraph :: DecodeBlock -> DotGraph String
 genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
   graph' $ do
@@ -158,14 +164,150 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
 
   where
 
-    toPortName :: Ident -> PortName -> String
-    toPortName i pn = i ++ ":" ++ pn
+    toPortName :: BlockName -> PortName -> String
+    toPortName bn pn = bn ++ ":" ++ pn
 
-    mkModule :: Ref Module -> DecodeElem Module -> DotM String String
-    mkModule = undefined
+    mkModule :: Ref Module -> DotM String String
+    mkModule rm = do
+      cluster (Str $ T.pack name) $ do
+        -- Set the attributes of modules
+        graphAttrs [style filled, color LightGray, GV.K 0.1]
+        nodeAttrs [style filled, color White]
+        edgeAttrs [GV.Weight (GV.Int 12)]
+        graphAttrs [textLabel $ T.pack name]
 
-    mkLink :: Ref Link -> DecodeElem Link -> DotM String String
-    mkLink = undefined
+        -- Make the center element
+        center <- mkBlockData decodeElem elemOut
+
+        forM_ (Map.assocs $ eoEPorts elemOut) $ \ (pn,(_,po)) -> do
+          -- Make the port block
+          v <- mkPort name pn po
+          -- attach it to the center element
+          center <-> v
+          return v
+
+      return name
+      where
+        -- NOTE :: This is fragile, if this isn't the unpacked reference
+        --         then everything breaks. It's a damn shame.
+        name = unpack rm
+
+        decodeElem = case Map.lookup rm dgModules of
+          Nothing -> error $ "No decodeElem for module `" ++ show rm ++ "`"
+          Just de -> de
+
+        elemOut = case Map.lookup rm dbModules of
+          Nothing -> error $ "No elemOut for module `" ++ show rm ++ "`"
+          Just eo -> eo
+
+
+    mkLink :: Ref Link -> DotM String String
+    mkLink rl = do
+      cluster (Str $ T.pack name) $ do
+        -- Set the attributes of modules
+        graphAttrs [GV.K 0.1]
+        nodeAttrs [style filled, color White]
+        edgeAttrs [GV.Weight (GV.Int 12)]
+        graphAttrs [textLabel $ T.pack name]
+
+        -- Make the center element
+        center <- mkBlockData decodeElem elemOut
+
+        -- for each port
+        forM_ (Map.assocs $ eoEPorts elemOut) $ \ (pn,(_,po)) -> do
+          -- Make the actual port
+          v <- mkPort name pn po
+          -- Connect it to the center
+          center <-> v
+          -- if connected attach it to its cunterpart
+          case Map.lookup pn $ dePorts decodeElem of
+            -- There should be something here
+            Nothing -> error $ "Port `" ++ pn ++ "` not found in decodeGraph"
+              ++ " for link `" ++ show rl ++ "`"
+            -- but there might not be a connection
+            Just (Nothing) -> return ()
+            -- If there is we should connect things up properly.
+            Just (Just (id,pn')) -> v <-> (toPortName id pn')
+          return v
+
+      return name
+      where
+        name = unpack rl
+
+        decodeElem = case Map.lookup rl dgLinks of
+          Nothing -> error $ "No decodeElem for link `" ++ show rl ++ "`"
+          Just de -> de
+
+        elemOut = case Map.lookup rl dbLinks of
+          Nothing -> error $ "No elemOut for link `" ++ show rl ++ "`"
+          Just eo -> eo
+
+    mkBlockData :: DecodeElem a -> ElemOut a b -> DotM String String
+    mkBlockData de@Elem{..} eo@ElemOut{..} = do
+      node name [
+          GV.Shape GV.PlainText
+        , GV.Label label
+        ]
+      return name
+      where
+        name = deName ++ ":centerBlockGraphViz"
+        label = GV.HtmlLabel . H.Table $ H.HTable{
+            H.tableFontAttrs = Nothing
+          , H.tableAttrs = []
+          , H.tableRows = [
+              H.HorizontalRule
+            , H.Cells [
+                  H.LabelCell [] $ H.Text [
+                      H.Format H.Bold [H.Str $ T.pack deName]
+                    ]
+                ]
+            , H.HorizontalRule
+            , H.Cells [
+                  H.LabelCell [] $ H.Text [
+                      H.Format H.Bold [H.Str "Sig : "]
+                    , H.Str (T.pack deSignature)
+                    ]
+                ]
+            , H.HorizontalRule
+            , H.Cells [
+                  H.LabelCell [] $ H.Text [
+                      H.Format H.Bold [H.Str "Ident : "]
+                    , H.Str (T.pack deIdent)
+                    ]
+                ]
+            , H.HorizontalRule
+            ]
+          }
+
+    mkPort :: BlockName -> PortName -> PortOut n -> DotM String String
+    mkPort bn pn po@PortOut{..} = do
+      node name [
+          GV.Shape GV.PlainText
+        , GV.Label label
+        ]
+      return name
+      where
+        name = toPortName bn pn
+        label = GV.HtmlLabel . H.Table $ H.HTable{
+            H.tableFontAttrs = Nothing
+          , H.tableAttrs = []
+          , H.tableRows = [
+              H.HorizontalRule
+            , H.Cells [
+                  H.LabelCell [] $ H.Text [
+                      H.Format H.Bold [H.Str $ T.pack poPName]
+                    ]
+                ]
+            , H.HorizontalRule
+            , H.Cells [
+                  H.LabelCell [] $ H.Text [
+                      H.Format H.Bold [H.Str "Kind : "]
+                    , H.Str (T.pack poPClass)
+                    ]
+                ]
+            , H.HorizontalRule
+            ]
+          }
 
 
 
