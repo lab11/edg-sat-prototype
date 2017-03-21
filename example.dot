@@ -1,0 +1,86 @@
+// Run with:
+// fdp -Tpng example.dot > test.png
+// (instead of 'fdp', can also try 'dot' and 'neato'
+
+graph circuit {
+  node [shape=circle];
+  
+  // Define modules as nodes 
+  seed1 [label="Seed[1]\nmomentarySwitch"];
+  button362 [label="button[3][62]\nmomentarySwitch"];
+  mcu1132 [label="mcu[1][132]\nSFE DEV-11114"];
+  powerLink18 [label="powerLink[1][8]\npower link", color="gray", fontcolor="gray"];
+  
+  // Define links between modules / links, specify port name as edge head/tail label
+  // Use the module port as the edge tail and the link port as the edge head
+  seed1 -- powerLink18 [label="current=1.0e-3\nvoltage=3.05", fontsize=8, taillabel="vin", headlabel="sink1", labelfontsize=14];
+  button362 -- powerLink18 [label="current=1.0e-3\nvoltage=3.05", fontsize=8, taillabel="vin", headlabel="sink3", labelfontsize=14];
+  mcu1132 -- powerLink18 [label="current=2.0e-3\nvoltage=3.05", fontsize=8, taillabel="3v3Out", headlabel="source", labelfontsize=14];
+  
+  // Do empty connections - implemented as an invisible target node and an invisible edge
+  // (so only the tail label shows)
+  // Currently, use one dummy node per module / link.
+  // The other options is to use one dummy node per unused port, but the graph tends to expand
+  // unnecessarily.
+  dummy_seed1 [label="", shape=none]
+  seed1 -- dummy_seed1 [taillabel="gpio", labelfontsize=14, labelfontcolor="gray", color="transparent"]
+  
+  dummy_button362 [label="", shape=none]
+  button362 -- dummy_button362 [taillabel="gpio", labelfontsize=14, labelfontcolor="gray", color="transparent"]
+  
+  dummy_mcu1132 [label="", shape=none]
+  mcu1132 -- dummy_mcu1132 [taillabel="gpio1", labelfontsize=14, labelfontcolor="gray", color="transparent"]
+  mcu1132 -- dummy_mcu1132 [taillabel="gpio2", labelfontsize=14, labelfontcolor="gray", color="transparent"]
+  mcu1132 -- dummy_mcu1132 [taillabel="gpio3", labelfontsize=14, labelfontcolor="gray", color="transparent"]
+  mcu1132 -- dummy_mcu1132 [taillabel="gpio4", labelfontsize=14, labelfontcolor="gray", color="transparent"]  
+  
+  dummy_powerLink18 [label="", shape=none]
+  powerLink18 -- dummy_powerLink18 [taillabel="sink2", labelfontsize=14, labelfontcolor="gray", color="transparent"]
+}
+
+// Another variant that uses clusters with ports as nodes
+// This didn't work as well (graphically), the layout tools don't position nodes well within clusters 
+//
+// graph circuit {
+//   //node [shape=none];
+//   splines=line;
+//   
+//   subgraph cluster_seed1 {
+//     label="Seed[1]: momentarySwitch";
+//     // node IDs must be fully qualified name since IDs seem to be global
+//     // labels are port names
+//     seed1_gpio [label="gpio"];
+//     seed1_vin [label="vin"];
+//   }
+// 
+//   subgraph cluster_button362 {
+//     label="button[3][62]: momentarySwitch";
+//     button362_gpio [label="gpio"];
+//     button362_vin [label="vin"];
+//   }
+//   
+//   subgraph cluster_mcu1132 {
+//     label="mcu[1][132]: SFE DEV-11114";
+//     // TODO: add module properties: MHz, current, ...
+//     // TODO: add resources?
+//     mcu1132_3v3Out [label="3v3Out"];
+//     mcu1132_5vOut [label="5vOut"];
+//     mcu1132_gpio1 [label="gpio1"];
+//     mcu1132_gpio2 [label="gpio2"];
+//     mcu1132_gpio3 [label="gpio3"];
+//     mcu1132_gpio4 [label="gpio4"];
+//   }
+// 
+//   subgraph cluster_powerLink18 {
+//     label="powerLink[1][8]: power link";
+//     powerLink18_sink1 [label="sink1"];
+//     powerLink18_sink2 [label="sink2"];
+//     powerLink18_sink3 [label="sink3"];
+//     powerLink18_source [label="source"];
+//   }
+//   
+//   // Module side on left (tail), link on right (head)
+//   seed1_vin -- powerLink18_sink1 [taillabel="current=1.0e-3\nvoltage=3.05", labelfontsize=8];
+//   button362_vin -- powerLink18_sink3 [taillabel="current=1.0e-3\nvoltage=3.05", labelfontsize=8];
+//   mcu1132_3v3Out -- powerLink18_source [taillabel="current=2.0e-3\nvoltage=3.05", labelfontsize=8];
+// }
