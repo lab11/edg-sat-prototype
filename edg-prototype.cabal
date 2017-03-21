@@ -151,6 +151,7 @@ library
     EDG.Expression
     --
     EDG.AssembleGraph
+    EDG.Graphviz
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
@@ -221,6 +222,10 @@ library
     syb >= 0.6,
     -- Generates the Typeclass tree for generic overloading
     overload >= 0.1.0.3,
+    -- Graphviz libary
+    graphviz,
+    -- More powerful Text Type 
+    text,
     -- -- Convinient ordered list functions
     -- data-ordlist >= 0.4.7.0,
     -- -- Used to interleave monadic actions in weird ways

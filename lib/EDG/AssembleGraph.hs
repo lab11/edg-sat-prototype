@@ -244,3 +244,6 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
         lookupResName (fromJust . rtoUsing -> uid)
           = unpack . fst . Map.findMin . Map.filter ((==) uid . roUid)
             $ eoEResources
+
+
+

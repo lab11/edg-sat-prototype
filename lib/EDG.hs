@@ -306,6 +306,10 @@ import qualified EDG.Library.Types as E (
   , (<:=)
   , (<~=)
   )
+import qualified EDG.Graphviz as E (
+    genGraph
+  , writeGraph
+  )
 -- * Values and Constraints
 
 -- | Integer value type, define using <:=
@@ -758,12 +762,20 @@ instance IsBlock Link where
 -- | TODO
 data EDGSettings = EDGSettings {
     verboseSBV :: Bool
+  , printOutput :: Bool
+  , outputFile :: Maybe FilePath
+  , graphvizFile :: Maybe FilePath
+  , graphvizDisplay :: Bool
   }
 
 -- | TODO
 defaultSettings :: EDGSettings
 defaultSettings = EDGSettings{
     verboseSBV = False
+  , printOutput = True
+  , outputFile = Nothing
+  , graphvizFile = Nothing
+  , graphvizDisplay = True
   }
 
 
@@ -790,8 +802,22 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
     SBV.SatResult (SBV.Satisfiable _ _) -> do
       sbvState <- IO.readIORef ss
       let decodeState = E.buildDecodeState gatherState sbvState
-      E.pPrint $ (E.decodeResult decodeState solution sm)
-      return ()
+          decodeResult' = E.decodeResult decodeState solution sm
+      case decodeResult' of
+        Left s -> do
+          putStrLn $ "Resulting solution was : "
+          E.pPrint $ solution
+          putStrLn $ "\n\n"
+          putStrLn $ "Decode of solution failed with : " ++ s
+          return ()
+        Right decodeResult -> do
+          -- Print output (TODO :: w/ options)
+          E.pPrint decodeResult
+          -- TODO :: Write output to file
+          -- Write Graphviz to File (TODO :: w/ options)
+          E.writeGraph (E.genGraph decodeResult) "test.png"
+          -- TODO :: Display
+          return ()
     _ -> do
       E.pPrint solution
       return ()
