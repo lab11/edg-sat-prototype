@@ -102,6 +102,7 @@ type ResourceName = String
 data DecodeElem n = Elem {
     deName :: String
   , deIdent :: Ident
+  , deSignature :: String
   , dePorts :: Map PortName (Maybe (Ident,PortName))
   , deResourceConstraints :: Map ResConName
       (Maybe (Map ResourceTag ResourceName))
@@ -216,6 +217,8 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
         deName = unpack r
         -- deIdent :: Ident
       , deIdent = eoEIdent
+        -- deSignature :: String
+      , deSignature = eoEClass
         -- dePorts :: Map PortName (Maybe (Ident,PortName))
       , dePorts = ports
         -- deResourceConstraints :: Map ResConName

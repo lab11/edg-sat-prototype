@@ -147,6 +147,7 @@ import qualified Data.Set as Set
 import Control.Lens.Ether.Implicit hiding ((:<),(:>))
 import Data.Maybe (fromJust)
 import GHC.Exts (Item,IsList)
+import Control.Newtype
 
 import qualified Algebra.Lattice as A (
     bottom
@@ -218,7 +219,8 @@ import qualified Data.SBV as SBV (
   , defaultSMTCfg
   , SMTConfig(..)
   , AllSatResult(..)
-  , SMTResult
+  , SMTResult(..)
+  , SatResult(..)
   )
 import qualified Data.IORef as IO (
     IORef
@@ -784,10 +786,15 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
   ss <- IO.newIORef (undefined :: E.SBVState)
   let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
-  sbvState <- IO.readIORef ss
-  let decodeState = E.buildDecodeState gatherState sbvState
-  E.pPrint $ (E.decodeResult decodeState solution sm)
-  return ()
+  case solution of
+    SBV.SatResult (SBV.Satisfiable _ _) -> do
+      sbvState <- IO.readIORef ss
+      let decodeState = E.buildDecodeState gatherState sbvState
+      E.pPrint $ (E.decodeResult decodeState solution sm)
+      return ()
+    _ -> do
+      E.pPrint solution
+      return ()
 
   where
     edgm = do
