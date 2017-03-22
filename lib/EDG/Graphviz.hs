@@ -129,14 +129,14 @@ type BlockName = String
 genGraph :: DecodeBlock -> DotGraph String
 genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
   graph' $ do
+    graphAttrs [
+        GV.Overlap GV.ScaleXYOverlaps
+      , GV.Splines GV.SplineEdges
+      , GV.K 1
+      ]
     mapM_ mkModule (Map.keys dbModules)
     mapM_ mkLink (Map.keys dbLinks)
 
-  --  graphAttrs [
-  --      GV.Overlap GV.ScaleXYOverlaps
-  --    , GV.Splines GV.SplineEdges
-  --    , GV.K 1
-  --    ]
 
   --  cluster (Num $ GV.Int 0) $ do
   --    graphAttrs [style filled, color LightGray, GV.K 0.1]
@@ -221,17 +221,17 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
           v <- mkPort name pn po
           -- Connect it to the center
           center <-> v
-          -- if connected attach it to its cunterpart
-          case Map.lookup pn $ dePorts decodeElem of
-            -- There should be something here
-            Nothing -> error $ "Port `" ++ pn ++ "` not found in decodeGraph"
-              ++ " for link `" ++ show rl ++ "`"
-            -- but there might not be a connection
-            Just (Nothing) -> return ()
-            -- If there is we should connect things up properly.
-            Just (Just (id,pn')) -> v <-> (toPortName id pn')
-          return v
 
+      -- Go through each port and attach them to their counterparts
+      forM_ (Map.assocs $ eoEPorts elemOut)  $ \ (pn,(_,po)) ->
+        case Map.lookup pn $ dePorts decodeElem of
+          -- There should be something here
+          Nothing -> error $ "Port `" ++ pn ++ "` not found in decodeGraph"
+            ++ " for link `" ++ show rl ++ "`"
+          -- but there might not be a connection
+          Just (Nothing) -> return ()
+          -- If there is we should connect things up properly.
+          Just (Just (id,pn')) -> (toPortName name pn) <-> (toPortName id pn')
       return name
       where
         name = unpack rl

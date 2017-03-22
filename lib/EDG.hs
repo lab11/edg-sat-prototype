@@ -828,11 +828,13 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
           ms = concat . map makeDups $ modules
       mapM_ (uncurry E.addLink) ls
       mapM_ (uncurry E.addModule) ms
-      E.createAllOptionalConnections
       seedRefs <- flip mapM seeds $ \(seedName,seedModule) -> do
         seed <- E.addModule seedName seedModule
         E.assertModuleUsed seed
         return seed
+      -- NOTE :: Any changes must happen before this point otherwise
+      --         you'll break the optional constraints thing.
+      E.createAllOptionalConnections
       E.finishUpConstraints
       return (head seedRefs)
 
