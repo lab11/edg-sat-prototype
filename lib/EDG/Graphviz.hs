@@ -392,7 +392,7 @@ valueText theme@Theme{..} (getValue -> v)
   | KVBot a <- v = absurd a
   where
     appendCons :: String -> (Theme -> a -> [H.TextItem]) -> a -> [H.TextItem]
-    appendCons cons toText dat = indentNL $ lConcat [
+    appendCons cons toText dat = lConcat [
         constructorText theme cons
       , spaceText
       , toText theme dat
@@ -403,11 +403,17 @@ valueCell = mkDataCell valueText
 
 recordText :: Theme -> Record -> [H.TextItem]
 recordText theme@Theme{..}
-  = concatMap field . Map.assocs . rMap
+  = {-- (prefix ++) . (++ suffix) .--} indent . concatMap field . Map.assocs . rMap
   where
+    prefix :: [H.TextItem]
+    prefix = opText theme "{"
+
+    suffix :: [H.TextItem]
+    suffix = newline ++ opText theme "}"
+
     field :: (String,Value) -> [H.TextItem]
     field (s,v) = lConcat [
-        [newline]
+        newline
       , fieldText theme s
       , spaceText
       , opText theme "<:="
@@ -419,7 +425,7 @@ recordCell :: Theme -> String -> Record -> H.Cell
 recordCell = mkDataCell recordText
 
 typeText :: Theme -> Record -> [H.TextItem]
-typeText t r = valueText t (Value (Record r))
+typeText t r = valueText t (Value (Record r)) ++ newline
 
 typeCell :: Theme -> String -> Record -> H.Cell
 typeCell = mkDataCell typeText
@@ -439,14 +445,14 @@ fieldText Theme{..} s = [Italics [H.Font fieldFont [H.Str . T.pack $ s]]]
 opText :: Theme -> String -> [H.TextItem]
 opText Theme{..} s = [Bold [H.Font opFont [H.Str . T.pack $ s]]]
 
-indentItem :: H.TextItem -> H.TextItem
+indentItem :: H.TextItem -> [H.TextItem]
 indentItem (H.Str s)
-  = H.Str (T.append "    " s)
+  = [H.Str "    ", H.Str s]
 indentItem f@(H.Font a l)
-  = H.Font a $ indent l
+  = [H.Font a $ indent l]
 indentItem f@(H.Format a l)
-  = H.Format a $ indent l
-indentItem n@(H.Newline _) = n
+  = [H.Format a $ indent l]
+indentItem n@(H.Newline _) = [n]
 
 indentNL :: [H.TextItem] -> [H.TextItem]
 indentNL (n@(H.Newline _):ts) = n : indent ts
@@ -455,8 +461,8 @@ indentNL [] = []
 
 indent :: [H.TextItem] -> [H.TextItem]
 indent (t@(H.Newline _):ts) = t : indent ts
-indent (t:ts) = indentItem t : indentNL ts
+indent (t:ts) = indentItem t ++ indentNL ts
 indent [] = []
 
-newline :: H.TextItem
-newline = H.Newline [H.Align H.HLeft]
+newline :: [H.TextItem]
+newline = [H.Newline [H.Align H.HLeft]]
