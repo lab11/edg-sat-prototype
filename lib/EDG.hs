@@ -151,6 +151,11 @@ import Control.Newtype
 import Text.Printf
 import Control.Exception
 import System.CPUTime
+import Control.Monad
+
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.IO as T
+import qualified Text.Pretty.Simple as T
 
 import qualified Algebra.Lattice as A (
     bottom
@@ -784,7 +789,6 @@ data EDGSettings = EDGSettings {
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
   , graphvizFile :: Maybe FilePath
-  , graphvizDisplay :: Bool
   }
 
 -- | TODO
@@ -793,8 +797,7 @@ defaultSettings = EDGSettings{
     verboseSBV = False
   , printOutput = True
   , outputFile = Nothing
-  , graphvizFile = Nothing
-  , graphvizDisplay = True
+  , graphvizFile = Just "test.png"
   }
 
 
@@ -817,7 +820,8 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
   time "Design Synthesis" $ do
     ss <- IO.newIORef (undefined :: E.SBVState)
     let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
-    solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
+    solution <- time "Sat Solving" $
+      SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
         sbvState <- IO.readIORef ss
@@ -831,12 +835,14 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             putStrLn $ "Decode of solution failed with : " ++ s
             return ()
           Right decodeResult -> do
-            -- Print output (TODO :: w/ options)
-            E.pPrint decodeResult
+            -- Print output
+            when printOutput $ E.pPrint decodeResult
             -- TODO :: Write output to file
-            -- Write Graphviz to File (TODO :: w/ options)
-            E.writeGraph (E.genGraph decodeResult) "test.png"
-            -- TODO :: Display
+            sequence_ $
+              flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
+            let outputGraph = E.genGraph decodeResult
+            sequence_ $
+              E.writeGraph outputGraph <$> graphvizFile
             return ()
       _ -> do
         E.pPrint solution
@@ -871,7 +877,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
         end   <- getCPUTime
         putStrLn $ "Finished : " ++ s
         let diff = (fromIntegral (end - start)) / (10^12)
-        printf "Computation time: %0.3f sec\n" (diff :: Double)
+        printf "Computation time (%s): %0.3f sec\n" (s :: String)(diff :: Double)
         return v
 -- * Utility Functions
 
