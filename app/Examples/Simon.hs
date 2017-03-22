@@ -198,6 +198,7 @@ seed = do
       "testInt" <:= IntV 30
     , "testBool" <:= BoolV True
     , "testString" <:= StringV "Testing123!!"
+    , "testUID" <:= NewUID
     ]
 
   r1 <- newResource "testResource1"
