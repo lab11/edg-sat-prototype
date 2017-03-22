@@ -55,22 +55,21 @@ buttonDriver = do
     setType [
         "direction" <:= StringV $ "O"
       , "data" <:= Record [
-            "signal" <:= StringV "Momentary Switch"
+            "signal" <:= StringV "Switch"
           , "id" <:= UID
+          , "name" <:= StringC unknown
           ]
       ]
     return ()
   output <- addPort "swAPIOut" $ do
-    swPort
-    setIdent "ButtonDriver"
+    swSwitchPort
     setType [
-        "data" <:= unknown
-      , "apiDir" <:= StringV "producer"
+        "apiDir" <:= StringV "producer"
       ]
     return ()
   constrain $ (port input  $ typeVal "data")
           :== (port output $ typeVal "data")
-  constrain $ port input connected :=> port output connected
+  --constrain $ port input connected :=> port output connected
   return ()
 
 led :: Module ()
@@ -123,7 +122,6 @@ ledDriver = do
     return ()
   output <- addPort "swAPIOut" $ do
     swLEDPort
-    -- setIdent "LEDDriver"
     setType [
       "apiDir" <:= StringV "producer"
       ]

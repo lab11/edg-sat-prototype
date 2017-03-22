@@ -161,15 +161,15 @@ gpioRes = do
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
-        ("button",3,button)
-    --  , ("buttonDriver",3,buttonDriver)
-      , ("led",3,led)
-      , ("ledDriver",3,ledDriver)
+        ("button",2,button)
+      , ("buttonDriver",2,buttonDriver)
+      , ("led",2,led)
+      , ("ledDriver",2,ledDriver)
       , ("mcu",1,mcu)
       ]
   , links   = [
         ("pwerLink",2,powerLink 4)
-      , ("swLink",2,swLink)
+      , ("swLink",3,swLink)
     --  , ("gpioLink",1,gpioLink)
       ]
   }
@@ -181,7 +181,6 @@ seed = do
 
   led1 <- addPort "LED1" $ do
     swLEDPort
-    -- setIdent "LEDDriver"
     setType [
        "data" <:= Record [
           "name" <:= StringV "LED1"
@@ -191,6 +190,18 @@ seed = do
     return ()
 
   constrain $ port led1 connected
+
+  switch1 <- addPort "Switch1" $ do
+    swSwitchPort
+    setType [
+       "data" <:= Record [
+          "name" <:= StringV "Switch1"
+            ]
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
 
   -- ### Values I'm using to test graphviz output ###
 

@@ -29,6 +29,21 @@ swLEDPort = do
     ]
   return ()
 
+-- Button SW port
+
+swSwitchPort :: (IsPort p) => p ()
+swSwitchPort = do
+  swPort
+  setIdent "SW-Switch-Interface"
+  setType [
+      "data" <:= Record [
+            "name" <:= StringC unknown
+          , "signal" <:= StringV "Switch"
+          , "id" <:= UID
+        ]
+    ]
+  return ()
+
 -- Power output
 powerOut :: (IsPort p) => p ()
 powerOut = do
