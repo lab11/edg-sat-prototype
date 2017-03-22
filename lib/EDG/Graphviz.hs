@@ -447,7 +447,7 @@ constraintText :: Theme -> String -> [H.TextItem]
 constraintText Theme{..} s = [H.Font constraintFont [H.Str . T.pack $ s]]
 
 resconsText :: Theme -> String -> [H.TextItem]
-resconsText Theme{..} s = [H.Font resconsFont [H.Str . T.pack $ s]]
+resconsText Theme{..} s = [Bold [H.Font resconsFont [H.Str . T.pack $ s]]]
 
 resconsValidText :: Theme -> String -> [H.TextItem]
 resconsValidText Theme{..} s = [H.Font resconsValidFont [H.Str . T.pack $ s]]
@@ -456,7 +456,7 @@ resconsInvalidText :: Theme -> String -> [H.TextItem]
 resconsInvalidText Theme{..} s = [H.Font resconsInvalidFont [H.Str . T.pack $ s]]
 
 resconsTagText :: Theme -> String -> [H.TextItem]
-resconsTagText Theme{..} s = [H.Font resconsTagFont [H.Str . T.pack $ s]]
+resconsTagText Theme{..} s = [Bold [H.Font resconsTagFont [H.Str . T.pack $ s]]]
 
 resourceText :: Theme -> String -> [H.TextItem]
 resourceText Theme{..} s = [H.Font resourceFont [H.Str . T.pack $ s]]
