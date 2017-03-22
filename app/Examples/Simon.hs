@@ -76,8 +76,8 @@ mcu = do
 
       -- And constrain the type signature a bit more.
       setType [
-          "current" <:= FloatC $ oneOf [0,3.3] -- Amps
-        , "voltage" <:= FloatC $ 0.0 +/- 0.02 -- Volts
+          "current" <:= FloatC $ 0.0 +/- 0.02 -- Amps
+        , "voltage" <:= FloatC $ 1.65 +/- 1.65 -- Volts
         , "bandwidth" <:= FloatV 1000 -- Hz
         ]
 
@@ -142,21 +142,6 @@ mcu = do
   -- definition and close the block, it's only useful as the very last
   -- statement in a block)
   endDef
-
--- The MCU resource that a GPIO port represents.
-gpioRes :: (IsPort p) => p ()
-gpioRes = do
-  setIdent "gpio-resource"
-  setKind "GPIORES"
-  setType [
-      -- Pin proerties
-      "current" <:= FloatC $ unknown -- Amps
-    , "voltage" <:= FloatC $ unknown -- Volts
-      -- Interface pro
-    , "direction" <:= StringC $ oneOf ["I","O","IO"]
-    , "bandwidth" <:= FloatC $ unknown -- Hz
-    ]
-  return ()
 
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{

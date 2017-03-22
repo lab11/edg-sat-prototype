@@ -150,6 +150,22 @@ gpioSW = do
     ]
   return ()
 
+-- The MCU resource that a GPIO port represents.
+-- TODO: unify with gpioSW, gpioHW
+gpioRes :: (IsPort p) => p ()
+gpioRes = do
+  setIdent "gpio-resource"
+  setKind "GPIORES"
+  setType [
+      -- Pin proerties
+      "current" <:= FloatC $ unknown -- Amps
+    , "voltage" <:= FloatC $ unknown -- Volts
+      -- Interface pro
+    , "direction" <:= StringC $ oneOf ["I","O","IO"]
+    , "bandwidth" <:= FloatC $ unknown -- Hz
+    ]
+  return ()
+
 -- This is an interesting one, we're making the GPIO driver here
 -- implicit, so that a single generic linktype is capable of capturing
 -- all gpio connections, the assumption is that during reification
@@ -160,8 +176,9 @@ gpioLink = do
   setIdent "gpio link"
   setSignature "gpio link"
   -- the resource the link needs
-  --res <- addPort "resource" $ do
-  --  return ()
+  res <- addPort "resource" $ do
+    gpioRes
+    return ()
 
   -- the sw interface port
   sw  <- addPort "software" $ do
@@ -175,11 +192,17 @@ gpioLink = do
 
   -- ensure the software direction types are correct.
   constrain $ port sw (typeVal "data") :== port hw (typeVal "data")
+
   -- ensure that all the properties between all the ports match up
+  constrain $ port res (typeVal "bandwidth") :== port sw (typeVal "bandwidth")
+  constrain $ port res (typeVal "direction") :== port sw (typeVal "direction")
+  constrain $ port res (typeVal "direction") :== port hw (typeVal "direction")
+  constrain $ port res (typeVal "current") :== port hw (typeVal "current")
+  constrain $ port res (typeVal "voltage") :== port hw (typeVal "voltage")
 
   -- ensure that the correct port connection requirements exist
-  constrain $ port sw connected :== port hw connected
-  -- constrain $ port res connected :== port hw connected
+  constrain $ port res connected :== port sw connected
+  constrain $ port res connected :== port hw connected
 
   return ()
 

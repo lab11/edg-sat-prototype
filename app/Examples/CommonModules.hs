@@ -35,11 +35,9 @@ button = do
   constrain $ (port gpio $ typeVal "data.id") :== uid
   -- We can't draw more current through the thing than the
   -- GPIO pin can sink
-  constrain $ (port vin $ typeVal "current")
-    :== (port gpio $ typeVal "current")
+  constrain $ (port vin $ typeVal "current") :== (port gpio $ typeVal "current")
   -- The voltage of our powersource and control pin must be the same.
-  constrain $ (port vin $ typeVal "voltage")
-    :== (port gpio $ typeVal "voltage")
+  constrain $ (port vin $ typeVal "voltage") :== (port gpio $ typeVal "voltage")
   return ()
 
 buttonDriver :: Module ()
@@ -61,9 +59,8 @@ buttonDriver = do
       , "data" <:= switchData
       ]
     return ()
-  constrain $ (port input  $ typeVal "data")
-          :== (port output $ typeVal "data")
-  --constrain $ port input connected :=> port output connected
+  constrain $ (port input  $ typeVal "data") :== (port output $ typeVal "data")
+  constrain $ port input connected :== port output connected
   return ()
 
 led :: Module ()
@@ -83,19 +80,16 @@ led = do
     gpioHW
     setIdent "ledGPIO"
     setType [
-        "direction" <:= StringV "I"
-      , "data" <:= Record [
-              "signal" <:= StringV "LED"
-            , "id" <:= UID
-            , "name" <:= StringC unknown
-          ]
+        "current" <:= FloatC unknown
+      , "direction" <:= StringV "I"
+      , "data" <:= ledData
       ]
     return ()
   constrain $ port vin connected
   constrain $ port gpio connected
   constrain $ (port gpio $ typeVal "data.id") :== uid
-  constrain $ (port vin $ typeVal "voltage")
-    :== (port gpio $ typeVal "voltage")
+  constrain $ (port vin $ typeVal "current") :== (port gpio $ typeVal "current")
+  constrain $ (port vin $ typeVal "voltage") :== (port gpio $ typeVal "voltage")
   return ()
 
 ledDriver :: Module ()
@@ -118,7 +112,6 @@ ledDriver = do
       , "data" <:= ledData
       ]
     return ()
-  constrain $ (port input  $ typeVal "data")
-          :== (port output $ typeVal "data")
+  constrain $ (port input  $ typeVal "data") :== (port output $ typeVal "data")
   constrain $ port input connected :== port output connected
   return ()
