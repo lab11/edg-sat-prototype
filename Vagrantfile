@@ -35,6 +35,7 @@ Vagrant.configure(2) do |config|
     sudo apt-get upgrade -y
     sudo apt-get install wget curl fish htop git subversion -y
     sudo apt-get install software-properties-common tree -y 
+    sudo apt-get install graphviz-dev graphviz -y
   SHELL
 
   # Install protocol buffer tools
@@ -56,6 +57,13 @@ Vagrant.configure(2) do |config|
     echo 'deb http://download.fpcomplete.com/ubuntu xenial main'|sudo tee /etc/apt/sources.list.d/fpco.list
     sudo apt-get update && sudo apt-get install stack -y
   SHELL
+  
+  ################
+  #   Graphics   #
+  ################
+
+  # Should allow x11 forwarding with some rigamarole
+  config.ssh.forward_x11 = true
 
   ################
   #  Networking  #

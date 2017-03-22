@@ -172,7 +172,7 @@ deriving instance (ExpContext a) => Read (PortDesc a)
 
 convertPortState :: (MonadExcept String m,NamedMonad m)
                  => PortState a -> m (PortDesc a)
-convertPortState PortState{..}
+convertPortState p@PortState{..}
   = PortDesc <$> pIdent <*> pClass <*> (Abstract <$> pType) <*> return psPConstraints
   where
     pIdent = case psPIdent of
