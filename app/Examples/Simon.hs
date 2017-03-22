@@ -185,9 +185,7 @@ seed = do
     -- setIdent "LEDDriver"
     setType [
        "data" <:= Record [
-            "signal" <:= StringV "LED"
-          , "id" <:= UID
-          , "name" <:= StringV "LED1"
+          "name" <:= StringV "LED1"
             ]
       , "apiDir" <:= StringV "consumer"
       ]
