@@ -168,8 +168,8 @@ testLibrary = EDGLibrary{
       , ("mcu",1,mcu)
       ]
   , links   = [
-        ("powerLink",2,powerLink 3)
---      , ("gpioLink",1,gpioLink)
+        ("pwerLink",2,powerLink 4)
+    --  , ("gpioLink",1,gpioLink)
       ]
   }
 

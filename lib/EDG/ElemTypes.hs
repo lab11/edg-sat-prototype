@@ -51,7 +51,8 @@ deriving instance (ExpContext a) => Read (ResourceCons a)
 type ElemM' t p = WriterT (ElemState t p) (Except String)
 type ElemM  t   = ElemM' t (Portify t)
 
-runElemM :: ElemM' t (Portify t) () -> ElemDesc t (Portify t)
+runElemM :: (ExpContext (Portify t))
+          => ElemM' t (Portify t) () -> ElemDesc t (Portify t)
 runElemM em = case runExcept (convertElemState =<< execWriterT em) of
   Left s -> error $ "ElemDesc creation failed with `" ++ s ++ "`"
   Right ed -> ed
@@ -227,7 +228,8 @@ deriving instance (ExpContext a, ExpContext b) => Eq   (ElemDesc a b)
 deriving instance (ExpContext a, ExpContext b) => Show (ElemDesc a b)
 deriving instance (ExpContext a, ExpContext b) => Read (ElemDesc a b)
 
-convertElemState :: (MonadExcept String m,NamedMonad m, b ~ Portify a)
+convertElemState :: (ExpContext b,
+                    MonadExcept String m,NamedMonad m, b ~ Portify a)
                  => ElemState a b -> m (ElemDesc a b)
 convertElemState ElemState{..}
   = ElemDesc <$> i <*> c <*> t <*> con

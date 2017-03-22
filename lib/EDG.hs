@@ -68,16 +68,86 @@
   @
 -}
 
-module EDG where
+module EDG (
+    pattern IntV
+  , pattern IntC
+  , pattern BoolV
+  , pattern BoolC
+  , pattern FloatV
+  , pattern FloatC
+  , pattern StringV
+  , pattern StringC
+  , pattern UID
+  , pattern NewUID
+  , pattern Record
+  , unknown
+  , oneOf
+  , noneOf
+  , greaterThan
+  , greaterThanEq
+  , lessThan
+  , lessThanEq
+  , (+/-)
+  , between
+  , AmbigRec
+  , AmbigVal
+  , (<:=)
+  , pattern Lit
+  , pattern (:==)
+  , pattern (:/=)
+  , pattern (:&&)
+  , pattern (:||)
+  , pattern (:~&)
+  , pattern (:~|)
+  , pattern (:<+>)
+  , pattern (:=>)
+  , pattern Not
+  , pattern JustOne
+  , pattern All
+  , pattern Any
+  , pattern (:<)
+  , pattern (:<=)
+  , pattern (:>)
+  , pattern (:>=)
+  , pattern (:+)
+  , pattern (:-)
+  , pattern (:*)
+  , pattern Sum
+  , pattern Mult
+  , pattern Negate
+  , pattern If
+  , pattern Count
+  , Module
+  , Link
+  , ModulePort
+  , LinkPort
+  , PortName
+  , ResourceUse
+  , pattern (:|=)
+  , Constrainable (..)
+  , IsElem (..)
+  , IsPort (..)
+  , appendIdent
+  , updateType
+  , IsBlock (..)
+  , replaceSignature
+  , EDGSettings (..)
+  , defaultSettings
+  , EDGLibrary (..)
+  , synthesize
+  , synthesizeWithSettings
+  , endDef
+) where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 -- import Debug.Trace
-import Control.Lens.Ether.Implicit
+import Control.Lens.Ether.Implicit hiding ((:<),(:>))
 import Data.Maybe (fromJust)
 import GHC.Exts (Item,IsList)
+import Control.Newtype
 
 import qualified Algebra.Lattice as A (
     bottom
@@ -149,7 +219,8 @@ import qualified Data.SBV as SBV (
   , defaultSMTCfg
   , SMTConfig(..)
   , AllSatResult(..)
-  , SMTResult
+  , SMTResult(..)
+  , SatResult(..)
   )
 import qualified Data.IORef as IO (
     IORef
@@ -235,6 +306,10 @@ import qualified EDG.Library.Types as E (
   , (<:=)
   , (<~=)
   )
+import qualified EDG.Graphviz as E (
+    genGraph
+  , writeGraph
+  )
 -- * Values and Constraints
 
 -- | Integer value type, define using <:=
@@ -280,9 +355,6 @@ pattern NewUID = A.Abstract(E.Constrained (E.UID (E.UCNew)))
 -- | TODO
 pattern Record :: E.RecCons -> AmbigVal
 pattern Record a = A.Abstract(E.Constrained (E.Record a))
-
--- | TODO
-pattern Unknown = E.KVBot ()
 
 -- | TODO
 unknown :: A.BoundedJoinSemiLattice a => a
@@ -690,12 +762,20 @@ instance IsBlock Link where
 -- | TODO
 data EDGSettings = EDGSettings {
     verboseSBV :: Bool
+  , printOutput :: Bool
+  , outputFile :: Maybe FilePath
+  , graphvizFile :: Maybe FilePath
+  , graphvizDisplay :: Bool
   }
 
 -- | TODO
 defaultSettings :: EDGSettings
 defaultSettings = EDGSettings{
     verboseSBV = False
+  , printOutput = True
+  , outputFile = Nothing
+  , graphvizFile = Nothing
+  , graphvizDisplay = True
   }
 
 
@@ -709,31 +789,54 @@ data EDGLibrary = EDGLibrary {
 
 -- | TODO
 synthesize :: EDGLibrary -> String -> Module () -> IO ()
-synthesize = synthesizeWithSettings defaultSettings
+synthesize l n s = synthesizeWithSettings defaultSettings l [(n,s)]
 
 -- | TODO
 synthesizeWithSettings :: EDGSettings
-                       -> EDGLibrary -> String -> Module () -> IO ()
-synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seedName seedModule = do
+                       -> EDGLibrary -> [(String,Module ())] -> IO ()
+synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
   ss <- IO.newIORef (undefined :: E.SBVState)
   let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
   solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
-  sbvState <- IO.readIORef ss
-  let decodeState = E.buildDecodeState gatherState sbvState
-  E.pPrint $ (E.decodeResult decodeState solution sm)
-  return ()
+  case solution of
+    SBV.SatResult (SBV.Satisfiable _ _) -> do
+      sbvState <- IO.readIORef ss
+      let decodeState = E.buildDecodeState gatherState sbvState
+          decodeResult' = E.decodeResult decodeState solution sm
+      case decodeResult' of
+        Left s -> do
+          putStrLn $ "Resulting solution was : "
+          E.pPrint $ solution
+          putStrLn $ "\n\n"
+          putStrLn $ "Decode of solution failed with : " ++ s
+          return ()
+        Right decodeResult -> do
+          -- Print output (TODO :: w/ options)
+          E.pPrint decodeResult
+          -- TODO :: Write output to file
+          -- Write Graphviz to File (TODO :: w/ options)
+          E.writeGraph (E.genGraph decodeResult) "test.png"
+          -- TODO :: Display
+          return ()
+    _ -> do
+      E.pPrint solution
+      return ()
 
   where
     edgm = do
-      seed <- E.addModule seedName seedModule
       let ls = concat . map makeDups $ links
           ms = concat . map makeDups $ modules
       mapM_ (uncurry E.addLink) ls
       mapM_ (uncurry E.addModule) ms
+      seedRefs <- flip mapM seeds $ \(seedName,seedModule) -> do
+        seed <- E.addModule seedName seedModule
+        E.assertModuleUsed seed
+        return seed
+      -- NOTE :: Any changes must happen before this point otherwise
+      --         you'll break the optional constraints thing.
       E.createAllOptionalConnections
-      E.assertModuleUsed seed
       E.finishUpConstraints
-      return seed
+      return (head seedRefs)
 
     makeDups :: (String,Int,b) -> [(String,b)]
     makeDups (name, count, b)

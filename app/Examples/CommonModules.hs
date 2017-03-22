@@ -32,7 +32,7 @@ button = do
     return ()
   -- Ports must both be connected for design to work
   constrain $ port vin connected
-  --constrain $ port gpio connected  -- TODO: when we have GPIO links working
+  -- constrain $ port gpio connected  -- TODO: when we have GPIO links working
   -- The ID of this part must end up in the port somehow
   constrain $ (port gpio $ typeVal "data.id") :== uid
   -- We can't draw more current through the thing than the
