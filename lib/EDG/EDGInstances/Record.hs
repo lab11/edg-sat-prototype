@@ -857,13 +857,14 @@ instance SBVAble Value where
         ++ show v ++ "` is equal to `" ++ show c ++ "`.")
 
   refAbstract :: String -> Constrained -> EDGMonad (Ref Value)
-  refAbstract n c = errContext context $ do
+  refAbstract n c' = errContext context $ do
+    c <- fixAbstract c'
     r <- defaultRefAbstract n c
     k <- constrainedKind c
     when (k /= KVBot()) $ assertValKind r k
     return r
     where
-      context = "(refAbstract :: Value) `" ++ show n ++ "` `" ++ show c ++ "`"
+      context = "(refAbstract :: Value) `" ++ show n ++ "` `" ++ show c' ++ "`"
 
   fixConcrete :: Value -> EDGMonad Value
   fixConcrete (unpack -> Record r) = pack . Record <$> fixConcrete r

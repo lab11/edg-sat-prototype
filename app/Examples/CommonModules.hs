@@ -8,7 +8,8 @@ import Examples.CommonPorts
 button :: Module ()
 button = do
   setIdent "button"
-  setSignature "momentarySwitch"
+  foo <- uniqueName "momSw"
+  setSignature foo
   setType []
   vin <- addPort "vin" $ do
     powerIn

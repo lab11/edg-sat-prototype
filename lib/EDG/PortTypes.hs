@@ -34,16 +34,17 @@ import EDG.Library.Types
 --   The monad instance on PortState does all the actual work, which is
 --   why we're mostly just using the monad instance to shuffle very
 --   specific types of data around.
-type PortM a = WriterT (PortState a) (Except String)
+type PortM a = StateT Integer (WriterT (PortState a) (Except String))
 
 runPortM :: PortM a () -> PortDesc a
-runPortM pm = case runExcept (convertPortState =<< execWriterT pm) of
+runPortM pm = case runExcept (convertPortState
+    =<< execWriterT (evalStateT pm 1)) of
   Left s -> error $ "portDesc ceration failed with `" ++ s ++ "`"
   Right pd -> pd
 
 getPortMState :: (MonadExcept String m,NamedMonad m)
               => PortM a () -> m (PortState a)
-getPortMState p = case runExcept (execWriterT p) of
+getPortMState p = case runExcept (execWriterT (evalStateT p 1)) of
   Left s -> throw $ "portDesc Creation failed with `" ++ s ++ "`"
   Right ps -> return ps
 
@@ -91,6 +92,12 @@ data PortValue a
   deriving (Eq, Ord, Show, Read)
 
 type PS = PortState
+
+pvNewInt :: PortM a Integer
+pvNewInt = do
+  newInt <- get
+  put (newInt + 1)
+  return newInt
 
 -- | Append a new bit to the port identity
 pvSetIdent :: forall a. String -> PortM a ()

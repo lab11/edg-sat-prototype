@@ -178,7 +178,6 @@ seed :: Module ()
 seed = do
   setIdent "Control Logic"
   setSignature "controlLogic"
-  setType []
 
   led1 <- addPort "LED1" $ do
     swLEDPort
@@ -192,6 +191,31 @@ seed = do
     return ()
 
   constrain $ port led1 connected
+
+  -- ### Values I'm using to test graphviz output ###
+
+  setType [
+      "testInt" <:= IntV 30
+    , "testBool" <:= BoolV False
+    , "testString" <:= StringV "Testing123!!"
+    , "testUID" <:= NewUID
+    ]
+
+  r1 <- newResource "testResource1"
+  r2 <- newResource "testResource2"
+  r3 <- newResource "testResource3"
+  r4 <- newResource "testResource4"
+
+  constrainResources "testResourceConstraint1" (Lit $ BoolV True) [
+      "tag1" :|= [r1,r2]
+    , "tag2" :|= [r2,r3]
+    ]
+
+  constrainResources "testResourceConstraint2" (typeVal "testBool") [
+      "tag3" :|= [r1,r2,r4]
+    , "tag4" :|= [r2,r3,r4]
+    ]
+
   return ()
 
 
