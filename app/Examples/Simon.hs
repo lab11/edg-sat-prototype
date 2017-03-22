@@ -235,5 +235,5 @@ seed = do
 --   on, there's nothing stopping the system from plopping down two MCUs and
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
-main :: IO ()
-main = synthesize testLibrary "Seed" seed
+run :: EDGSettings -> IO ()
+run = makeSynthFunc testLibrary [("Seed",seed)]

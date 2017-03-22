@@ -133,8 +133,10 @@ module EDG (
   , replaceSignature
   , EDGSettings (..)
   , defaultSettings
+  , parseSettings
   , EDGLibrary (..)
   , synthesize
+  , makeSynthFunc
   , synthesizeWithSettings
   , endDef
 ) where
@@ -151,6 +153,14 @@ import Control.Newtype
 import Text.Printf
 import Control.Exception
 import System.CPUTime
+import Control.Monad
+
+import Options.Applicative
+import Data.Semigroup ((<>))
+
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.IO as T
+import qualified Text.Pretty.Simple as T
 
 import qualified Algebra.Lattice as A (
     bottom
@@ -784,7 +794,6 @@ data EDGSettings = EDGSettings {
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
   , graphvizFile :: Maybe FilePath
-  , graphvizDisplay :: Bool
   }
 
 -- | TODO
@@ -793,10 +802,37 @@ defaultSettings = EDGSettings{
     verboseSBV = False
   , printOutput = True
   , outputFile = Nothing
-  , graphvizFile = Nothing
-  , graphvizDisplay = True
+  , graphvizFile = Just "test.png"
   }
 
+parseSettings :: Parser EDGSettings
+parseSettings = EDGSettings
+  <$> (switch
+          $  long "verboseSMT"
+          <> short 's'
+          <> help "Print the full input problem sent to the SMT solver"
+          <> showDefault
+      )
+  <*> (flag True False
+        $  long "supress"
+        <> short 's'
+        <> help "Don't print the output to STDOUT"
+        <> showDefault
+      )
+  <*> (optional . strOption
+        $  long "output"
+        <> short 'o'
+        <> metavar "FILE"
+        <> help "Write the output to FILE"
+      )
+  <*> (optional . strOption
+        $  long "graph-output"
+        <> short 'g'
+        <> metavar "FILE"
+        <> value "test.png" -- NOTE :: Remove this in a bit? Once the
+                            --         the X11/GTK output is working?
+        <> help "Write the graph to FILE"
+      )
 
 -- | TODO
 data EDGLibrary = EDGLibrary {
@@ -811,13 +847,19 @@ synthesize :: EDGLibrary -> String -> Module () -> IO ()
 synthesize l n s = synthesizeWithSettings defaultSettings l [(n,s)]
 
 -- | TODO
+makeSynthFunc :: EDGLibrary -> [(String,Module ())]
+              -> EDGSettings -> IO ()
+makeSynthFunc l m s = synthesizeWithSettings s l m
+
+-- | TODO
 synthesizeWithSettings :: EDGSettings
                        -> EDGLibrary -> [(String,Module ())] -> IO ()
 synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
   time "Design Synthesis" $ do
     ss <- IO.newIORef (undefined :: E.SBVState)
     let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
-    solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
+    solution <- time "Sat Solving" $
+      SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
         sbvState <- IO.readIORef ss
@@ -831,12 +873,14 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             putStrLn $ "Decode of solution failed with : " ++ s
             return ()
           Right decodeResult -> do
-            -- Print output (TODO :: w/ options)
-            E.pPrint decodeResult
+            -- Print output
+            when printOutput $ E.pPrint decodeResult
             -- TODO :: Write output to file
-            -- Write Graphviz to File (TODO :: w/ options)
-            E.writeGraph (E.genGraph decodeResult) "test.png"
-            -- TODO :: Display
+            sequence_ $
+              flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
+            let outputGraph = E.genGraph decodeResult
+            sequence_ $
+              E.writeGraph outputGraph <$> graphvizFile
             return ()
       _ -> do
         E.pPrint solution
@@ -871,7 +915,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
         end   <- getCPUTime
         putStrLn $ "Finished : " ++ s
         let diff = (fromIntegral (end - start)) / (10^12)
-        printf "Computation time: %0.3f sec\n" (diff :: Double)
+        printf "Computation time (%s): %0.3f sec\n" (s :: String)(diff :: Double)
         return v
 -- * Utility Functions
 
