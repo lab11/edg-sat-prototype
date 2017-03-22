@@ -264,6 +264,8 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
             , H.Cells [dataCell theme "Ident" deIdent]
             , H.Cells [uidCell theme "UID" eoEUID]
             , H.Cells [typeCell theme "Type" eoEType]
+            , H.Cells [resConsCell theme "Resource Constraints"
+                deResourceConstraints]
             ]
           }
 
@@ -297,34 +299,40 @@ writeGraph dg fp = runGraphvizCommand Fdp dg Png fp
 -- * Shit to do with formatting *
 
 data Theme = Theme {
-    constructorFont :: [H.Attribute]
-  , boolFont        :: [H.Attribute]
-  , stringFont      :: [H.Attribute]
-  , intFont         :: [H.Attribute]
-  , floatFont       :: [H.Attribute]
-  , uidFont         :: [H.Attribute]
-  , constraintFont  :: [H.Attribute]
-  , resconsFont     :: [H.Attribute]
-  , resourceFont    :: [H.Attribute]
-  , fieldFont       :: [H.Attribute]
-  , opFont          :: [H.Attribute]
-  , dataFont        :: [H.Attribute]
+    constructorFont    :: [H.Attribute]
+  , boolFont           :: [H.Attribute]
+  , stringFont         :: [H.Attribute]
+  , intFont            :: [H.Attribute]
+  , floatFont          :: [H.Attribute]
+  , uidFont            :: [H.Attribute]
+  , constraintFont     :: [H.Attribute]
+  , resconsFont        :: [H.Attribute]
+  , resconsValidFont   :: [H.Attribute]
+  , resconsInvalidFont :: [H.Attribute]
+  , resconsTagFont     :: [H.Attribute]
+  , resourceFont       :: [H.Attribute]
+  , fieldFont          :: [H.Attribute]
+  , opFont             :: [H.Attribute]
+  , dataFont           :: [H.Attribute]
   }
 
 defaultTheme :: Theme
 defaultTheme = Theme{
-    constructorFont = [H.Color $ GV.X11Color NavyBlue      ]
-  , boolFont        = [H.Color $ GV.X11Color DarkOliveGreen]
-  , stringFont      = [H.Color $ GV.X11Color SlateGray     ]
-  , intFont         = [H.Color $ GV.X11Color Maroon        ]
-  , floatFont       = [H.Color $ GV.X11Color Maroon        ]
-  , uidFont         = [H.Color $ GV.X11Color DarkOrange2   ]
-  , constraintFont  = [H.Color $ GV.X11Color DarkViolet    ]
-  , resconsFont     = [H.Color $ GV.X11Color DarkViolet    ]
-  , resourceFont    = [H.Color $ GV.X11Color DarkTurquoise ]
-  , fieldFont       = [H.Color $ GV.X11Color DarkGreen]
-  , opFont          = [H.Color $ GV.X11Color Cyan4]
-  , dataFont        = []
+    constructorFont    = [H.Color $ GV.X11Color NavyBlue      ]
+  , boolFont           = [H.Color $ GV.X11Color Purple        ]
+  , stringFont         = [H.Color $ GV.X11Color SlateGray     ]
+  , intFont            = [H.Color $ GV.X11Color Maroon        ]
+  , floatFont          = [H.Color $ GV.X11Color Maroon        ]
+  , uidFont            = [H.Color $ GV.X11Color DarkOrange2   ]
+  , constraintFont     = [H.Color $ GV.X11Color DarkOrchid    ]
+  , resconsFont        = [H.Color $ GV.X11Color DarkOrchid    ]
+  , resconsValidFont   = [H.Color $ GV.X11Color DarkOliveGreen]
+  , resconsInvalidFont = [H.Color $ GV.X11Color Red3          ]
+  , resconsTagFont     = [H.Color $ GV.X11Color SlateBlue3    ]
+  , resourceFont       = [H.Color $ GV.X11Color Gray41        ]
+  , fieldFont          = [H.Color $ GV.X11Color DarkGreen     ]
+  , opFont             = [H.Color $ GV.X11Color Cyan4         ]
+  , dataFont           = []
   }
 
 pattern Bold a = H.Format H.Bold a
@@ -402,14 +410,16 @@ valueCell :: Theme -> String -> Value -> H.Cell
 valueCell = mkDataCell valueText
 
 recordText :: Theme -> Record -> [H.TextItem]
-recordText theme@Theme{..}
-  = {-- (prefix ++) . (++ suffix) .--} indent . concatMap field . Map.assocs . rMap
+recordText theme@Theme{..} (rMap -> r)
+  | Map.null r = prefix ++ suffix
+  | otherwise = {-- (prefix ++) . (++ $ newline ++ suffix) . --}
+      indent . concatMap field . Map.assocs $ r
   where
     prefix :: [H.TextItem]
     prefix = opText theme "{"
 
     suffix :: [H.TextItem]
-    suffix = newline ++ opText theme "}"
+    suffix = opText theme "}"
 
     field :: (String,Value) -> [H.TextItem]
     field (s,v) = lConcat [
@@ -439,6 +449,18 @@ constraintText Theme{..} s = [H.Font constraintFont [H.Str . T.pack $ s]]
 resconsText :: Theme -> String -> [H.TextItem]
 resconsText Theme{..} s = [H.Font resconsFont [H.Str . T.pack $ s]]
 
+resconsValidText :: Theme -> String -> [H.TextItem]
+resconsValidText Theme{..} s = [H.Font resconsValidFont [H.Str . T.pack $ s]]
+
+resconsInvalidText :: Theme -> String -> [H.TextItem]
+resconsInvalidText Theme{..} s = [H.Font resconsInvalidFont [H.Str . T.pack $ s]]
+
+resconsTagText :: Theme -> String -> [H.TextItem]
+resconsTagText Theme{..} s = [H.Font resconsTagFont [H.Str . T.pack $ s]]
+
+resourceText :: Theme -> String -> [H.TextItem]
+resourceText Theme{..} s = [H.Font resourceFont [H.Str . T.pack $ s]]
+
 fieldText :: Theme -> String -> [H.TextItem]
 fieldText Theme{..} s = [Italics [H.Font fieldFont [H.Str . T.pack $ s]]]
 
@@ -463,6 +485,43 @@ indent :: [H.TextItem] -> [H.TextItem]
 indent (t@(H.Newline _):ts) = t : indent ts
 indent (t:ts) = indentItem t ++ indentNL ts
 indent [] = []
+
+resConsFullText :: Theme
+                -> Map ResConName (Maybe (Map ResourceTag ResourceName))
+                -> [H.TextItem]
+resConsFullText theme@Theme{..} m = indent $ concatMap rcText (Map.assocs m)
+  ++ newline
+  where
+    rcText :: (ResConName, Maybe (Map ResourceTag ResourceName)) -> [H.TextItem]
+    rcText (name,mt) = lConcat [
+        newline
+      , resconsText theme name
+      , spaceText
+      , mtText mt
+      ]
+
+    mtText ::  Maybe (Map ResourceTag ResourceName) -> [H.TextItem]
+    mtText Nothing = resconsInvalidText theme "Unused"
+    mtText (Just mr) = resconsValidText theme "Used"
+      ++ (indent . concatMap mrText . Map.assocs $ mr)
+
+    mrText :: (ResourceTag,ResourceName) -> [H.TextItem]
+    mrText (tag,res) = lConcat [
+        newline
+      , resconsTagText theme tag
+      , spaceText
+      , opText theme ":|="
+      , spaceText
+      , resourceText theme res
+      ]
+
+
+resConsCell :: Theme -> String
+            -> Map ResConName (Maybe (Map ResourceTag ResourceName))
+            -> H.Cell
+resConsCell t s m
+  | Map.null m = mkDataCell resconsInvalidText t s "None"
+  | otherwise = mkDataCell resConsFullText t s m
 
 newline :: [H.TextItem]
 newline = [H.Newline [H.Align H.HLeft]]

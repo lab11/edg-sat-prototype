@@ -196,7 +196,7 @@ seed = do
 
   setType [
       "testInt" <:= IntV 30
-    , "testBool" <:= BoolV True
+    , "testBool" <:= BoolV False
     , "testString" <:= StringV "Testing123!!"
     , "testUID" <:= NewUID
     ]
