@@ -80,6 +80,8 @@ executable edg-prototype
     containers >= 0.5.7,
     -- Scrap your boilerplate, used for SBV's extra deriving classes
     syb >= 0.6,
+    -- Argument Handling 
+    optparse-applicative, 
     -- The library we are developing
     edg-prototype
 
@@ -226,6 +228,8 @@ library
     graphviz,
     -- More powerful Text Type 
     text,
+    -- Argument Handling 
+    optparse-applicative, 
     -- -- Convinient ordered list functions
     -- data-ordlist >= 0.4.7.0,
     -- -- Used to interleave monadic actions in weird ways

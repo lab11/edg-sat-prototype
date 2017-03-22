@@ -133,8 +133,10 @@ module EDG (
   , replaceSignature
   , EDGSettings (..)
   , defaultSettings
+  , parseSettings
   , EDGLibrary (..)
   , synthesize
+  , makeSynthFunc
   , synthesizeWithSettings
   , endDef
 ) where
@@ -152,6 +154,9 @@ import Text.Printf
 import Control.Exception
 import System.CPUTime
 import Control.Monad
+
+import Options.Applicative
+import Data.Semigroup ((<>))
 
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -800,6 +805,34 @@ defaultSettings = EDGSettings{
   , graphvizFile = Just "test.png"
   }
 
+parseSettings :: Parser EDGSettings
+parseSettings = EDGSettings
+  <$> (switch
+          $  long "verboseSMT"
+          <> short 's'
+          <> help "Print the full input problem sent to the SMT solver"
+          <> showDefault
+      )
+  <*> (flag True False
+        $  long "supress"
+        <> short 's'
+        <> help "Don't print the output to STDOUT"
+        <> showDefault
+      )
+  <*> (optional . strOption
+        $  long "output"
+        <> short 'o'
+        <> metavar "FILE"
+        <> help "Write the output to FILE"
+      )
+  <*> (optional . strOption
+        $  long "graph-output"
+        <> short 'g'
+        <> metavar "FILE"
+        <> value "test.png" -- NOTE :: Remove this in a bit? Once the
+                            --         the X11/GTK output is working?
+        <> help "Write the graph to FILE"
+      )
 
 -- | TODO
 data EDGLibrary = EDGLibrary {
@@ -812,6 +845,11 @@ data EDGLibrary = EDGLibrary {
 -- | TODO
 synthesize :: EDGLibrary -> String -> Module () -> IO ()
 synthesize l n s = synthesizeWithSettings defaultSettings l [(n,s)]
+
+-- | TODO
+makeSynthFunc :: EDGLibrary -> [(String,Module ())]
+              -> EDGSettings -> IO ()
+makeSynthFunc l m s = synthesizeWithSettings s l m
 
 -- | TODO
 synthesizeWithSettings :: EDGSettings
