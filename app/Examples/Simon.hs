@@ -198,6 +198,7 @@ seed = do
       "testInt" <:= IntV 30
     , "testBool" <:= BoolV True
     , "testString" <:= StringV "Testing123!!"
+    , "testUID" <:= NewUID
     ]
 
   r1 <- newResource "testResource1"
@@ -210,7 +211,7 @@ seed = do
     , "tag2" :|= [r2,r3]
     ]
 
-  constrainResources "testResourceConstraint4" (typeVal "testBool") [
+  constrainResources "testResourceConstraint2" (typeVal "testBool") [
       "tag3" :|= [r1,r2,r4]
     , "tag4" :|= [r2,r3,r4]
     ]
