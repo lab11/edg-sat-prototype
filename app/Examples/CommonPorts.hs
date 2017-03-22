@@ -9,8 +9,23 @@ swPort = do
   setIdent "SW-Interface"
   setKind "SW"
   setType [
-      "data" <:= unknown
+      "data" <:= Record unknown
     , "apiDir" <:= StringC $ oneOf ["producer","consumer"]
+    ]
+  return ()
+
+-- LED SW port
+
+swLEDPort :: (IsPort p) => p ()
+swLEDPort = do
+  swPort
+  setIdent "SW-LED-Interface"
+  setType [
+      "data" <:= Record [
+            "name" <:= StringC unknown
+          , "signal" <:= StringV "LED"
+          , "id" <:= UID
+        ]
     ]
   return ()
 
@@ -185,5 +200,23 @@ powerLink numSinks = do
           :== Sum(map (\ sink -> port sink $ typeVal "current") sinks)
 
   return ()
+
 swLink :: Link ()
-swLink = undefined
+swLink = do
+  setIdent "swLink"
+  setSignature "sw link"
+
+  producer <- addPort "producer" $ do
+    swPort
+    setType ["apiDir" <:= StringV "producer"]
+    return()
+
+  consumer <- addPort "consumer" $ do
+    swPort
+    setType ["apiDir" <:= StringV "consumer"]
+    return()
+
+  constrain $ port producer connected :== port consumer connected
+  constrain $ port producer (typeVal "data") :== port consumer (typeVal "data")
+
+  return ()
