@@ -162,13 +162,14 @@ testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
         ("button",3,button)
-      , ("buttonDriver",3,buttonDriver)
+    --  , ("buttonDriver",3,buttonDriver)
       , ("led",3,led)
       , ("ledDriver",3,ledDriver)
       , ("mcu",1,mcu)
       ]
   , links   = [
         ("pwerLink",2,powerLink 4)
+      , ("swLink",2,swLink)
     --  , ("gpioLink",1,gpioLink)
       ]
   }
@@ -178,6 +179,21 @@ seed = do
   setIdent "Control Logic"
   setSignature "controlLogic"
   setType []
+
+  led1 <- addPort "LED1" $ do
+    swLEDPort
+    -- setIdent "LEDDriver"
+    setType [
+       "data" <:= Record [
+            "signal" <:= StringV "LED"
+          , "id" <:= UID
+          , "name" <:= StringV "LED1"
+            ]
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port led1 connected
   return ()
 
 
@@ -188,4 +204,4 @@ seed = do
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
 main :: IO ()
-main = synthesize testLibrary "Seed" button
+main = synthesize testLibrary "Seed" seed
