@@ -132,7 +132,6 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
     graphAttrs [
         GV.Overlap GV.ScaleXYOverlaps
       , GV.Splines GV.SplineEdges
-      , GV.K 1
       ]
     mapM_ mkModule (Map.keys dbModules)
     mapM_ mkLink (Map.keys dbLinks)
@@ -173,9 +172,8 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
     mkModule rm = do
       cluster (Str $ T.pack name) $ do
         -- Set the attributes of modules
-        graphAttrs [style filled, color LightGray, GV.K 0.1]
+        graphAttrs [style filled, color LightBlue]
         nodeAttrs [style filled, color White]
-        edgeAttrs [GV.Weight (GV.Int 12)]
         graphAttrs [textLabel $ T.pack name]
 
         -- Make the center element
@@ -206,10 +204,9 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
     mkLink :: Ref Link -> DotM String String
     mkLink rl = do
       cluster (Str $ T.pack name) $ do
-        -- Set the attributes of modules
-        graphAttrs [GV.K 0.1]
+        graphAttrs [style filled, color LightGray]
         nodeAttrs [style filled, color White]
-        edgeAttrs [GV.Weight (GV.Int 12)]
+        -- Set the attributes of modules
         graphAttrs [textLabel $ T.pack name]
 
         -- Make the center element
@@ -249,6 +246,7 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
       node name [
           GV.Shape GV.PlainText
         , GV.Label label
+        , color Lavender
         ]
       return name
       where
