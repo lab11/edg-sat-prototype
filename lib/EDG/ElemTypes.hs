@@ -48,12 +48,13 @@ deriving instance (ExpContext a) => Read (ResourceCons a)
 
 -- | The Element monad, which we use to let people more easily assemble
 --   complex monads.
-type ElemM' t p = WriterT (ElemState t p) (Except String)
+type ElemM' t p = StateT Integer (WriterT (ElemState t p) (Except String))
 type ElemM  t   = ElemM' t (Portify t)
 
 runElemM :: (ExpContext (Portify t))
           => ElemM' t (Portify t) () -> ElemDesc t (Portify t)
-runElemM em = case runExcept (convertElemState =<< execWriterT em) of
+runElemM em = case runExcept (convertElemState
+  =<< execWriterT (evalStateT em 1)) of
   Left s -> error $ "ElemDesc creation failed with `" ++ s ++ "`"
   Right ed -> ed
 
@@ -138,6 +139,12 @@ instance ExpContext Link where
 instance ExpContext LinkPort where
   type ExpValue   LinkPort = PortValue LinkPort
   type ExpLiteral LinkPort = Ambiguous Value
+
+evNewInt :: ElemM a Integer
+evNewInt = do
+  newInt <- get
+  put (newInt + 1)
+  return newInt
 
 evNewResource :: forall a. String -> ElemM a (Resource a)
 evNewResource (pack -> r) = do
