@@ -29,6 +29,9 @@ import Debug.Trace
 
 import EDG.Elements.Port
 
+import qualified Data.Text.Lazy as T
+import qualified Text.Pretty.Simple as P
+
 import Data.SBV (
     Boolean,(|||),(&&&),(~&),(~|),(<+>),(==>),(<=>),sat,allSat
   , SatResult(..), SMTResult(..), SMTConfig(..), CW(..), Kind(..), Modelable(..)
@@ -223,7 +226,7 @@ embedElem elemLens portLens n ed@ElemDesc{..} = do
     return r
   where
     context uid = "embedElem `" ++ n ++ "` `" ++ show uid ++ "` `"
-      ++ show ed ++ "`"
+      ++ (T.unpack $ P.pShow ed) ++ "`"
 
     transformExp :: (ElemInfo a b) -> Exp a -> EDGMonad (Exp EDG)
     transformExp ei = convertExpressionM litc (varc ei)

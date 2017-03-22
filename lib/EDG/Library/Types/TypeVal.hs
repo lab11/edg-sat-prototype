@@ -202,11 +202,39 @@ recordMerge :: RecCons -> RecCons -> RecCons
 -- recordMerge a b | trace ("<:| " ++ show a ++ " <> " ++ show b ++ " :|>") False = undefined
 recordMerge RCTop c    = trace ("<1>" ++ show c) $  traceShowId $ RCTop
 recordMerge c RCTop    = trace ("<2>" ++ show c) $  traceShowId $ RCTop
-recordMerge a RCBottom = {- trace ("<3>" ++ show a) $  traceShowId $ -} a
-recordMerge RCBottom a = {- trace ("<4>" ++ show a) $  traceShowId $ -} a
+recordMerge a RCBottom = {- trace ("<3>" ++ show a) $ traceShowId $ -} a
+recordMerge RCBottom a = {- trace ("<4>" ++ show a) $ traceShowId $ -} a
 recordMerge (rcMap -> m1) (rcMap -> m2)
   = {- trace (show m1 ++ " <-> " ++ show m2) $  traceShowId -} (RCAmbig $ Map.unionWith
-    (\ a b -> {- (\ s -> trace ("   <||> " ++ show a ++ "  " ++ show b ++ " -- " ++ show s) s) $ -} flattenAmbig $ a \/ b) m1 m2)
+    (\ a b -> {- (\ s -> trace ("   <||> " ++ show a ++ "  " ++ show b ++ " -- " ++ show s) s) $ -}
+      val a b . flattenAmbig $ rjoin a b) m1 m2)
+  where
+    val a b s
+      | unSAT s = trace ("<!!!!>\n    Rec 1  : " ++ show a ++ "\n    Rec 2  :"
+          ++ show b ++ "\n    Rec Out:" ++ show s) s
+      | otherwise = s
+
+    -- NOTE :: Sigh, if we have any other nested structure we have to merge
+    --         them differently
+    rjoin :: Ambiguous Value -> Ambiguous Value -> Ambiguous Value
+    rjoin
+      (Abstract (Constrained (Record a)))
+      (Abstract (Constrained (Record b)))
+      = Abstract . Constrained . Record $ recordMerge a b
+    rjoin
+      (Concrete (Value       (Record a)))
+      (Abstract (Constrained (Record b)))
+      = Abstract . Constrained . Record $ recordMerge (liftPredicate a) b
+    rjoin
+      (Abstract (Constrained (Record a)))
+      (Concrete (Value       (Record b)))
+      = Abstract . Constrained . Record $ recordMerge a (liftPredicate b)
+    rjoin
+      (Concrete (Value       (Record a)))
+      (Concrete (Value       (Record b)))
+      = Abstract . Constrained . Record $
+          recordMerge (liftPredicate a) (liftPredicate b)
+    rjoin a b = a \/ b
 
 instance AsPredicate (Constrained' a) where
   type PredicateDomain (Constrained' a) = (Value' a)
