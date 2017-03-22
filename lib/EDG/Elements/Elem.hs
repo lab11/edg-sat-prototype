@@ -65,7 +65,7 @@ embedElem :: forall a b. (ExpContext a,ExpContext b
 embedElem elemLens portLens n ed@ElemDesc{..} = do
   uid <- newConcreteUID
   errContext (context uid) $ do
-    let name = n ++ "[" ++ show (unpack uid) ++ "]"
+    let name = n ++ "[#" ++ show (unpack uid) ++ "#]"
         r = Ref name
     -- var for clas
     eclass <- refConcrete (name ++ ".class") . Value . String $ edEClass

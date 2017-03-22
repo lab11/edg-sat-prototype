@@ -235,6 +235,7 @@ import qualified EDG.PortTypes as E (
   , PortM
   , PortDesc
   , PortValue(..)
+  , pvNewInt
   , pvSetIdent
   , pvSetClass
   , pvSetType
@@ -250,6 +251,7 @@ import qualified EDG.ElemTypes as E (
     ElemM'
   , PortName
   , runElemM
+  , evNewInt
   , evNewResource
   , evSetIdent
   , evSetClass
@@ -573,6 +575,9 @@ class (Constrainable m) => IsElem m where
   -- | TODO
   typeVal :: String -> Exp m
 
+  -- | TODO
+  uniqueName :: String -> m String
+
 -- | TODO
 appendIdent :: IsElem m => String -> m ()
 appendIdent = setIdent
@@ -589,6 +594,9 @@ appendIdent = setIdent
 updateType :: IsElem m => AmbigRec -> m (Exp m)
 updateType = setType
 
+makeName :: String -> Integer -> String
+makeName s i = s ++ "[!" ++ show i ++ "]"
+
 instance IsElem Module where
   setIdent :: String -> Module ()
   setIdent = E.evSetIdent
@@ -598,6 +606,8 @@ instance IsElem Module where
   uid = E.evUID
   typeVal :: String -> Exp Module
   typeVal = E.evType
+  uniqueName :: String -> Module String
+  uniqueName s = makeName s <$> E.evNewInt
 
 instance IsElem Link where
   setIdent :: String -> Link ()
@@ -608,6 +618,8 @@ instance IsElem Link where
   uid = E.evUID
   typeVal :: String -> Exp Link
   typeVal = E.evType
+  uniqueName :: String -> Link String
+  uniqueName s = makeName s <$> E.evNewInt
 
 instance IsElem ModulePort where
   setIdent :: String -> ModulePort ()
@@ -618,6 +630,8 @@ instance IsElem ModulePort where
   uid = E.pvUID
   typeVal :: String -> Exp ModulePort
   typeVal = E.pvType
+  uniqueName :: String -> ModulePort String
+  uniqueName s = makeName s <$> E.pvNewInt
 
 instance IsElem LinkPort where
   setIdent :: String -> LinkPort ()
@@ -628,6 +642,8 @@ instance IsElem LinkPort where
   uid = E.pvUID
   typeVal :: String -> Exp LinkPort
   typeVal = E.pvType
+  uniqueName :: String -> LinkPort String
+  uniqueName s = makeName s <$> E.pvNewInt
 
 -- | TODO :: Further Documentation
 class (IsElem p) => IsPort p where
