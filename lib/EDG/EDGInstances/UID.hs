@@ -41,6 +41,7 @@ import EDG.EDGDatatype
 import EDG.EDGInstances.Bool
 import EDG.SBVWrap
 
+-- import Debug.Trace
 
 instance SBVAble UID' where
 
@@ -63,6 +64,8 @@ instance SBVAble UID' where
 
   refAbstract :: String -> UIDCons -> EDGMonad (Ref UID')
   refAbstract name' c
+    | trace ("getting ref for UID `" ++ name' ++ "` with cons `"
+        ++ show c ++ "`") False = undefined
     | UCNew    <- c = fixAbstract UCNew >>= refAbstract name'
     | otherwise = defaultRefAbstract name' c
 
