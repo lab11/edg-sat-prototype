@@ -161,16 +161,16 @@ gpioRes = do
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
-        ("button",2,button)
-      , ("buttonDriver",2,buttonDriver)
-      , ("led",2,led)
-      , ("ledDriver",2,ledDriver)
+        ("button",1,button)
+      , ("buttonDriver",1,buttonDriver)
+      , ("led",1,led)
+      , ("ledDriver",1,ledDriver)
       , ("mcu",1,mcu)
       ]
   , links   = [
         ("pwerLink",2,powerLink 4)
-      , ("swLink",3,swLink)
-    --  , ("gpioLink",1,gpioLink)
+      , ("swLink",2,swLink)
+      , ("gpioLink",2,gpioLink)
       ]
   }
 
@@ -180,28 +180,26 @@ seed = do
   setSignature "controlLogic"
 
   led1 <- addPort "LED1" $ do
-    swLEDPort
+    swPort
     setType [
-       "data" <:= Record [
-          "name" <:= StringV "LED1"
-            ]
+        "data" <:= ledData
       , "apiDir" <:= StringV "consumer"
       ]
     return ()
 
   constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED1")
 
   switch1 <- addPort "Switch1" $ do
-    swSwitchPort
+    swPort
     setType [
-       "data" <:= Record [
-          "name" <:= StringV "Switch1"
-            ]
+        "data" <:= switchData
       , "apiDir" <:= StringV "consumer"
       ]
     return ()
 
   constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch1")
 
   -- ### Values I'm using to test graphviz output ###
 

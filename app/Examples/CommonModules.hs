@@ -25,10 +25,7 @@ button = do
     setType [
         "current" <:= FloatC unknown
       , "direction" <:= StringV "O"
-      , "data" <:= Record [
-            "signal" <:= StringV "Momentary Switch"
-          , "id" <:= UID
-          ]
+      , "data" <:= switchData
       ]
     return ()
   -- Ports must both be connected for design to work
@@ -54,17 +51,14 @@ buttonDriver = do
     setIdent "ButtonDriver"
     setType [
         "direction" <:= StringV $ "O"
-      , "data" <:= Record [
-            "signal" <:= StringV "Switch"
-          , "id" <:= UID
-          , "name" <:= StringC unknown
-          ]
+      , "data" <:= switchData
       ]
     return ()
   output <- addPort "swAPIOut" $ do
-    swSwitchPort
+    swPort
     setType [
         "apiDir" <:= StringV "producer"
+      , "data" <:= switchData
       ]
     return ()
   constrain $ (port input  $ typeVal "data")
@@ -93,6 +87,7 @@ led = do
       , "data" <:= Record [
               "signal" <:= StringV "LED"
             , "id" <:= UID
+            , "name" <:= StringC unknown
           ]
       ]
     return ()
@@ -113,20 +108,17 @@ ledDriver = do
     setType [
         "bandwidth" <:= FloatC $ greaterThan 500 -- Hz
       , "direction" <:= StringV $ "I"
-      , "data" <:= Record [
-            "signal" <:= StringV "LED"
-          , "id" <:= UID
-          , "name" <:= StringC unknown
-          ]
+      , "data" <:= ledData
       ]
     return ()
   output <- addPort "swAPIOut" $ do
-    swLEDPort
+    swPort
     setType [
-      "apiDir" <:= StringV "producer"
+        "apiDir" <:= StringV "producer"
+      , "data" <:= ledData
       ]
     return ()
   constrain $ (port input  $ typeVal "data")
           :== (port output $ typeVal "data")
-  --constrain $ port input connected :== port output connected
+  constrain $ port input connected :== port output connected
   return ()

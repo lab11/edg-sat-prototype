@@ -14,35 +14,20 @@ swPort = do
     ]
   return ()
 
--- LED SW port
+-- Data definitions
+ledData :: () => AmbigVal
+ledData = Record [
+    "name" <:= StringC unknown
+  , "signal" <:= StringV "LED"
+  , "id" <:= UID
+  ]
 
-swLEDPort :: (IsPort p) => p ()
-swLEDPort = do
-  swPort
-  setIdent "SW-LED-Interface"
-  setType [
-      "data" <:= Record [
-            "name" <:= StringC unknown
-          , "signal" <:= StringV "LED"
-          , "id" <:= UID
-        ]
-    ]
-  return ()
-
--- Button SW port
-
-swSwitchPort :: (IsPort p) => p ()
-swSwitchPort = do
-  swPort
-  setIdent "SW-Switch-Interface"
-  setType [
-      "data" <:= Record [
-            "name" <:= StringC unknown
-          , "signal" <:= StringV "Switch"
-          , "id" <:= UID
-        ]
-    ]
-  return ()
+switchData :: () => AmbigVal
+switchData = Record [
+    "name" <:= StringC unknown
+  , "signal" <:= StringV "Switch"
+  , "id" <:= UID
+  ]
 
 -- Power output
 powerOut :: (IsPort p) => p ()
@@ -175,19 +160,27 @@ gpioLink = do
   setIdent "gpio link"
   setSignature "gpio link"
   -- the resource the link needs
-  res <- addPort "resource" $ do
-    return ()
+  --res <- addPort "resource" $ do
+  --  return ()
+
   -- the sw interface port
   sw  <- addPort "software" $ do
+    gpioSW
     return ()
+
   -- the hw interface port
   hw <- addPort "hardware" $ do
+    gpioHW
     return ()
-  -- ensure the software direction types are correct.
 
+  -- ensure the software direction types are correct.
+  constrain $ port sw (typeVal "data") :== port hw (typeVal "data")
   -- ensure that all the properties between all the ports match up
 
   -- ensure that the correct port connection requirements exist
+  constrain $ port sw connected :== port hw connected
+  -- constrain $ port res connected :== port hw connected
+
   return ()
 
 powerLink :: Int  -- number of sinks
