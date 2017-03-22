@@ -37,13 +37,15 @@ import Control.Monad
 
 import Debug.Trace
 
+import Data.Void
+import Data.List (intersperse)
 import Data.Maybe (fromJust)
 
 import EDG.Elements.Port
 import EDG.Elements.Elem
 import EDG.AssembleGraph
 
-import Data.GraphViz.Attributes
+import Data.GraphViz.Attributes hiding (Record)
 import qualified Data.GraphViz.Attributes.Complete as GV
 import qualified Data.GraphViz.Attributes.HTML as H
 import Data.GraphViz.Types.Monadic hiding (edge,(-->),(<->))
@@ -165,6 +167,8 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
 
   where
 
+    theme = defaultTheme
+
     toPortName :: BlockName -> PortName -> String
     toPortName bn pn = bn ++ ":" ++ pn
 
@@ -256,9 +260,10 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
           , H.tableAttrs = []
           , H.tableRows = [
               H.Cells [headerCell deName]
-            , H.Cells [dataCell "Signature" deSignature]
-            , H.Cells [dataCell "Ident" deIdent]
-            , H.Cells [dataCell "UID" $ show (unpack eoEUID)]
+            , H.Cells [dataCell theme "Signature" deSignature]
+            , H.Cells [dataCell theme "Ident" deIdent]
+            , H.Cells [uidCell theme "UID" eoEUID]
+            , H.Cells [typeCell theme "Type" eoEType]
             ]
           }
 
@@ -276,21 +281,182 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
           , H.tableAttrs = []
           , H.tableRows = [
               H.Cells [headerCell poPName]
-            , H.Cells [dataCell "PortName" pn]
-            , H.Cells [dataCell "Kind" poPClass]
-            , H.Cells [dataCell "UID" $ show (unpack poPUID)]
+            , H.Cells [dataCell theme "PortName" pn]
+            , H.Cells [dataCell theme "Kind" poPClass]
+            , H.Cells [uidCell theme "UID" poPUID]
+            , H.Cells [boolCell theme "Connected" poPConnected]
+            , H.Cells [typeCell theme "Type" poPType]
             ]
           }
 
 
-headerCell :: String -> H.Cell
-headerCell s = H.LabelCell [] $ H.Text [H.Format H.Bold [H.Str $ T.pack s]]
-
-dataCell :: String -> String -> H.Cell
-dataCell label dat = H.LabelCell [H.Align H.HLeft] $ H.Text [
-    H.Format H.Italics [H.Str . T.pack $ label ++ ": "]
-  , H.Str (T.pack dat)
-  ]
 
 writeGraph :: DotGraph String -> FilePath -> IO FilePath
 writeGraph dg fp = runGraphvizCommand Fdp dg Png fp
+
+-- * Shit to do with formatting *
+
+data Theme = Theme {
+    constructorFont :: [H.Attribute]
+  , boolFont        :: [H.Attribute]
+  , stringFont      :: [H.Attribute]
+  , intFont         :: [H.Attribute]
+  , floatFont       :: [H.Attribute]
+  , uidFont         :: [H.Attribute]
+  , constraintFont  :: [H.Attribute]
+  , resconsFont     :: [H.Attribute]
+  , resourceFont    :: [H.Attribute]
+  , fieldFont       :: [H.Attribute]
+  , opFont          :: [H.Attribute]
+  , dataFont        :: [H.Attribute]
+  }
+
+defaultTheme :: Theme
+defaultTheme = Theme{
+    constructorFont = [H.Color $ GV.X11Color NavyBlue      ]
+  , boolFont        = [H.Color $ GV.X11Color DarkOliveGreen]
+  , stringFont      = [H.Color $ GV.X11Color SlateGray     ]
+  , intFont         = [H.Color $ GV.X11Color Maroon        ]
+  , floatFont       = [H.Color $ GV.X11Color Maroon        ]
+  , uidFont         = [H.Color $ GV.X11Color DarkOrange2   ]
+  , constraintFont  = [H.Color $ GV.X11Color DarkViolet    ]
+  , resconsFont     = [H.Color $ GV.X11Color DarkViolet    ]
+  , resourceFont    = [H.Color $ GV.X11Color DarkTurquoise ]
+  , fieldFont       = [H.Color $ GV.X11Color DarkGreen]
+  , opFont          = [H.Color $ GV.X11Color Cyan4]
+  , dataFont        = []
+  }
+
+pattern Bold a = H.Format H.Bold a
+pattern Italics a = H.Format H.Bold a
+
+headerCell :: String -> H.Cell
+headerCell s = H.LabelCell [] $ H.Text [Bold [Italics [H.Str $ T.pack s]]]
+
+dataCell :: Theme -> String -> String -> H.Cell
+dataCell Theme{..} label dat = H.LabelCell [H.Align H.HLeft]
+    $  H.Text [Bold [H.Str . T.pack $ label ++ ": "]
+        , H.Font dataFont [H.Str . T.pack $ dat]]
+
+mkDataCell :: (Theme -> a -> [H.TextItem]) -> Theme -> String -> a -> H.Cell
+mkDataCell toText theme label dat = H.LabelCell [H.Align H.HLeft]
+    $ H.Text (Bold [H.Str . T.pack $ label ++ ": "] : toText theme dat)
+
+
+boolText :: Theme -> Bool -> [H.TextItem]
+boolText Theme{..} True  = [H.Font boolFont [H.Str "True" ]]
+boolText Theme{..} False = [H.Font boolFont [H.Str "False"]]
+
+boolCell :: Theme -> String -> Bool -> H.Cell
+boolCell = mkDataCell boolText
+
+stringText :: Theme -> String -> [H.TextItem]
+stringText Theme{..} s = [H.Font stringFont [H.Str . T.pack . show $ s]]
+
+stringCell :: Theme -> String -> String -> H.Cell
+stringCell = mkDataCell stringText
+
+intText :: Theme -> Integer -> [H.TextItem]
+intText Theme{..} i = [H.Font intFont [H.Str . T.pack . show $ i]]
+
+intCell :: Theme -> String -> Integer -> H.Cell
+intCell = mkDataCell intText
+
+floatText :: Theme -> Float -> [H.TextItem]
+floatText Theme{..} f = [H.Font floatFont [H.Str . T.pack . show $ f]]
+
+floatCell :: Theme -> String -> Float -> H.Cell
+floatCell = mkDataCell floatText
+
+uidText :: Theme -> UID' -> [H.TextItem]
+uidText Theme{..} u = [H.Font uidFont [H.Str . T.pack . show . unpack $ u]]
+
+uidCell :: Theme -> String -> UID' -> H.Cell
+uidCell = mkDataCell uidText
+
+spaceText :: [H.TextItem]
+spaceText = [H.Str . T.pack $ " "]
+
+lConcat :: [[s]] -> [s]
+lConcat = concat
+
+valueText :: Theme -> Value -> [H.TextItem]
+valueText theme@Theme{..} (getValue -> v)
+  | Int i <- v = appendCons "Int" intText i
+  | Bool b <- v = appendCons "Bool" boolText b
+  | Float f <- v = appendCons "Float" floatText f
+  | String s <- v = appendCons "String" stringText s
+  | UID u <- v = appendCons "UID" uidText u
+  | Record r <- v = appendCons "Record" recordText r
+  | KVTop a <- v = absurd a
+  | KVBot a <- v = absurd a
+  where
+    appendCons :: String -> (Theme -> a -> [H.TextItem]) -> a -> [H.TextItem]
+    appendCons cons toText dat = indentNL $ lConcat [
+        constructorText theme cons
+      , spaceText
+      , toText theme dat
+      ]
+
+valueCell :: Theme -> String -> Value -> H.Cell
+valueCell = mkDataCell valueText
+
+recordText :: Theme -> Record -> [H.TextItem]
+recordText theme@Theme{..}
+  = concatMap field . Map.assocs . rMap
+  where
+    field :: (String,Value) -> [H.TextItem]
+    field (s,v) = lConcat [
+        [newline]
+      , fieldText theme s
+      , spaceText
+      , opText theme "<:="
+      , spaceText
+      , valueText theme v
+      ]
+
+recordCell :: Theme -> String -> Record -> H.Cell
+recordCell = mkDataCell recordText
+
+typeText :: Theme -> Record -> [H.TextItem]
+typeText t r = valueText t (Value (Record r))
+
+typeCell :: Theme -> String -> Record -> H.Cell
+typeCell = mkDataCell typeText
+
+constructorText :: Theme -> String -> [H.TextItem]
+constructorText Theme{..} s = [H.Font constructorFont [H.Str . T.pack $ s]]
+
+constraintText :: Theme -> String -> [H.TextItem]
+constraintText Theme{..} s = [H.Font constraintFont [H.Str . T.pack $ s]]
+
+resconsText :: Theme -> String -> [H.TextItem]
+resconsText Theme{..} s = [H.Font resconsFont [H.Str . T.pack $ s]]
+
+fieldText :: Theme -> String -> [H.TextItem]
+fieldText Theme{..} s = [Italics [H.Font fieldFont [H.Str . T.pack $ s]]]
+
+opText :: Theme -> String -> [H.TextItem]
+opText Theme{..} s = [Bold [H.Font opFont [H.Str . T.pack $ s]]]
+
+indentItem :: H.TextItem -> H.TextItem
+indentItem (H.Str s)
+  = H.Str (T.append "    " s)
+indentItem f@(H.Font a l)
+  = H.Font a $ indent l
+indentItem f@(H.Format a l)
+  = H.Format a $ indent l
+indentItem n@(H.Newline _) = n
+
+indentNL :: [H.TextItem] -> [H.TextItem]
+indentNL (n@(H.Newline _):ts) = n : indent ts
+indentNL (t:ts) = t : indentNL ts
+indentNL [] = []
+
+indent :: [H.TextItem] -> [H.TextItem]
+indent (t@(H.Newline _):ts) = t : indent ts
+indent (t:ts) = indentItem t : indentNL ts
+indent [] = []
+
+newline :: H.TextItem
+newline = H.Newline [H.Align H.HLeft]
