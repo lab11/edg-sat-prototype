@@ -148,6 +148,9 @@ import Control.Lens.Ether.Implicit hiding ((:<),(:>))
 import Data.Maybe (fromJust)
 import GHC.Exts (Item,IsList)
 import Control.Newtype
+import Text.Printf
+import Control.Exception
+import System.CPUTime
 
 import qualified Algebra.Lattice as A (
     bottom
@@ -794,33 +797,34 @@ synthesize l n s = synthesizeWithSettings defaultSettings l [(n,s)]
 -- | TODO
 synthesizeWithSettings :: EDGSettings
                        -> EDGLibrary -> [(String,Module ())] -> IO ()
-synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
-  ss <- IO.newIORef (undefined :: E.SBVState)
-  let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
-  solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
-  case solution of
-    SBV.SatResult (SBV.Satisfiable _ _) -> do
-      sbvState <- IO.readIORef ss
-      let decodeState = E.buildDecodeState gatherState sbvState
-          decodeResult' = E.decodeResult decodeState solution sm
-      case decodeResult' of
-        Left s -> do
-          putStrLn $ "Resulting solution was : "
-          E.pPrint $ solution
-          putStrLn $ "\n\n"
-          putStrLn $ "Decode of solution failed with : " ++ s
-          return ()
-        Right decodeResult -> do
-          -- Print output (TODO :: w/ options)
-          E.pPrint decodeResult
-          -- TODO :: Write output to file
-          -- Write Graphviz to File (TODO :: w/ options)
-          E.writeGraph (E.genGraph decodeResult) "test.png"
-          -- TODO :: Display
-          return ()
-    _ -> do
-      E.pPrint solution
-      return ()
+synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
+  time "Design Synthesis" $ do
+    ss <- IO.newIORef (undefined :: E.SBVState)
+    let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
+    solution <- SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
+    case solution of
+      SBV.SatResult (SBV.Satisfiable _ _) -> do
+        sbvState <- IO.readIORef ss
+        let decodeState = E.buildDecodeState gatherState sbvState
+            decodeResult' = E.decodeResult decodeState solution sm
+        case decodeResult' of
+          Left s -> do
+            putStrLn $ "Resulting solution was : "
+            E.pPrint $ solution
+            putStrLn $ "\n\n"
+            putStrLn $ "Decode of solution failed with : " ++ s
+            return ()
+          Right decodeResult -> do
+            -- Print output (TODO :: w/ options)
+            E.pPrint decodeResult
+            -- TODO :: Write output to file
+            -- Write Graphviz to File (TODO :: w/ options)
+            E.writeGraph (E.genGraph decodeResult) "test.png"
+            -- TODO :: Display
+            return ()
+      _ -> do
+        E.pPrint solution
+        return ()
 
   where
     edgm = do
@@ -843,6 +847,16 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds = do
       = map (\ (num,m) -> (name ++ "[" ++ show num ++ "]",m))
         . zip [1..] . replicate count $ b
 
+    time :: String -> IO t -> IO t
+    time s a = do
+        putStrLn $ "Starting : " ++ s
+        start <- getCPUTime
+        v <- a
+        end   <- getCPUTime
+        putStrLn $ "Finished : " ++ s
+        let diff = (fromIntegral (end - start)) / (10^12)
+        printf "Computation time: %0.3f sec\n" (diff :: Double)
+        return v
 -- * Utility Functions
 
 -- | TODO

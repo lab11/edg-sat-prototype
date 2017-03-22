@@ -116,18 +116,18 @@ ledDriver = do
       , "data" <:= Record [
             "signal" <:= StringV "LED"
           , "id" <:= UID
+          , "name" <:= StringC unknown
           ]
       ]
     return ()
   output <- addPort "swAPIOut" $ do
-    swPort
-    setIdent "LEDDriver"
+    swLEDPort
+    -- setIdent "LEDDriver"
     setType [
-        "data" <:= unknown
-      , "apiDir" <:= StringV "producer"
+      "apiDir" <:= StringV "producer"
       ]
     return ()
   constrain $ (port input  $ typeVal "data")
           :== (port output $ typeVal "data")
-  constrain $ port input connected :=> port output connected
+  --constrain $ port input connected :== port output connected
   return ()

@@ -140,8 +140,8 @@ instance (
       vl = Map.isSubmapOfBy (leq) rcMap rcMap'
 
 instance (Eq t, Constrainable t, JoinSemiLattice (Ambiguous t)) => JoinSemiLattice (RecordCons t) where
-  (\/) RCTop _ = RCTop
-  (\/) _ RCTop = RCTop
+  (\/) a _ | unSAT a = error ("value is unSat")
+  (\/) _ a | unSAT a = error ("value is unSat")
   (\/) RCBottom a = a
   (\/) a RCBottom = a
   -- We're good if keys match, and the joins of each element are also not top.
