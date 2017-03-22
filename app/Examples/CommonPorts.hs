@@ -47,6 +47,7 @@ powerOut = do
       "voltage" <:= FloatC $ unknown
     , "current" <:= FloatC $ unknown
     ]
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
 -- | Since these are all normal haskell objects, it's easy enough to use
@@ -103,15 +104,21 @@ fixedPowerOut identPrefix v vErr maxI = do
   -- They are identical, and 'return ()' is probably better practice.
   return ()
 
--- Power input
-powerIn :: (IsPort p) => p ()
-powerIn = do
+-- Power input that can be used as a magic power source
+dummyPowerIn :: (IsPort p) => p ()
+dummyPowerIn = do
   setIdent "PowerIn"
   setKind "VIN"
   setType [
       "voltage" <:= FloatC $ unknown
     , "current" <:= FloatC $ unknown
     ]
+  return ()
+
+-- Actual power input
+powerIn :: (IsPort p) => p ()
+powerIn = do
+  dummyPowerIn
   constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
@@ -134,7 +141,7 @@ gpioHW = do
       -- records whose fields you don't know.
     , "data" <:= unknown
     ]
-
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
 -- The software side of a GPIO port
@@ -164,6 +171,7 @@ gpioRes = do
     , "direction" <:= StringC $ oneOf ["I","O","IO"]
     , "bandwidth" <:= FloatC $ unknown -- Hz
     ]
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
 -- This is an interesting one, we're making the GPIO driver here
