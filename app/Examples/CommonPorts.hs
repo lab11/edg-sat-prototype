@@ -14,20 +14,20 @@ swPort = do
     ]
   return ()
 
--- LED SW port
+-- Data definitions
+ledData :: () => AmbigVal
+ledData = Record [
+    "name" <:= StringC unknown
+  , "signal" <:= StringV "LED"
+  , "id" <:= UID
+  ]
 
-swLEDPort :: (IsPort p) => p ()
-swLEDPort = do
-  swPort
-  setIdent "SW-LED-Interface"
-  setType [
-      "data" <:= Record [
-            "name" <:= StringC unknown
-          , "signal" <:= StringV "LED"
-          , "id" <:= UID
-        ]
-    ]
-  return ()
+switchData :: () => AmbigVal
+switchData = Record [
+    "name" <:= StringC unknown
+  , "signal" <:= StringV "Switch"
+  , "id" <:= UID
+  ]
 
 -- Power output
 powerOut :: (IsPort p) => p ()
@@ -47,6 +47,7 @@ powerOut = do
       "voltage" <:= FloatC $ unknown
     , "current" <:= FloatC $ unknown
     ]
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
 -- | Since these are all normal haskell objects, it's easy enough to use
@@ -103,15 +104,21 @@ fixedPowerOut identPrefix v vErr maxI = do
   -- They are identical, and 'return ()' is probably better practice.
   return ()
 
--- Power input
-powerIn :: (IsPort p) => p ()
-powerIn = do
+-- Power input that can be used as a magic power source
+dummyPowerIn :: (IsPort p) => p ()
+dummyPowerIn = do
   setIdent "PowerIn"
   setKind "VIN"
   setType [
       "voltage" <:= FloatC $ unknown
     , "current" <:= FloatC $ unknown
     ]
+  return ()
+
+-- Actual power input
+powerIn :: (IsPort p) => p ()
+powerIn = do
+  dummyPowerIn
   constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
@@ -134,7 +141,7 @@ gpioHW = do
       -- records whose fields you don't know.
     , "data" <:= unknown
     ]
-
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
   return ()
 
 -- The software side of a GPIO port
@@ -150,6 +157,23 @@ gpioSW = do
     ]
   return ()
 
+-- The MCU resource that a GPIO port represents.
+-- TODO: unify with gpioSW, gpioHW
+gpioRes :: (IsPort p) => p ()
+gpioRes = do
+  setIdent "gpio-resource"
+  setKind "GPIORES"
+  setType [
+      -- Pin proerties
+      "current" <:= FloatC $ unknown -- Amps
+    , "voltage" <:= FloatC $ unknown -- Volts
+      -- Interface pro
+    , "direction" <:= StringC $ oneOf ["I","O","IO"]
+    , "bandwidth" <:= FloatC $ unknown -- Hz
+    ]
+  constrain $ Not connected :=> (typeVal "current" :== (Lit $ FloatV 0))
+  return ()
+
 -- This is an interesting one, we're making the GPIO driver here
 -- implicit, so that a single generic linktype is capable of capturing
 -- all gpio connections, the assumption is that during reification
@@ -161,18 +185,33 @@ gpioLink = do
   setSignature "gpio link"
   -- the resource the link needs
   res <- addPort "resource" $ do
+    gpioRes
     return ()
+
   -- the sw interface port
   sw  <- addPort "software" $ do
+    gpioSW
     return ()
+
   -- the hw interface port
   hw <- addPort "hardware" $ do
+    gpioHW
     return ()
+
   -- ensure the software direction types are correct.
+  constrain $ port sw (typeVal "data") :== port hw (typeVal "data")
 
   -- ensure that all the properties between all the ports match up
+  constrain $ port res (typeVal "bandwidth") :== port sw (typeVal "bandwidth")
+  constrain $ port res (typeVal "direction") :== port sw (typeVal "direction")
+  constrain $ port res (typeVal "direction") :== port hw (typeVal "direction")
+  constrain $ port res (typeVal "current") :== port hw (typeVal "current")
+  constrain $ port res (typeVal "voltage") :== port hw (typeVal "voltage")
 
   -- ensure that the correct port connection requirements exist
+  constrain $ port res connected :== port sw connected
+  constrain $ port res connected :== port hw connected
+
   return ()
 
 powerLink :: Int  -- number of sinks

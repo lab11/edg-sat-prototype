@@ -35,7 +35,7 @@ mcu = do
       -- good examples.
       -- Putting multiple such constraints in a list is analogous to and-ing
       -- all of the subcosntraints together.
-    , "exampleVoltage" <:= FloatC [5 +/- 0.5, lessThan 12]
+    --, "exampleVoltage" <:= FloatC [5 +/- 0.5, lessThan 12]
 
       -- It's probably also good practice making values like this part of the
       -- type, though if you're doing something generic, don't set a single
@@ -43,7 +43,7 @@ mcu = do
       --
       -- Future calls to 'setType' and 'updateType' (literally the same
       -- function) can only add fields or *further constrain* the type.
-    , "maxSourceCurrent" <:= FloatC $ greaterThan 0.0
+    --,  "maxSourceCurrent" <:= FloatC $ greaterThan 0.0
     ]
 
   -- The 'addPort' function in a module or link allows you to add ports.
@@ -76,8 +76,8 @@ mcu = do
 
       -- And constrain the type signature a bit more.
       setType [
-          "current" <:= FloatC $ oneOf [0,3.3] -- Amps
-        , "voltage" <:= FloatC $ 0.0 +/- 0.02 -- Volts
+          "current" <:= FloatC $ 0.0 +/- 0.02 -- Amps
+        , "voltage" <:= FloatC $ 1.65 +/- 1.65 -- Volts
         , "bandwidth" <:= FloatV 1000 -- Hz
         ]
 
@@ -107,12 +107,28 @@ mcu = do
     constrainResources constraintName (port gpio $ connected) ["Pin" :|= pins]
     )
 
+  -- create a dummy port for total input power, from the USB jack
+  powerIn <- addPort "USBIn" $ dummyPowerIn
+  constrain $ Not (port powerIn connected)  -- not to be used in the circuit
+
+  constrain $ port powerIn (typeVal "voltage") :== port "5vOut" (typeVal "voltage")
+
+  constrain $ port powerIn (typeVal "current") :== Sum (
+    -- We can refer to ports by their names
+    (port "5vOut" $ typeVal "current") :
+    -- Or using the identifiers we've gotten for them.
+    (port p3v3 $ typeVal "current") :
+    -- and we can use normal Haskell syntax here
+    (map (\ gpio -> port gpio $ typeVal "current") gpios))
+
+  constrain $ port powerIn (typeVal "current") :<= Lit (FloatV 0.5)  -- USB limited to 500mA
+
   -- Now we can use further constrain the type signature of this module.
   -- Admittedly, in this case this is useless, but in cases where you're
   -- repeating a lot of work, it is probably useful to abstract the major
   -- constraints away, pull them into the type, and then constrain them
   -- for the specific element you're working with.
-  updateType ["current" <:= FloatV 5.0]
+  --updateType ["current" <:= FloatV 5.0]
 
   -- We can also assemble constraints as if they were values here, it's
   -- super nice.
@@ -121,13 +137,13 @@ mcu = do
   -- It just unwraps into iterated ':+' under the hood, but whatever.
   --
   -- Note: ':' is the haskell cons operator so '[1,2,3] == (1:2:3:[])'
-  constrain $ typeVal "maxSourceCurrent" :>= Sum (
-    -- We can refer to ports by their names
-    (port "5vOut" $ typeVal "current") :
-    -- Or using the identifiers we've gotten for them.
-    (port p3v3 $ typeVal "current") :
-    -- and we can use normal Haskell syntax here
-    (map (\ gpio -> port gpio $ typeVal "current") gpios))
+  --constrain $ typeVal "maxSourceCurrent" :>= Sum (
+  --  -- We can refer to ports by their names
+  --  (port "5vOut" $ typeVal "current") :
+  --  -- Or using the identifiers we've gotten for them.
+  --  (port p3v3 $ typeVal "current") :
+  --  -- and we can use normal Haskell syntax here
+  --  (map (\ gpio -> port gpio $ typeVal "current") gpios))
 
   -- For a number of reasons we need to end each definition of a module or
   -- port with either an 'endDef' or 'return ()' if you want to use it
@@ -143,34 +159,19 @@ mcu = do
   -- statement in a block)
   endDef
 
--- The MCU resource that a GPIO port represents.
-gpioRes :: (IsPort p) => p ()
-gpioRes = do
-  setIdent "gpio-resource"
-  setKind "GPIORES"
-  setType [
-      -- Pin proerties
-      "current" <:= FloatC $ unknown -- Amps
-    , "voltage" <:= FloatC $ unknown -- Volts
-      -- Interface pro
-    , "direction" <:= StringC $ oneOf ["I","O","IO"]
-    , "bandwidth" <:= FloatC $ unknown -- Hz
-    ]
-  return ()
-
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
-        ("button",3,button)
-    --  , ("buttonDriver",3,buttonDriver)
-      , ("led",3,led)
-      , ("ledDriver",3,ledDriver)
+        ("button",1,button)
+      , ("buttonDriver",1,buttonDriver)
+      , ("led",1,led)
+      , ("ledDriver",1,ledDriver)
       , ("mcu",1,mcu)
       ]
   , links   = [
         ("pwerLink",2,powerLink 4)
       , ("swLink",2,swLink)
-    --  , ("gpioLink",1,gpioLink)
+      , ("gpioLink",2,gpioLink)
       ]
   }
 
@@ -180,17 +181,26 @@ seed = do
   setSignature "controlLogic"
 
   led1 <- addPort "LED1" $ do
-    swLEDPort
-    -- setIdent "LEDDriver"
+    swPort
     setType [
-       "data" <:= Record [
-          "name" <:= StringV "LED1"
-            ]
+        "data" <:= ledData
       , "apiDir" <:= StringV "consumer"
       ]
     return ()
 
   constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED1")
+
+  switch1 <- addPort "Switch1" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch1")
 
   -- ### Values I'm using to test graphviz output ###
 
