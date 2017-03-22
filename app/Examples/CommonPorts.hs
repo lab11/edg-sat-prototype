@@ -175,10 +175,9 @@ powerLink numSinks = do
       powerIn
       return()
 
-  constrain $ port source connected
   -- Ensure at lease one sink is connected
-  constrain $ Sum(map (\ sink -> If (port sink connected) ((Lit $ IntV 1)) ((Lit $ IntV 0))) sinks)
-    :>= (Lit $ IntV 1)
+  constrain $ port source connected :== Any(map (\ sink -> port sink connected) sinks)
+
   flip mapM sinks $ \ sink ->
     constrain $ (port source $ typeVal "voltage")
             :== (port sink   $ typeVal "voltage")
