@@ -28,9 +28,16 @@ import qualified Data.SBV as S
 import Control.Monad.Scribe
 import Control.Monad.Identity (Identity)
 
+import Control.Monad.Trans.Class
+-- import Control.Monad.Ether.Implicit
 import Control.Lens.Ether.Implicit
+import Control.Monad.Ether.Implicit.Writer
+import Control.Monad.Ether.Implicit.Reader
+import Control.Monad.Ether.Implicit.Except
+import Control.Monad.Ether.Implicit.State.Strict
 import Control.Lens.TH
 
+import Control.Lens.TH
 import Algebra.PartialOrd
 import Algebra.Lattice
 

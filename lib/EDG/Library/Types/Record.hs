@@ -151,6 +151,8 @@ instance (Eq t, Constrainable t, JoinSemiLattice (Ambiguous t)) => JoinSemiLatti
     | otherwise = RCTop
     where
       joinRC = RCAmbig $ Map.unionWith (\/) aMap bMap
+  (\/) _ _ = error $ "These states should be caught by calls to unSAT, this "
+    ++ "should be unreachable."
 
 instance (Eq t,Constrainable t, MeetSemiLattice (Ambiguous t)) => MeetSemiLattice (RecordCons t) where
   (/\) RCBottom _ = RCBottom
