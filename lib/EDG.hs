@@ -154,6 +154,8 @@ import Text.Printf
 import Control.Exception
 import System.CPUTime
 import Control.Monad
+import Control.Exception (evaluate)
+import Control.DeepSeq
 
 import Options.Applicative
 import Data.Semigroup ((<>))
@@ -857,14 +859,20 @@ synthesizeWithSettings :: EDGSettings
 synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
   time "Design Synthesis" $ do
     ss <- IO.newIORef (undefined :: E.SBVState)
-    let (symbM,gatherState,sm) = E.runEDGMonad (Just ss) edgm
+    -- Solve the initial sat problem
+    (symbM,gatherState,sm) <- time "Precomputation" $
+      evaluate (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
     solution <- time "Sat Solving" $
       SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
         sbvState <- IO.readIORef ss
-        let decodeState = E.buildDecodeState gatherState sbvState
-            decodeResult' = E.decodeResult decodeState solution sm
+        (decodeState,decodeResult') <- time "Decoding SAT Output" $ do
+            decodeState <- evaluate . force $
+              E.buildDecodeState gatherState sbvState
+            decodeResult' <- evaluate . force $
+              E.decodeResult decodeState solution sm
+            return (decodeState, decodeResult)
         case decodeResult' of
           Left s -> do
             putStrLn $ "Resulting solution was : "

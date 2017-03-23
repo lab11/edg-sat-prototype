@@ -229,7 +229,11 @@ library
     -- More powerful Text Type 
     text,
     -- Argument Handling 
-    optparse-applicative, 
+    optparse-applicative,
+    -- Allows for evaluation of data into a 
+    -- complete normal form, that should be
+    -- significantly faster
+    deepseq,
     -- -- Convinient ordered list functions
     -- data-ordlist >= 0.4.7.0,
     -- -- Used to interleave monadic actions in weird ways
