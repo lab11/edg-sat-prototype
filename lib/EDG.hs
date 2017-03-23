@@ -160,6 +160,7 @@ import GHC.Generics
 
 import Options.Applicative
 import Data.Semigroup ((<>))
+import Debug.Trace
 
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -904,16 +905,17 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     edgm = do
       let ls = concat . map makeDups $ links
           ms = concat . map makeDups $ modules
-      mapM_ (uncurry E.addLink) ls
-      mapM_ (uncurry E.addModule) ms
-      seedRefs <- flip mapM seeds $ \(seedName,seedModule) -> do
-        seed <- E.addModule seedName seedModule
-        E.assertModuleUsed seed
-        return seed
+      trace "adding links" $ mapM_ (uncurry E.addLink) ls
+      trace "adding modules" $ mapM_ (uncurry E.addModule) ms
+      seedRefs <- trace "adding seeds" $
+        flip mapM seeds $ \(seedName,seedModule) -> do
+          seed <- E.addModule seedName seedModule
+          E.assertModuleUsed seed
+          return seed
       -- NOTE :: Any changes must happen before this point otherwise
       --         you'll break the optional constraints thing.
-      E.createAllOptionalConnections
-      E.finishUpConstraints
+      trace "adding connections" $ E.createAllOptionalConnections
+      trace "cleaning up first pass" $ E.finishUpConstraints
       return (head seedRefs)
 
     makeDups :: (String,Int,b) -> [(String,b)]

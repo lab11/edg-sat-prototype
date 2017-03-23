@@ -141,8 +141,8 @@ import EDG.AssembleGraph (
   )
 
 addModule :: String -> ElemM Module () -> EDGMonad (Ref Module)
-addModule s m = embedModule s $ runElemM m
+addModule s m = trace ("  adding module : " ++ s ) $ embedModule s $ runElemM m
 
 addLink :: String -> ElemM Link () -> EDGMonad (Ref Link)
-addLink s m = embedLink s $ runElemM m
+addLink s m = trace ("  adding link : " ++ s) $ embedLink s $ runElemM m
 

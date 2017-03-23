@@ -362,11 +362,12 @@ createOptionalConnection rl rm = errContext context $ do
     Nothing -> throw $ "Could not find modulePort with name `" ++ show rl ++ "`"
     Just mpi -> return mpi
   if (mpi ^. pDesc . pClass :: String) == (lpi ^. pDesc . pClass :: String)
-    then Just <$> areElemPortsConnected rl rm
+    then trace s $ Just <$> areElemPortsConnected rl rm
     else errContext ("port `" ++ show rl ++ "` and `" ++ show rm ++ "` "
         ++ "don't have the same class.") $ return Nothing
   where
     context = "createOptionalConnection `" ++ show rl ++ "` `" ++ show rm ++ "`"
+    s = "  addinc connection : " ++ unpack rl ++ " <-> " ++ unpack rm
 
 createAllOptionalConnections :: EDGMonad (Map (Ref LinkPort, Ref ModPort)
   (Ref Value))
