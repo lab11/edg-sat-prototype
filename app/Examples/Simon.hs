@@ -64,7 +64,7 @@ mcu = do
   -- function to turn it into
   --
   -- flip f a b = f b a -- flips the arguments around
-  gpios <- flip mapM ["gpio1","gpio2","gpio3","gpio4"] $ \ name ->
+  gpios <- flip mapM ["gpio1","gpio2","gpio3","gpio4", "gpio5","gpio6","gpio7","gpio8"] $ \ name ->
     -- In the function we're mapping with, we take the name of the port,
     -- constrain it further, and add it to the module.
     addPort name $ do
@@ -162,16 +162,16 @@ mcu = do
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
-        ("button",1,button)
-      , ("buttonDriver",1,buttonDriver)
-      , ("led",1,led)
-      , ("ledDriver",1,ledDriver)
+        ("button",4,button)
+      , ("buttonDriver",4,buttonDriver)
+      , ("led",4,led)
+      , ("ledDriver",4,ledDriver)
       , ("mcu",1,mcu)
       ]
   , links   = [
-        ("pwerLink",2,powerLink 4)
-      , ("swLink",2,swLink)
-      , ("gpioLink",2,gpioLink)
+        ("pwerLink",8,powerLink 8)
+      , ("swLink",8,swLink)
+      , ("gpioLink",8,gpioLink)
       ]
   }
 
@@ -188,6 +188,8 @@ seed = do
       ]
     return ()
 
+
+
   constrain $ port led1 connected
   constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED1")
 
@@ -201,6 +203,79 @@ seed = do
 
   constrain $ port switch1 connected
   constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch1")
+
+  led1 <- addPort "LED2" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED2")
+
+  switch1 <- addPort "Switch2" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch2")
+
+
+  led1 <- addPort "LED3" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED3")
+
+  switch1 <- addPort "Switch3" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch3")
+
+  led1 <- addPort "LED4" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED4")
+
+  switch1 <- addPort "Switch4" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch4")
 
   -- ### Values I'm using to test graphviz output ###
 
