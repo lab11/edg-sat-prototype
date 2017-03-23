@@ -4,6 +4,7 @@
 module EDG.Expression where
 
 import Data.Foldable (foldrM)
+import Control.DeepSeq
 
 -- | Type for arbitrary expressions within the system.
 --
@@ -88,6 +89,37 @@ class (
   type ExpValue   m :: *
   -- The type of a pointer and the flag it gets
   type ExpLiteral m :: *
+
+instance (ExpContext e, NFData (ExpValue e), NFData (ExpLiteral e))
+  => NFData (Exp e) where
+  rnf e
+    | Lit l     <- e = rnf l
+    | Val v     <- e = rnf v
+    | a :== b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :/= b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :&& b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :|| b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :~& b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :~| b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :<+> b  <- e = rnf @[_] [rnf a, rnf b]
+    | a :=> b   <- e = rnf @[_] [rnf a, rnf b]
+    | Not a     <- e = rnf a
+    | JustOne l <- e = rnf l
+    | All l     <- e = rnf l
+    | Any l     <- e = rnf l
+    | a :< b    <- e = rnf @[_] [rnf a, rnf b]
+    | a :<= b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :> b    <- e = rnf @[_] [rnf a, rnf b]
+    | a :>= b   <- e = rnf @[_] [rnf a, rnf b]
+    | a :+ b    <- e = rnf @[_] [rnf a, rnf b]
+    | a :- b    <- e = rnf @[_] [rnf a, rnf b]
+    | a :* b    <- e = rnf @[_] [rnf a, rnf b]
+    -- XX | a :/ b    <- e = (conv a) :/  (conv b)
+    | Negate a  <- e = rnf a
+    | Sum l     <- e = rnf l
+    | Mult l    <- e = rnf l
+    | Count l   <- e = rnf l
+    | If c t f  <- e = rnf @[_] [rnf c, rnf t, rnf f]
 
 class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
   -- The intermidate type of an expression that use used as this

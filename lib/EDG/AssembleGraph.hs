@@ -20,6 +20,8 @@ import EDG.Expression
 import EDG.EDGDatatype
 
 import EDG.EDGMonad
+import GHC.Generics
+import Control.DeepSeq
 
 import Control.Monad.Ether.Implicit
 import Control.Lens.Ether.Implicit
@@ -58,6 +60,8 @@ data UIDData = UIDData {
 deriving instance Eq   UIDData
 deriving instance Show UIDData
 deriving instance Read UIDData
+deriving instance Generic UIDData
+deriving instance NFData UIDData
 
 buildUIDData :: GatherState -> UIDData
 buildUIDData gs = UIDData {
@@ -106,26 +110,24 @@ data DecodeElem n = Elem {
   , dePorts :: Map PortName (Maybe (Ident,PortName))
   , deResourceConstraints :: Map ResConName
       (Maybe (Map ResourceTag ResourceName))
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 data DecodeGraph = DecodeGraph {
     dgLinks :: Map (Ref Link) (DecodeElem Link)
   , dgModules :: Map (Ref Module) (DecodeElem Module)
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 data DecodeBlock = DecodeBlock{
     dbModules :: Map (Ref Module) (ElemOut Module ModPort)
   , dbLinks :: Map (Ref Link) (ElemOut Link LinkPort)
   , dbGraph :: DecodeGraph
-  } deriving (Eq, Show, Read)
-
-
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 data IncDecState = IncDecState {
     idsBlock :: DecodeBlock
   , idsLinkQueue :: Set (Ref Link)
   , idsModuleQueue :: Set (Ref Module)
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 type IDC = IncDecState
 

@@ -41,6 +41,9 @@ import Control.Monad.Ether.Implicit.Except
 import Control.Monad.Ether.Implicit.State.Strict
 import Control.Lens.TH
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Algebra.PartialOrd
 import Algebra.Lattice
 
@@ -105,6 +108,9 @@ data GatherState = GatherState {
 -- unambiguous created later on. There's no real recursion or anything.
 deriving instance (ExpContext EDG) => Show GatherState
 deriving instance (ExpContext EDG) => Read GatherState
+deriving instance () => Generic GatherState
+deriving instance (ExpContext EDG, NFData (ExpValue EDG)
+  ,NFData (ExpLiteral EDG)) => NFData GatherState
 
 -- Sigh, this TH splice has to come after all the types used in the datatype
 -- and before any uses of the relevant
@@ -150,6 +156,13 @@ data SBVState = SBVState {
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: Bimap Integer String
   } deriving (Show)
+
+instance NFData SBVState where
+  -- | We're explicitly not trying to evaluate each of the SBV variables
+  --   here since that would defeat the purpose of reducing this to some
+  --   normal form.
+  rnf SBVState{..} = rnf @[_] [rnf ssValInfo, rnf ssRecInfo
+    , rnf ssRecordKinds]
 
 makeLensesWith abbreviatedFields ''SBVState
 

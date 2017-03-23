@@ -32,11 +32,13 @@ executable edg-prototype
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
+    BangPatterns
     ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
     DeriveDataTypeable
+    DeriveGeneric
     DuplicateRecordFields
     EmptyDataDecls
     ExistentialQuantification
@@ -133,7 +135,6 @@ library
     -- EDG.EDGInstances -- Converting low level types into something SBV can handle
     -- TODO :: Reorganize these.
     EDG.EDGMonad
-    EDG.EDGProblem
     EDG.EDGInstances
     EDG.EDGInstances.Bool
     EDG.EDGInstances.String
@@ -145,7 +146,6 @@ library
     EDG.ElemIncludes
     EDG.ElemTypes
     EDG.PortTypes
-    EDG.ElemProblem
     EDG.Elements
     EDG.Elements.Port
     EDG.Elements.Elem
@@ -157,11 +157,13 @@ library
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
+    BangPatterns
     ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
     DeriveDataTypeable
+    DeriveGeneric
     DuplicateRecordFields
     EmptyDataDecls
     ExistentialQuantification
@@ -254,8 +256,6 @@ library
   ghc-options:
     -ddump-splices
     -fwarn-incomplete-patterns
-    -fwarn-incomplete-uni-patterns
-    -fprint-potential-instances
 
 test-suite edg-prototype-test
   type: exitcode-stdio-1.0
@@ -301,11 +301,13 @@ test-suite edg-prototype-test
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
+    BangPatterns
     ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
     DeriveDataTypeable
+    DeriveGeneric
     DuplicateRecordFields
     EmptyDataDecls
     ExistentialQuantification

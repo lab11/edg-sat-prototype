@@ -31,6 +31,10 @@ import EDG.EDGDatatype
 import EDG.EDGMonad hiding (trace)
 import EDG.EDGInstances
 
+
+import GHC.Generics
+import Control.DeepSeq
+
 import Debug.Trace
 
 import EDG.Elements.Port

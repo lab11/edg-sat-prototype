@@ -796,6 +796,7 @@ data EDGSettings = EDGSettings {
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
   , graphvizFile :: Maybe FilePath
+  , smtlibFile :: Maybe FilePath
   }
 
 -- | TODO

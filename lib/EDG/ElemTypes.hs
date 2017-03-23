@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Types for emodules and links in the design,
 module EDG.ElemTypes where
@@ -29,6 +30,10 @@ import Control.Monad.Ether.Implicit.Except
 import Control.Monad.Ether.Implicit.State.Strict
 import Control.Lens.TH
 
+
+import GHC.Generics
+import Control.DeepSeq
+
 import EDG.Library.Types
 import EDG.PortTypes
 
@@ -51,6 +56,10 @@ data ResourceCons a = ResourceCons {
 deriving instance (ExpContext a) => Eq   (ResourceCons a)
 deriving instance (ExpContext a) => Show (ResourceCons a)
 deriving instance (ExpContext a) => Read (ResourceCons a)
+deriving instance (ExpContext a) => Generic (ResourceCons a)
+deriving instance (ExpContext a
+  , NFData (ExpValue a), NFData (ExpLiteral a)
+  ) => NFData (ResourceCons a)
 
 -- | The Element monad, which we use to let people more easily assemble
 --   complex monads.
@@ -115,6 +124,11 @@ instance Monoid (ElemState a b) where
 deriving instance (ExpContext a, ExpContext b) => Eq   (ElemState a b)
 deriving instance (ExpContext a, ExpContext b) => Show (ElemState a b)
 deriving instance (ExpContext a, ExpContext b) => Read (ElemState a b)
+deriving instance () => Generic (ElemState a b)
+deriving instance (ExpContext a, ExpContext b
+  , NFData (ExpValue a), NFData (ExpLiteral a)
+  , NFData (ExpValue b), NFData (ExpLiteral b)
+  ) => NFData (ElemState a b)
 
 -- | The type of somthing that indexes into the the type of an element
 type TypeIndex = [String]
@@ -210,6 +224,8 @@ evSetType cons = do
 deriving instance () => Eq   (ElemValue a b)
 deriving instance () => Show (ElemValue a b)
 deriving instance () => Read (ElemValue a b)
+deriving instance () => Generic (ElemValue a b)
+deriving instance () => NFData (ElemValue a b)
 
 type ES' a b = ElemState a b
 type ES  a   = ES' a (Portify a)
@@ -240,6 +256,11 @@ data ElemDesc a b = ElemDesc {
 deriving instance (ExpContext a, ExpContext b) => Eq   (ElemDesc a b)
 deriving instance (ExpContext a, ExpContext b) => Show (ElemDesc a b)
 deriving instance (ExpContext a, ExpContext b) => Read (ElemDesc a b)
+deriving instance () => Generic (ElemDesc a b)
+deriving instance (ExpContext a, ExpContext b
+  , NFData (ExpValue a), NFData (ExpLiteral a)
+  , NFData (ExpValue b), NFData (ExpLiteral b)
+  ) => NFData (ElemDesc a b)
 
 convertElemState :: (ExpContext b,
                     MonadExcept String m,NamedMonad m, b ~ Portify a)
@@ -271,6 +292,8 @@ data ResourceInfo = ResourceInfo {
 deriving instance () => Eq   (ResourceInfo)
 deriving instance () => Show (ResourceInfo)
 deriving instance () => Read (ResourceInfo)
+deriving instance () => Generic (ResourceInfo)
+deriving instance () => NFData (ResourceInfo)
 
 data ResourceTagInfo = ResourceTagInfo {
     rtiUsed  :: Ref Value
@@ -281,6 +304,8 @@ data ResourceTagInfo = ResourceTagInfo {
 deriving instance () => Eq   (ResourceTagInfo)
 deriving instance () => Show (ResourceTagInfo)
 deriving instance () => Read (ResourceTagInfo)
+deriving instance () => Generic (ResourceTagInfo)
+deriving instance () => NFData (ResourceTagInfo)
 
 -- | The interior datatype of an element which keeps track of all the
 --   references that are relevant, and ensures they're retrievable for
@@ -308,6 +333,11 @@ data ElemInfo n p = ElemInfo {
 deriving instance (ExpContext n,ExpContext p) => Eq   (ElemInfo n p)
 deriving instance (ExpContext n,ExpContext p) => Show (ElemInfo n p)
 deriving instance (ExpContext n,ExpContext p) => Read (ElemInfo n p)
+deriving instance () => Generic (ElemInfo n p)
+deriving instance (ExpContext n,ExpContext p
+  , NFData (ExpValue n), NFData (ExpLiteral n)
+  , NFData (ExpValue p), NFData (ExpLiteral p)
+  ) => NFData (ElemInfo n p)
 
 -- | The output type of an element, what we end up extracting from the
 --   finished SATSolver output.
@@ -340,6 +370,8 @@ data ElemOut a b = ElemOut {
 deriving instance () => Eq   (ElemOut a b)
 deriving instance () => Show (ElemOut a b)
 deriving instance () => Read (ElemOut a b)
+deriving instance () => Generic (ElemOut a b)
+deriving instance () => NFData (ElemOut a b)
 
 data ResourceOut = ResourceOut{
     roUsed :: Bool
@@ -350,6 +382,8 @@ data ResourceOut = ResourceOut{
 deriving instance () => Eq   ResourceOut
 deriving instance () => Show ResourceOut
 deriving instance () => Read ResourceOut
+deriving instance () => Generic ResourceOut
+deriving instance () => NFData ResourceOut
 
 data ResourceTagOut = ResourceTagOut {
     rtoUsed :: Bool
@@ -360,6 +394,8 @@ data ResourceTagOut = ResourceTagOut {
 deriving instance () => Eq   ResourceTagOut
 deriving instance () => Show ResourceTagOut
 deriving instance () => Read ResourceTagOut
+deriving instance () => Generic ResourceTagOut
+deriving instance () => NFData ResourceTagOut
 
 makeLensesWith abbreviatedFields ''ResourceCons
 makeLensesWith abbreviatedFields ''ResourceInfo

@@ -37,6 +37,10 @@ import Control.Monad.Ether.Implicit.Except
 import Control.Monad.Ether.Implicit.State.Strict
 import Control.Lens.TH
 
+
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Lens.TH
 import Algebra.PartialOrd
 import Algebra.Lattice
@@ -51,7 +55,7 @@ import EDG.Expression
 -- | Tagged type we'll be using as references that can cross the Gather/SBV
 --   boundary.
 newtype Ref a = Ref {unRef :: String}
-  deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance Newtype (Ref a) String where
   pack = Ref
@@ -96,7 +100,7 @@ type ValSBV = Kinded VSBV ()
 -- | We use these as names for equality classes for values that
 --   have an unfixed kind.
 newtype ValEqClass = ValEqClass Integer
-  deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance Newtype ValEqClass Integer where
   pack = ValEqClass
@@ -104,7 +108,7 @@ instance Newtype ValEqClass Integer where
 
 -- | We use these as the names for equality classes for records
 newtype RecEqClass = RecEqClass Integer
-  deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance Newtype RecEqClass Integer where
   pack = RecEqClass
@@ -116,7 +120,7 @@ data ValInfo = ValInfo {
     viKindRef :: Ref Integer
     -- Reference to the actual stored value.
   , viValRef  :: ValRef
-} deriving (Show, Read, Eq)
+} deriving (Show, Read, Eq, Generic, NFData)
 
 data ValueSBV = ValueSBV {
   -- The stored integer
@@ -132,7 +136,7 @@ data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
     riFields  :: Map String (Ref Bool, Ref Value)
   , riEqClass :: RecEqClass
-} deriving (Show, Eq, Read)
+} deriving (Show, Eq, Read, Generic, NFData)
 
 
 data RecSBV = RecSBV {
@@ -174,7 +178,7 @@ type instance Portify Module = ModPort
 
 -- Wrapper for resources that we use while
 newtype Resource a = Resource String
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Generic, NFData)
 
 instance Newtype (Resource a) String where
   pack = Resource
