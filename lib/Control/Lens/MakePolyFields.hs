@@ -16,10 +16,10 @@ import Data.List (nub, findIndices)
 import Data.Either (partitionEithers)
 
 import Data.Set.Lens
-import           Data.Map ( Map )
+import           Data.Map.Strict ( Map )
+import qualified Data.Map.Strict as Map
 import           Data.Set ( Set )
 import qualified Data.Set as Set
-import qualified Data.Map as Map
 import qualified Data.Traversable as T
 import Language.Haskell.TH
 import Language.Haskell.TH.Lens
