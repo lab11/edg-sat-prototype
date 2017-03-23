@@ -156,6 +156,7 @@ import System.CPUTime
 import Control.Monad
 import Control.Exception (evaluate)
 import Control.DeepSeq
+import GHC.Generics
 
 import Options.Applicative
 import Data.Semigroup ((<>))
@@ -796,7 +797,7 @@ data EDGSettings = EDGSettings {
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
   , graphvizFile :: Maybe FilePath
-  , smtlibFile :: Maybe FilePath
+  -- , smtlibFile :: Maybe FilePath
   }
 
 -- | TODO
@@ -812,7 +813,7 @@ parseSettings :: Parser EDGSettings
 parseSettings = EDGSettings
   <$> (switch
           $  long "verboseSMT"
-          <> short 's'
+          <> short 'V'
           <> help "Print the full input problem sent to the SMT solver"
           <> showDefault
       )
@@ -854,6 +855,9 @@ makeSynthFunc :: EDGLibrary -> [(String,Module ())]
               -> EDGSettings -> IO ()
 makeSynthFunc l m s = synthesizeWithSettings s l m
 
+deriving instance Generic SBV.SatResult
+deriving instance NFData SBV.SatResult
+
 -- | TODO
 synthesizeWithSettings :: EDGSettings
                        -> EDGLibrary -> [(String,Module ())] -> IO ()
@@ -862,8 +866,8 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     ss <- IO.newIORef (undefined :: E.SBVState)
     -- Solve the initial sat problem
     (symbM,gatherState,sm) <- time "Precomputation" $
-      evaluate (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
-    solution <- time "Sat Solving" $
+      evaluate . (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
+    solution <- time "Sat Solving" $ (fmap force) $
       SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
@@ -873,7 +877,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
               E.buildDecodeState gatherState sbvState
             decodeResult' <- evaluate . force $
               E.decodeResult decodeState solution sm
-            return (decodeState, decodeResult)
+            return (decodeState, decodeResult')
         case decodeResult' of
           Left s -> do
             putStrLn $ "Resulting solution was : "
@@ -887,8 +891,9 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             -- TODO :: Write output to file
             sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
-            let outputGraph = E.genGraph decodeResult
-            sequence_ $
+            outputGraph <- time "generating graph" $
+              evaluate $ E.genGraph decodeResult
+            sequence_ $ time "Writing Graph" <$>
               E.writeGraph outputGraph <$> graphvizFile
             return ()
       _ -> do
