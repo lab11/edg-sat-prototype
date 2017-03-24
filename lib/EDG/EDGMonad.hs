@@ -82,23 +82,23 @@ data GatherState = GatherState {
   , gsValEqClassCounter :: ValEqClass
   , gsRecEqClassCounter :: RecEqClass
   -- For each value, stores information about it.
-  , gsValInfo  :: !(Map (Ref Value) ValInfo)
+  , gsValInfo  :: (Map (Ref Value) ValInfo)
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
-  , gsRecInfo  :: !(Map (Ref Record) RecInfo)
+  , gsRecInfo  :: (Map (Ref Record) RecInfo)
   -- For each equality class over a record stores the kind for each field.
   , gsRecordKinds :: !(Map RecEqClass RecKind)
   -- Storage for each major class of port, raw ones that don't come from a
   -- context of a module or link
   , gsBarePortInfo   :: (Map (Ref Port) (PortInfo Port))
-  , gsLinkPortInfo   :: !(Map (Ref LinkPort) (PortInfo LinkPort))
-  , gsModulePortInfo :: !(Map (Ref ModPort ) (PortInfo ModPort))
+  , gsLinkPortInfo   :: (Map (Ref LinkPort) (PortInfo LinkPort))
+  , gsModulePortInfo :: (Map (Ref ModPort ) (PortInfo ModPort))
   -- And Linkwise for each class of element
-  , gsLinkInfo       :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
-  , gsModuleInfo     :: !(Map (Ref Module) (ElemInfo Module ModPort ))
+  , gsLinkInfo       :: (Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , gsModuleInfo     :: (Map (Ref Module) (ElemInfo Module ModPort ))
   -- Convinience Store for all the connection booleans that we're
   -- going to be using for allSat
-  , gsConnectionVars :: !(Set (Ref Bool))
+  , gsConnectionVars :: (Set (Ref Bool))
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -431,20 +431,20 @@ data DecodeState = DecodeState {
   -- , dsValEqClassCounter :: ValEqClass
   -- , dsRecEqClassCounter :: RecEqClass
   --dFor each value, stores information about it.
-    dsValInfo  :: !(Map (Ref Value) ValInfo)
+    dsValInfo  :: (Map (Ref Value) ValInfo)
   --dTODO :: Yeah, I should find a better way to do this, and generally
   --d        minimize the meccesary amount of updating.
-  , dsRecInfo  :: !(Map (Ref Record) RecInfo)
+  , dsRecInfo  :: (Map (Ref Record) RecInfo)
   --dFor each equality class over a record stores the kind for each field.
   --, dsRecordKinds :: !(Map RecEqClass RecKind)
   --dStorage for each major class of port, raw ones that don't come from a
   --dcontext of a module or link
   , dsBarePortInfo   :: (Map (Ref Port) (PortInfo Port))
-  , dsLinkPortInfo   :: !(Map (Ref LinkPort) (PortInfo LinkPort))
-  , dsModulePortInfo :: !(Map (Ref ModPort ) (PortInfo ModPort))
+  , dsLinkPortInfo   :: (Map (Ref LinkPort) (PortInfo LinkPort))
+  , dsModulePortInfo :: (Map (Ref ModPort ) (PortInfo ModPort))
   --dAnd Linkwise for each class of element
-  , dsLinkInfo       :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
-  , dsModuleInfo     :: !(Map (Ref Module) (ElemInfo Module ModPort ))
+  , dsLinkInfo       :: (Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , dsModuleInfo     :: (Map (Ref Module) (ElemInfo Module ModPort ))
   --dConvinience Store for all the connection booleans that we're
   --dgoing to be using for allSat
   --, dsConnectionVars :: !(Set (Ref Bool))
@@ -482,11 +482,6 @@ instance (ExpContext EDG, NFData (ExpValue EDG)
       , rnf dsLinkInfo
       , rnf dsModuleInfo
       ]
-
-
-
-
-
 
 makeLensesWith abbreviatedFields ''DecodeState
 -- | Use the final GatherState and SBVState to generate a DecodeState that we

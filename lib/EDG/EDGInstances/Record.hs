@@ -322,22 +322,22 @@ assertValKind' d v k = errContext context $ do
     --     type, make sure that every value that was previously in our EqClass
     --     now has that concrete ValRef
     (Int    (), Int    _) -> return ()
-    (Int    (), KVBot eq) -> generateDatum eq ref Int
+    (Int    (), KVBot eq) -> generateDatum eq ref False Int
     (Bool   (), Bool   _) -> return ()
-    (Bool   (), KVBot eq) -> generateDatum eq ref Bool
+    (Bool   (), KVBot eq) -> generateDatum eq ref False Bool
     (Float  (), Float  _) -> return ()
-    (Float  (), KVBot eq) -> generateDatum eq ref Float
+    (Float  (), KVBot eq) -> generateDatum eq ref False Float
     (String (), String _) -> return ()
-    (String (), KVBot eq) -> generateDatum eq ref String
+    (String (), KVBot eq) -> generateDatum eq ref False String
     (UID    (), UID    _) -> return ()
-    (UID    (), KVBot eq) -> generateDatum eq ref UID
+    (UID    (), KVBot eq) -> generateDatum eq ref False UID
     -- Even if we already have records, we need to make sure they update
     -- properly with any possible new fields.
     (Record rc, Record r) -> assertRecordEqCl' d r rc
     -- If we're creating a new record, we've got to both create new ValRer
     -- and make sure the fields are setup right, we do this by punting to
     -- ourselves.
-    (Record rc, KVBot eq) -> generateDatum eq ref Record
+    (Record rc, KVBot eq) -> generateDatum eq ref True Record
     -- IF there's no contraint, there's no contraint
     (KVBot (),_) -> return ()
     (KVTop v,_) -> absurd v
@@ -351,14 +351,16 @@ assertValKind' d v k = errContext context $ do
     --   a new valInfo with a concrete ValRef there.
     generateDatum :: ValEqClass
                   -> (String -> EDGMonad a)
+                  -> Bool
                   -> (a -> ValRef)
                   -> EDGMonad ()
-    generateDatum eq ref cons = errContext context $ do
+    generateDatum eq ref isRec cons = errContext context $ do
       vi <- use @GS valInfo
       mapM_ updateValInfo . Map.keys $ vi
       where
         context = "generateDatum `" ++ show eq ++ "` `"
           ++ show k ++ "`"
+
         updateValInfo :: Ref Value -> EDGMonad ()
         updateValInfo v = errContext context $ do
           mvi <- uses @GS valInfo (Map.lookup v)
@@ -369,8 +371,8 @@ assertValKind' d v k = errContext context $ do
             KVBot eqv
               | eqv == eq -> do
                 r <- cons <$> (ref . valDataName . unpack $ v)
-                valInfo @GS %= Map.insert v i{viValRef = r}
-                assertValKind' d v k
+                valInfo @GS %= Map.adjust (set valRef r :: ValInfo -> ValInfo) v
+                when isRec $ assertValKind' d v k
               | otherwise -> return ()
             _ -> return ()
           where

@@ -48,12 +48,12 @@ import Data.SBV (
 
 
 data UIDData = UIDData {
-    udModPorts        :: !(Map UID' (Ref ModPort ))
-  , udLinkPorts       :: !(Map UID' (Ref LinkPort))
-  , udModules         :: !(Map UID' (Ref Module  ))
-  , udLinks           :: !(Map UID' (Ref Link    ))
-  , udModPortParents  :: !(Map (Ref ModPort ) (String, Ref Module))
-  , udLinkPortParents :: !(Map (Ref LinkPort) (String, Ref Link  ))
+    udModPorts        :: (Map UID' (Ref ModPort ))
+  , udLinkPorts       :: (Map UID' (Ref LinkPort))
+  , udModules         :: (Map UID' (Ref Module  ))
+  , udLinks           :: (Map UID' (Ref Link    ))
+  , udModPortParents  :: (Map (Ref ModPort ) (String, Ref Module))
+  , udLinkPortParents :: (Map (Ref LinkPort) (String, Ref Link  ))
 }
 
 deriving instance Eq   UIDData
@@ -63,7 +63,7 @@ deriving instance Generic UIDData
 deriving instance NFData UIDData
 
 buildUIDData :: DecodeState -> UIDData
-buildUIDData ds = UIDData {
+buildUIDData ds = force UIDData {
     udModPorts=modPorts
   , udLinkPorts=linkPorts
   , udModules=modules
