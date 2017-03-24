@@ -2,6 +2,40 @@ module NewEncoding.CommonPorts where
 
 import EDG
 
+-- Control Schemes
+baseControl :: () => AmbigVal
+baseControl = Record [
+    "scheme" <:= StringC unknown
+  , "dir" <:= StringC $ oneOf ["none", "producer", "consumer"]
+  , "data" <:= Record unknown
+  ]
+
+noControl :: () => AmbigVal
+noControl = Record [
+    "scheme" <:= StringV "None"
+  , "dir" <:= StringV "none"
+  , "data" <:= Record []
+  ]
+
+onOffControl :: () => AmbigVal
+onOffControl = Record [
+    "scheme" <:= StringV "OnOff"
+  , "dir" <:= StringC $ oneOf ["producer", "consumer"]
+  , "data" <:= Record [
+        "bandwidth" <:= FloatC unknown
+      ]
+  ]
+
+pwmControl :: () => AmbigVal
+pwmControl = Record [
+    "scheme" <:= StringV "pwm"
+  , "dir" <:= StringC $ oneOf ["producer", "consumer"]
+  , "data" <:= Record [
+        "period" <:= FloatC unknown
+      , "bandwidth" <:= FloatC unknown
+      ]
+  ]
+
 -- Electrical Ports
 
 electricalPort :: (IsPort p) => p ()
@@ -11,8 +45,8 @@ electricalPort = do
   setType [
       "voltage" <:= FloatC unknown
     , "current" <:= FloatC unknown
-    , "dir" <:= StringC $ oneOf ["source", "sink", "bi"]
-    , "uid" <:= UID
+    , "dir" <:= StringC $ oneOf ["source", "sink", "bi"]  -- current flow direction
+    , "controlScheme" <:= Record unknown  -- optional control scheme
     ]
   return ()
 
@@ -73,61 +107,5 @@ digitalLink = do
   constrain $ port sink connected
   constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
   constrain $ port source (typeVal "current") :== port sink (typeVal "current")
-
-  return ()
-
--- Control Ports
-
-controlPort :: (IsPort p) => p ()
-controlPort = do
-  setType [
-      "apiType" <:= StringC unknown
-    , "name" <:= StringC unknown
-    , "dir" <:= StringC $ oneOf ["producer", "consumer"]
-    , "uid" <:= UID
-    ]
-  return ()
-
-genericGpio :: (IsPort p) => p ()
-genericGpio = do
-  controlPort
-  setIdent "GenericGpioApi"
-  setKind "GenericGpioApi"
-  setType [
-      "bandwidth" <:= FloatC unknown
-    ]
-  return ()
-
-gpioControl :: (IsPort p) => p ()
-gpioControl = do
-  genericGpio
-  setIdent "GpioApi"
-  setType [
-      "apiType" <:= StringV "gpio"
-    ]
-  return ()
-
-gpioControlLink :: Link ()
-gpioControlLink = do
-  setIdent "GpioControlLink"
-  setSignature "GpioControlLink"
-
-  producer <- addPort "producer" $ do
-    genericGpio
-    setType ["dir" <:= StringV "producer"]
-    return()
-
-  consumer <- addPort "consumer" $ do
-    genericGpio
-    setType ["dir" <:= StringV "consumer"]
-    return()
-
-  constrain $ port producer connected
-  constrain $ port consumer connected
-  constrain $ port producer (typeVal "apiType") :== port consumer (typeVal "apiType")
-  constrain $ port producer (typeVal "name") :== port consumer (typeVal "name")
-  constrain $ port producer (typeVal "bandwidth") :== port consumer (typeVal "bandwidth")
-  constrain $ port producer (typeVal "uid") :== port consumer (typeVal "uid")
-  -- TODO: UIDs
 
   return ()
