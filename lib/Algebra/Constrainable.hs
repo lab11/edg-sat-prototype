@@ -29,6 +29,9 @@ import Text.Read
 
 import Debug.Trace
 
+import GHC.Generics hiding (prec)
+import Control.DeepSeq
+
 -- | Class for elements that can be represented as either a concrete value or
 --   a set of constraints on the concrete value.
 class (AsPredicate           (Constraints t)
@@ -93,6 +96,11 @@ data Ambiguous t where
   --   could represent.
   --   "I cannot exist"
   Impossible :: Ambiguous t
+
+instance (Constrainable t, NFData t, NFData (Constraints t)) => NFData (Ambiguous t) where
+  rnf Impossible = ()
+  rnf (Concrete v) = rnf v
+  rnf (Abstract a) = rnf a
 
 -- | Property preserving transformations of ambiguous values.
 transformAmbig :: (Constrainable t,Constrainable t')

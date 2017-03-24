@@ -46,6 +46,9 @@ import EDG.Library.Types.String
 import EDG.Library.Types.UID
 import EDG.Library.Types.Record
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Data.Void
 
 -- | Value that captures the various types of things with an assiciated kind.
@@ -73,6 +76,18 @@ deriving instance (Show (KInt a), Show (KBool a), Show (KFloat a)
 deriving instance (KVAble a, Read (KInt a), Read (KBool a), Read (KFloat a)
   , Read (KString a), Read (KUID a), Read (KRecord a b), Read (KTop a)
   , Read (KBottom a)) => Read (Kinded a b)
+
+instance (KVAble a, NFData (KInt a), NFData (KBool a), NFData (KFloat a)
+  , NFData (KString a), NFData (KUID a), NFData (KRecord a b), NFData (KTop a)
+  , NFData (KBottom a)) => NFData (Kinded a b) where
+  rnf (Int a) = seq a ()
+  rnf (Bool a) = seq a ()
+  rnf (Float a) = seq a ()
+  rnf (String a) = seq a ()
+  rnf (UID a) = seq a ()
+  rnf (Record a) = seq a ()
+  rnf (KVTop a) = seq a ()
+  rnf (KVBot a) = seq a ()
 
 -- | Gets a separate integer for each constructor
 getKindNum :: Kinded a b -> Integer
@@ -122,7 +137,7 @@ type Value' = Kinded Val
 -- | This is the fixed point we're going to be working with when we have a
 --   typed value lying aorund.
 newtype Value = Value { getValue :: Value' Value}
-  deriving (Eq, Show, Read)
+  deriving (Eq, Show, Read, Generic, NFData)
 
 instance Newtype Value (Value' Value) where
   pack   = Value
@@ -145,7 +160,7 @@ instance KVAble Knd where
 type Kind' = Kinded Knd
 
 newtype Kind = Kind { getKnd :: Kind' (Map String Kind)}
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance Newtype Kind (Kind' (Map String Kind)) where
   pack = Kind
@@ -183,7 +198,7 @@ type Constrained' = Kinded Cons
 --   domain would leave us with a non-injective type family for the predicate
 --   domains.
 newtype Constrained = Constrained { getCons :: Constrained' Value}
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance Newtype Constrained (Constrained' Value) where
   pack = Constrained

@@ -64,7 +64,7 @@ mcu = do
   -- function to turn it into
   --
   -- flip f a b = f b a -- flips the arguments around
-  gpios <- flip mapM ["gpio1","gpio2","gpio3","gpio4"] $ \ name ->
+  gpios <- flip mapM ["gpio1","gpio2","gpio3","gpio4", "gpio5","gpio6","gpio7","gpio8"] $ \ name ->
     -- In the function we're mapping with, we take the name of the port,
     -- constrain it further, and add it to the module.
     addPort name $ do
@@ -158,7 +158,6 @@ mcu = do
   -- definition and close the block, it's only useful as the very last
   -- statement in a block)
   endDef
-
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
@@ -237,3 +236,157 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc testLibrary [("Seed",seed)]
+
+bigTestLibrary :: EDGLibrary
+bigTestLibrary = EDGLibrary{
+    modules = [
+        ("button",4,button)
+      , ("buttonDriver",4,buttonDriver)
+      , ("led",4,led)
+      , ("ledDriver",4,ledDriver)
+      , ("mcu",1,mcu)
+      ]
+  , links   = [
+        ("pwerLink",8,powerLink 8)
+      , ("swLink",8,swLink)
+      , ("gpioLink",8,gpioLink)
+      ]
+  }
+
+bigSeed :: Module ()
+bigSeed = do
+  setIdent "Control Logic"
+  setSignature "controlLogic"
+
+  led1 <- addPort "LED1" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED1")
+
+  switch1 <- addPort "Switch1" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch1")
+
+  led1 <- addPort "LED2" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED2")
+
+  switch1 <- addPort "Switch2" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch2")
+
+
+  led1 <- addPort "LED3" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED3")
+
+  switch1 <- addPort "Switch3" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch3")
+
+  led1 <- addPort "LED4" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED4")
+
+  switch1 <- addPort "Switch4" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch4")
+
+  -- ### Values I'm using to test graphviz output ###
+
+  setType [
+      "testInt" <:= IntV 30
+    , "testBool" <:= BoolV False
+    , "testString" <:= StringV "Testing123!!"
+    , "testUID" <:= NewUID
+    ]
+
+  r1 <- newResource "testResource1"
+  r2 <- newResource "testResource2"
+  r3 <- newResource "testResource3"
+  r4 <- newResource "testResource4"
+
+  constrainResources "testResourceConstraint1" (Lit $ BoolV True) [
+      "tag1" :|= [r1,r2]
+    , "tag2" :|= [r2,r3]
+    ]
+
+  constrainResources "testResourceConstraint2" (typeVal "testBool") [
+      "tag3" :|= [r1,r2,r4]
+    , "tag4" :|= [r2,r3,r4]
+    ]
+
+  return ()
+
+
+-- Some general notes about this:
+--
+-- - We don't keep track of which MCU each piece of software is running
+--   on, there's nothing stopping the system from plopping down two MCUs and
+--   not realizing there's no way to split the SW across them.
+--   Fixing this is left as an exercise for the reader.
+bigRun :: EDGSettings -> IO ()
+bigRun = makeSynthFunc bigTestLibrary [("Seed",bigSeed)]

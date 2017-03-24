@@ -20,7 +20,11 @@ import qualified Control.Lens hiding (
   , (<+=)
   , noneOf
   )
-import Control.Monad.Ether.Implicit
+-- import Control.Monad.Ether.Implicit
+import Control.Monad.Ether.Implicit.Writer
+import Control.Monad.Ether.Implicit.Except
+import Control.Monad.Ether.Implicit.Reader
+import Control.Monad.Ether.Implicit.State.Strict
 
 -- * MonadState + Getting
 

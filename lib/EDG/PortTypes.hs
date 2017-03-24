@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Here's we we keep the basic semantics of a port, as well as the stuff
 --   that lets us convert from the monoid version to a representation we
@@ -22,11 +23,16 @@ import Data.Monoid ((<>)) -- Mappend
 import EDG.Expression
 import EDG.EDGDatatype
 
-import Control.Monad.Ether.Implicit
+import Control.Monad.Ether.Implicit.Writer
+import Control.Monad.Ether.Implicit.Reader
+import Control.Monad.Ether.Implicit.Except
+import Control.Monad.Ether.Implicit.State.Strict
 import Control.Lens.Ether.Implicit
 
 import EDG.Library.Types
 
+import GHC.Generics
+import Control.DeepSeq
 
 -- | The Port Monad, which lets us be a bit more interesting about how
 --   we specify ports and their properties.
@@ -82,6 +88,9 @@ deriving instance (ExpContext a) => Eq (PortState a)
 -- deriving instance (ExpContext a) => Ord (PortState a)
 deriving instance (ExpContext a) => Show (PortState a)
 deriving instance (ExpContext a) => Read (PortState a)
+deriving instance (ExpContext a) => Generic (PortState a)
+deriving instance (ExpContext a,NFData (ExpValue a),NFData (ExpLiteral a))
+  => NFData (PortState a)
 
 data PortValue a
   = PVUID
@@ -89,7 +98,7 @@ data PortValue a
   | PVClass
   | PVConnectedTo
   | PVType [String]
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Generic, NFData)
 
 type PS = PortState
 
@@ -176,6 +185,9 @@ deriving instance (ExpContext a) => Eq   (PortDesc a)
 -- deriving instance (ExpContext a) => Ord  (PortDesc a)
 deriving instance (ExpContext a) => Show (PortDesc a)
 deriving instance (ExpContext a) => Read (PortDesc a)
+deriving instance (ExpContext a) => Generic (PortDesc a)
+deriving instance (ExpContext a,NFData (ExpValue a),NFData (ExpLiteral a))
+  => NFData (PortDesc a)
 
 convertPortState :: (MonadExcept String m,NamedMonad m)
                  => PortState a -> m (PortDesc a)
@@ -235,6 +247,10 @@ deriving instance Ord UID'
 deriving instance ExpContext EDG => Eq   (PortInfo n)
 deriving instance ExpContext EDG => Show (PortInfo n)
 deriving instance ExpContext EDG => Read (PortInfo n)
+deriving instance ExpContext EDG => Generic (PortInfo a)
+deriving instance (ExpContext EDG,NFData (ExpValue EDG)
+  ,NFData (ExpLiteral EDG))
+  => NFData (PortInfo a)
 
 -- | The output type of a port, what we can extract from the finished
 --   sat solver output.
@@ -253,6 +269,8 @@ data PortOut a = PortOut {
 deriving instance Eq   (PortOut a)
 deriving instance Show (PortOut a)
 deriving instance Read (PortOut a)
+deriving instance () => Generic (PortOut a)
+deriving instance () => NFData (PortOut a)
 
 makeLensesWith abbreviatedFields ''PortState
 makeLensesWith abbreviatedFields ''PortDesc

@@ -11,6 +11,9 @@ import Algebra.PartialOrd
 import Algebra.AsPredicate
 import Algebra.Constrainable
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
@@ -19,7 +22,7 @@ import GHC.Exts
 -- | This is the raw type we have to define, for UIDNewtypes whose partial order is
 --   just flat.
 newtype UIDNewtype a = UIDNewtype a
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance Newtype (UIDNewtype a) a where
   pack = UIDNewtype
@@ -45,7 +48,7 @@ data UIDNewtypeCons a
   --   This value causes errors whenever you try to work with it, so make sure
   --   you filter it out of any spec before you build a system out of it.
   | UCNew
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance Eq a => AsPredicate (UIDNewtypeCons a) where
   type PredicateDomain (UIDNewtypeCons a) = UIDNewtype a

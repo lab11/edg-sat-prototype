@@ -16,6 +16,9 @@ cabal-dev
 .cabal-sandbox/
 cabal.sandbox.config
 *.prof
+*.prof.html
+edg-prototype.svg
+edg-prototype.*.svg
 *.aux
 *.hp
 .stack-work/
@@ -43,8 +46,7 @@ boxes/*
 ####################
 
 .tmp
-# Temporary single file for testing purposes. 
-test.png
+*.tmp.*
 
 ########
 # IDEs #
