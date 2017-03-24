@@ -156,12 +156,28 @@ seedLink = do
   setIdent "SeedLink"
   setSignature "SeedLink"
 
-  producer <- addPort "consumer" $ do
+  producer <- addPort "producer" $ do
     seedPort
+    setType [
+        "control" <:= Record [
+            "api" <:= StringC unknown
+          , "name" <:= StringC unknown
+          , "dir" <:= StringV "producer"
+          , "data" <:= Record unknown
+          ]
+      ]
     return()
 
-  consumer <- addPort "producer" $ do
+  consumer <- addPort "consumer" $ do
     seedPort
+    setType [
+        "control" <:= Record [
+            "api" <:= StringC unknown
+          , "name" <:= StringC unknown
+          , "dir" <:= StringV "consumer"
+          , "data" <:= Record unknown
+          ]
+      ]
     return()
 
   constrain $ port producer connected
@@ -171,6 +187,4 @@ seedLink = do
   constrain $ port producer (typeVal "control.name") :== port consumer (typeVal "control.name")
   -- TODO: breaks for unknown reasons!
   --constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
-  constrain $ port producer (typeVal "control.dir") :== Lit (StringV "producer")
-  constrain $ port consumer (typeVal "control.dir") :== Lit (StringV "consumer")
   return ()
