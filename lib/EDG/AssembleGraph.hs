@@ -158,7 +158,7 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
   where
     gs = ds ^. _1
 
-    uidData = trace "  building UID data" $ buildUIDData $ ds ^. _1
+    !uidData = trace "  building UID data" $ buildUIDData $ ds ^. _1
 
     update :: Lens' s a -> (a -> (b,a)) -> s -> (b,s)
     update l u s = (\ (b,a) -> (b,l .~ a $ s)) $ u (s ^. l)
@@ -195,7 +195,7 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
       | Map.member rl (idc ^. block . links) = Right idc
       -- actual work this time
       | Nothing <- linkOut = Left $ "Could not extract link `" ++ show rl
-      | Just lo <- linkOut = trace ("  decoding link : " ++ unpack rl) $
+      | Just lo <- linkOut = trace ("  decoding link   : " ++ unpack rl) $
         let (el,nm) = makeDEL rl lo in
           Right . (moduleQueue %~ Set.union nm)
                 . (block . links %~ Map.insert rl lo)
