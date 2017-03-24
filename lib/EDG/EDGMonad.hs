@@ -78,24 +78,24 @@ type GatherMonad = StateT GatherState (ExceptT String  Identity)
 -- | The state datatype with all the various pieces of info we care about.
 data GatherState = GatherState {
   -- Counter for assigning UIDs to things
-    gsUidCounter     :: !Integer
-  , gsValEqClassCounter :: !ValEqClass
-  , gsRecEqClassCounter :: !RecEqClass
+    gsUidCounter     :: Integer
+  , gsValEqClassCounter :: ValEqClass
+  , gsRecEqClassCounter :: RecEqClass
   -- For each value, stores information about it.
-  , gsValInfo  :: !(Map (Ref Value) ValInfo)
+  , gsValInfo  :: (Map (Ref Value) ValInfo)
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
-  , gsRecInfo  :: !(Map (Ref Record) RecInfo)
+  , gsRecInfo  :: (Map (Ref Record) RecInfo)
   -- For each equality class over a record stores the kind for each field.
-  , gsRecordKinds :: !(Map RecEqClass RecKind)
+  , gsRecordKinds :: (Map RecEqClass RecKind)
   -- Storage for each major class of port, raw ones that don't come from a
   -- context of a module or link
-  , gsBarePortInfo   :: !(Map (Ref Port) (PortInfo Port))
-  , gsLinkPortInfo   :: !(Map (Ref LinkPort) (PortInfo LinkPort))
-  , gsModulePortInfo :: !(Map (Ref ModPort ) (PortInfo ModPort))
+  , gsBarePortInfo   :: (Map (Ref Port) (PortInfo Port))
+  , gsLinkPortInfo   :: (Map (Ref LinkPort) (PortInfo LinkPort))
+  , gsModulePortInfo :: (Map (Ref ModPort ) (PortInfo ModPort))
   -- And Linkwise for each class of element
-  , gsLinkInfo       :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
-  , gsModuleInfo     :: !(Map (Ref Module) (ElemInfo Module ModPort ))
+  , gsLinkInfo       :: (Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , gsModuleInfo     :: (Map (Ref Module) (ElemInfo Module ModPort ))
   -- Convinience Store for all the connection booleans that we're
   -- going to be using for allSat
   , gsConnectionVars :: Set (Ref Bool)
@@ -142,19 +142,19 @@ type SBVMonad = StateT SBVState (ExceptT String Symbolic)
 data SBVState = SBVState {
   -- The grand store that we use to get the SBV values for a given reference
   -- Is basically useless outside of the actual Symbolic monad.
-    ssBoolRef     :: !(Map (Ref Bool)    (SBV Bool))
-  , ssStringRef   :: !(Map (Ref String)  (SBV String))
-  , ssFloatRef    :: !(Map (Ref Float)   (SBV Float))
-  , ssUidRef      :: !(Map (Ref UID')    (SBV UID'))
-  , ssIntegerRef  :: !(Map (Ref Integer) (SBV Integer))
-  , ssValueRef    :: !(Map (Ref Value)   (ValueSBV))
-  , ssRecordRef   :: !(Map (Ref Record)  (RecSBV))
+    ssBoolRef     :: (Map (Ref Bool)    (SBV Bool))
+  , ssStringRef   :: (Map (Ref String)  (SBV String))
+  , ssFloatRef    :: (Map (Ref Float)   (SBV Float))
+  , ssUidRef      :: (Map (Ref UID')    (SBV UID'))
+  , ssIntegerRef  :: (Map (Ref Integer) (SBV Integer))
+  , ssValueRef    :: (Map (Ref Value)   (ValueSBV))
+  , ssRecordRef   :: (Map (Ref Record)  (RecSBV))
   -- Information to get the kinds of values
-  , ssValInfo     :: !(Map (Ref Value)  ValInfo)
-  , ssRecInfo     :: !(Map (Ref Record) RecInfo)
-  , ssRecordKinds :: !(Map RecEqClass RecKind)
+  , ssValInfo     :: (Map (Ref Value)  ValInfo)
+  , ssRecInfo     :: (Map (Ref Record) RecInfo)
+  , ssRecordKinds :: (Map RecEqClass RecKind)
   -- Map for assigning strings to integer values, so that they can be search
-  , ssStringDecode :: !(Bimap Integer String)
+  , ssStringDecode :: (Bimap Integer String)
   } deriving (Show)
 
 instance NFData SBVState where
@@ -221,14 +221,14 @@ newValEqClass :: EDGMonad ValEqClass
 newValEqClass = do
   n <- uses @GS valEqClassCounter (pack . (+ 1) . unpack)
   valEqClassCounter @GS .= n
-  return $! n
+  return n
 
 -- | Get a new EqClassID and increment the counter.
 newRecEqClass :: EDGMonad RecEqClass
 newRecEqClass = do
   n <- uses @GS recEqClassCounter  (pack . (+ 1) . unpack)
   recEqClassCounter @GS .= n
-  return $! n
+  return n
 
 -- | Catch an expcetion and append a string to it, so that we can have better
 --   knowledge of what's actually happening.
@@ -238,7 +238,7 @@ newRecEqClass = do
 --           Alternately something that uses
 --           Language.Haskell.TH.Syntax.location with a custom error type.
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
-errContext s !e = do
+errContext s e = do
   n <- monadName
   {- T.trace (n ++ ": " ++ s) $ return () -}
   catch e (appendContext n)

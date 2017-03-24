@@ -117,33 +117,33 @@ instance Newtype RecEqClass Integer where
 data ValInfo = ValInfo {
     -- Reference to the integer in which we store kinds for
     -- disambiguation.
-    viKindRef :: !(Ref Integer)
+    viKindRef :: (Ref Integer)
     -- Reference to the actual stored value.
-  , viValRef  :: !ValRef
+  , viValRef  :: ValRef
 } deriving (Show, Read, Eq, Generic, NFData)
 
 data ValueSBV = ValueSBV {
   -- The stored integer
-    vsKindSBV :: !(SBV Integer)
+    vsKindSBV :: (SBV Integer)
   -- The stored value
-  , vsValSBV  :: !ValSBV
+  , vsValSBV  :: ValSBV
   -- Possibly a name (only for debugging purposes)
-  , vsRefName :: !(Maybe (String))
+  , vsRefName :: (Maybe (String))
 } deriving (Show, Eq)
 
 
 data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
-    riFields  :: !(Map String (Ref Bool, Ref Value))
-  , riEqClass :: !RecEqClass
+    riFields  :: (Map String (Ref Bool, Ref Value))
+  , riEqClass :: RecEqClass
 } deriving (Show, Eq, Read, Generic, NFData)
 
 
 data RecSBV = RecSBV {
   -- the elems are (<is field used in the record?>,<value of field>)
-    rsFields :: !(Map String (SBV Bool,ValueSBV))
+    rsFields :: (Map String (SBV Bool,ValueSBV))
   -- possibly a name, only for debugging purposes
-  , rsRefName :: !(Maybe (String))
+  , rsRefName :: (Maybe (String))
 } deriving (Show, Eq)
 
 -- | Phantom type we'll use to flag things as related to Ports
