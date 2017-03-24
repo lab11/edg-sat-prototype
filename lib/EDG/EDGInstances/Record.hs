@@ -322,22 +322,22 @@ assertValKind' d v k = errContext context $ do
     --     type, make sure that every value that was previously in our EqClass
     --     now has that concrete ValRef
     (Int    (), Int    _) -> return ()
-    (Int    (), KVBot eq) -> generateDatum eq ref Int
+    (Int    (), KVBot eq) -> generateDatum eq ref False Int
     (Bool   (), Bool   _) -> return ()
-    (Bool   (), KVBot eq) -> generateDatum eq ref Bool
+    (Bool   (), KVBot eq) -> generateDatum eq ref False Bool
     (Float  (), Float  _) -> return ()
-    (Float  (), KVBot eq) -> generateDatum eq ref Float
+    (Float  (), KVBot eq) -> generateDatum eq ref False Float
     (String (), String _) -> return ()
-    (String (), KVBot eq) -> generateDatum eq ref String
+    (String (), KVBot eq) -> generateDatum eq ref False String
     (UID    (), UID    _) -> return ()
-    (UID    (), KVBot eq) -> generateDatum eq ref UID
+    (UID    (), KVBot eq) -> generateDatum eq ref False UID
     -- Even if we already have records, we need to make sure they update
     -- properly with any possible new fields.
     (Record rc, Record r) -> assertRecordEqCl' d r rc
     -- If we're creating a new record, we've got to both create new ValRer
     -- and make sure the fields are setup right, we do this by punting to
     -- ourselves.
-    (Record rc, KVBot eq) -> generateDatum eq ref Record
+    (Record rc, KVBot eq) -> generateDatum eq ref True Record
     -- IF there's no contraint, there's no contraint
     (KVBot (),_) -> return ()
     (KVTop v,_) -> absurd v
@@ -351,28 +351,38 @@ assertValKind' d v k = errContext context $ do
     --   a new valInfo with a concrete ValRef there.
     generateDatum :: ValEqClass
                   -> (String -> EDGMonad a)
+                  -> Bool
                   -> (a -> ValRef)
                   -> EDGMonad ()
-    generateDatum eq ref cons = errContext context $ do
-      vi <- use @GS valInfo
-      mapM_ updateValInfo . Map.keys $ vi
+    generateDatum eq ref isRec cons = errContext context $ do
+      -- Get the set of elements with eqclass
+      se <- maybeThrow ("Could not perform reverse lookup for eqClass `"
+        ++ show eq ++ "`") =<< uses @GS reverseValEq (Map.lookup eq)
+      -- We're replacing everything so we shouldn't need to keep the Eqclass
+      -- around any longer.
+      reverseValEq @GS %= Map.delete eq
+      -- Then we can go through each reference and update the valInfo piece
+      mapM_ updateValInfo se
       where
         context = "generateDatum `" ++ show eq ++ "` `"
           ++ show k ++ "`"
+
         updateValInfo :: Ref Value -> EDGMonad ()
         updateValInfo v = errContext context $ do
-          mvi <- uses @GS valInfo (Map.lookup v)
-          i@ValInfo{..} <- case mvi of
-            Nothing -> throw $ "No valInfo for `" ++ show v ++ "`"
-            Just vi -> return vi
+          vi@ValInfo{..} <- maybeThrow ("No valInfo for `" ++ show v ++ "`")
+            =<< uses @GS valInfo (Map.lookup v)
           case viValRef of
-            KVBot eqv
-              | eqv == eq -> do
-                r <- cons <$> (ref . valDataName . unpack $ v)
-                valInfo @GS %= Map.insert v i{viValRef = r}
-                assertValKind' d v k
-              | otherwise -> return ()
-            _ -> return ()
+            KVBot eq -> do
+              -- Build the reference as needed to the newly typed value
+              r <- cons <$> (ref . valDataName . unpack $ v)
+              -- make sure it's part of the valInfo table with the correct
+              -- structure.
+              valInfo @GS %= Map.insert v vi{viValRef = r}
+              -- doing the recursive class is the easiest way to update the
+              -- record kind table, otherwise it's not neccesary.
+              when isRec $ assertValKind' d v k
+            _ -> throw $ "Invalid reverse lookup for `" ++ show v ++ "` it "
+              ++ "didn't have the correct equality class."
           where
             context = "updateValInfo `" ++ show v ++
               "` `" ++ show k ++ "`"
@@ -447,15 +457,34 @@ assertValKindEq' d a b = errContext context $ do
     -- | Take every instance of the first Eq class and replace it with the
     --   second so that we preserve transitive closure.
     replaceEqClass eqo eqn = errContext context $ do
-      vi  <- use @GS valInfo
-      vi' <- mapM updateEqClass vi
-      valInfo @GS .= vi'
+      -- get the sets of values with both the old and new equality classes
+      so <- maybeThrow ("Could not perform reverse lookup for eqClass `"
+        ++ show eqo ++ "`") =<< uses @GS reverseValEq (Map.lookup eqo)
+      sn <- maybeThrow ("Could not perform reverse lookup for eqClass `"
+        ++ show eqn ++ "`") =<< uses @GS reverseValEq (Map.lookup eqn)
+      -- Delete the old equality class from the reverse lookup table
+      reverseValEq @GS %= Map.delete eqo
+      -- Add the for an equality class into the reverse lookup table.
+      reverseValEq @GS %= Map.insert eqn (Set.union so sn)
+      --
+      mapM_ updateEqClass so
+      -- vi  <- use @GS valInfo
+      -- vi' <- mapM updateEqClass vi
+      -- valInfo @GS .= vi'
       where
         context = "replaceEqClass `" ++ show eqo ++ "` `" ++ show eqn ++ "`"
-        updateEqClass :: ValInfo -> EDGMonad ValInfo
-        updateEqClass i@ValInfo{..}
-          | KVBot eqv <- viValRef, eqv == eqo = return i{viValRef = KVBot eqn}
-          | otherwise = return $ i
+        updateEqClass :: Ref Value -> EDGMonad ()
+        updateEqClass r = do
+          valInfo @GS %= Map.adjust (updateVI r) r
+
+        updateVI :: Ref Value -> ValInfo -> ValInfo
+        updateVI r v@ValInfo{..} = case viValRef of
+          KVBot eqo -> v{viValRef = KVBot eqn}
+          _ -> error $ "Tried to update ValInfo for `" ++ show r ++ "` and "
+            ++ " found it had incorrect ref instead of `KVBot " ++ show eqo
+            ++ "` it had `" ++ show v ++ "`"
+          -- | KVBot eqv <- viValRef, eqv == eqo = return i{viValRef = KVBot eqn}
+          -- | otherwise = return $ i
 
 -- Join two record equivalence classes.
 joinRecordEqCl :: RecEqClass -> RecEqClass -> EDGMonad RecEqClass
@@ -764,6 +793,7 @@ instance SBVAble Value where
       True -> return rf
       False -> do
         valInfo @GS %= Map.insert rf ValInfo{viKindRef = kr, viValRef = vr}
+        reverseValEq @GS %= Map.insert eq (Set.singleton rf)
         returnAnd rf (errContext context $ sbv rf)
     where
       context = "(ref :: Value) `" ++ name ++ "`"

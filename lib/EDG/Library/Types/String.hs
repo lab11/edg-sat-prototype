@@ -6,6 +6,9 @@ import Algebra.Lattice
 import Algebra.AsPredicate
 import Algebra.Constrainable
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
@@ -27,7 +30,7 @@ data StringCons
   = SCOneOf  (OneOf String)
   | SCNoneOf (NoneOf String)
   | SCBottom
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance AsPredicate StringCons where
   type PredicateDomain StringCons = String

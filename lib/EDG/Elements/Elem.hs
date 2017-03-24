@@ -13,8 +13,14 @@ import Control.Newtype
 
 import Control.Monad.MonadSymbolic
 
-import Control.Monad.Ether.Implicit
+import Control.Monad.Trans.Class
+-- import Control.Monad.Ether.Implicit
 import Control.Lens.Ether.Implicit hiding ((.>))
+import Control.Monad.Ether.Implicit.Writer
+import Control.Monad.Ether.Implicit.Reader
+import Control.Monad.Ether.Implicit.Except
+import Control.Monad.Ether.Implicit.State.Strict
+import Control.Lens.TH
 
 import EDG.PortTypes
 import EDG.ElemTypes
@@ -24,6 +30,10 @@ import EDG.ElemTypes
 import EDG.EDGDatatype
 import EDG.EDGMonad hiding (trace)
 import EDG.EDGInstances
+
+
+import GHC.Generics
+import Control.DeepSeq
 
 import Debug.Trace
 
@@ -352,11 +362,12 @@ createOptionalConnection rl rm = errContext context $ do
     Nothing -> throw $ "Could not find modulePort with name `" ++ show rl ++ "`"
     Just mpi -> return mpi
   if (mpi ^. pDesc . pClass :: String) == (lpi ^. pDesc . pClass :: String)
-    then Just <$> areElemPortsConnected rl rm
+    then trace s $ Just <$> areElemPortsConnected rl rm
     else errContext ("port `" ++ show rl ++ "` and `" ++ show rm ++ "` "
         ++ "don't have the same class.") $ return Nothing
   where
     context = "createOptionalConnection `" ++ show rl ++ "` `" ++ show rm ++ "`"
+    s = "  addinc connection : " ++ unpack rl ++ " <-> " ++ unpack rm
 
 createAllOptionalConnections :: EDGMonad (Map (Ref LinkPort, Ref ModPort)
   (Ref Value))

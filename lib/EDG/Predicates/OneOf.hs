@@ -8,12 +8,16 @@ import Algebra.AsPredicate
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
 -- | The set of elements our target has to be a member of.
 newtype OneOf a = OneOf (Set a)
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance Newtype (OneOf a) (Set a) where
   pack = OneOf

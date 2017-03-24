@@ -28,9 +28,20 @@ import qualified Data.SBV as S
 import Control.Monad.Scribe
 import Control.Monad.Identity (Identity)
 
+import Control.Monad.Trans.Class
+-- import Control.Monad.Ether.Implicit
 import Control.Lens.Ether.Implicit
+import Control.Monad.Ether.Implicit.Writer
+import Control.Monad.Ether.Implicit.Reader
+import Control.Monad.Ether.Implicit.Except
+import Control.Monad.Ether.Implicit.State.Strict
 import Control.Lens.TH
 
+
+import GHC.Generics
+import Control.DeepSeq
+
+import Control.Lens.TH
 import Algebra.PartialOrd
 import Algebra.Lattice
 
@@ -44,7 +55,7 @@ import EDG.Expression
 -- | Tagged type we'll be using as references that can cross the Gather/SBV
 --   boundary.
 newtype Ref a = Ref {unRef :: String}
-  deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance Newtype (Ref a) String where
   pack = Ref
@@ -89,7 +100,7 @@ type ValSBV = Kinded VSBV ()
 -- | We use these as names for equality classes for values that
 --   have an unfixed kind.
 newtype ValEqClass = ValEqClass Integer
-  deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance Newtype ValEqClass Integer where
   pack = ValEqClass
@@ -97,7 +108,7 @@ instance Newtype ValEqClass Integer where
 
 -- | We use these as the names for equality classes for records
 newtype RecEqClass = RecEqClass Integer
-  deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance Newtype RecEqClass Integer where
   pack = RecEqClass
@@ -106,33 +117,33 @@ instance Newtype RecEqClass Integer where
 data ValInfo = ValInfo {
     -- Reference to the integer in which we store kinds for
     -- disambiguation.
-    viKindRef :: Ref Integer
+    viKindRef :: (Ref Integer)
     -- Reference to the actual stored value.
   , viValRef  :: ValRef
-} deriving (Show, Read, Eq)
+} deriving (Show, Read, Eq, Generic, NFData)
 
 data ValueSBV = ValueSBV {
   -- The stored integer
-    vsKindSBV :: SBV Integer
+    vsKindSBV :: (SBV Integer)
   -- The stored value
   , vsValSBV  :: ValSBV
   -- Possibly a name (only for debugging purposes)
-  , vsRefName :: Maybe (String)
+  , vsRefName :: (Maybe (String))
 } deriving (Show, Eq)
 
 
 data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
-    riFields  :: Map String (Ref Bool, Ref Value)
+    riFields  :: (Map String (Ref Bool, Ref Value))
   , riEqClass :: RecEqClass
-} deriving (Show, Eq, Read)
+} deriving (Show, Eq, Read, Generic, NFData)
 
 
 data RecSBV = RecSBV {
   -- the elems are (<is field used in the record?>,<value of field>)
-    rsFields :: Map String (SBV Bool,ValueSBV)
+    rsFields :: (Map String (SBV Bool,ValueSBV))
   -- possibly a name, only for debugging purposes
-  , rsRefName :: Maybe (String)
+  , rsRefName :: (Maybe (String))
 } deriving (Show, Eq)
 
 -- | Phantom type we'll use to flag things as related to Ports
@@ -167,7 +178,7 @@ type instance Portify Module = ModPort
 
 -- Wrapper for resources that we use while
 newtype Resource a = Resource String
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Generic, NFData)
 
 instance Newtype (Resource a) String where
   pack = Resource

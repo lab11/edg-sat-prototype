@@ -16,6 +16,9 @@ import EDG.Classes.Normalizable
 import Algebra.Lattice
 import Algebra.PartialOrd
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
@@ -32,7 +35,7 @@ data FloatCons
   = FCOneOf (OneOf Float)
   | FCRange (Range Float)
   | FCBottom
-  deriving (Show,Read,Eq)
+  deriving (Show,Read,Eq, Generic, NFData)
 
 instance AsPredicate FloatCons where
   type PredicateDomain FloatCons = Float

@@ -19,7 +19,8 @@ import Data.Monoid ((<>)) -- Mappend
 import EDG.Expression
 import EDG.EDGDatatype
 
-import EDG.EDGMonad
+import GHC.Generics
+import Control.DeepSeq
 
 import Control.Monad.Ether.Implicit
 import Control.Lens.Ether.Implicit
@@ -47,20 +48,22 @@ import Data.SBV (
 
 
 data UIDData = UIDData {
-    udModPorts  :: Map UID' (Ref ModPort )
-  , udLinkPorts :: Map UID' (Ref LinkPort)
-  , udModules   :: Map UID' (Ref Module  )
-  , udLinks     :: Map UID' (Ref Link    )
-  , udModPortParents  :: Map (Ref ModPort ) (String, Ref Module)
-  , udLinkPortParents :: Map (Ref LinkPort) (String, Ref Link  )
+    udModPorts        :: !(Map UID' (Ref ModPort ))
+  , udLinkPorts       :: !(Map UID' (Ref LinkPort))
+  , udModules         :: !(Map UID' (Ref Module  ))
+  , udLinks           :: !(Map UID' (Ref Link    ))
+  , udModPortParents  :: !(Map (Ref ModPort ) (String, Ref Module))
+  , udLinkPortParents :: !(Map (Ref LinkPort) (String, Ref Link  ))
 }
 
 deriving instance Eq   UIDData
 deriving instance Show UIDData
 deriving instance Read UIDData
+deriving instance Generic UIDData
+deriving instance NFData UIDData
 
-buildUIDData :: GatherState -> UIDData
-buildUIDData gs = UIDData {
+buildUIDData :: DecodeState -> UIDData
+buildUIDData ds = UIDData {
     udModPorts=modPorts
   , udLinkPorts=linkPorts
   , udModules=modules
@@ -74,16 +77,16 @@ buildUIDData gs = UIDData {
     flipMap = Map.fromList . map (\ (a,b) -> (b,a)) . Map.toList
 
     modPorts :: Map UID' (Ref ModPort )
-    modPorts = flipMap . Map.map (^. pUid) $ gs ^. modulePortInfo
+    modPorts = flipMap . Map.map (^. pUid) $ ds ^. modulePortInfo
 
     linkPorts :: Map UID' (Ref LinkPort)
-    linkPorts = flipMap . Map.map (^. pUid) $ gs ^. linkPortInfo
+    linkPorts = flipMap . Map.map (^. pUid) $ ds ^. linkPortInfo
 
     modules :: Map UID' (Ref Module  )
-    modules = flipMap . Map.map (^. eUID) $ gs ^. moduleInfo
+    modules = flipMap . Map.map (^. eUID) $ ds ^. moduleInfo
 
     links :: Map UID' (Ref Link    )
-    links = flipMap . Map.map (^. eUID) $ gs ^. linkInfo
+    links = flipMap . Map.map (^. eUID) $ ds ^. linkInfo
 
     getParents :: Map (Ref a) (ElemInfo a b) -> Map (Ref b) (String, Ref a)
     getParents = Map.fromList . concat . Map.elems
@@ -91,41 +94,39 @@ buildUIDData gs = UIDData {
         . Map.toList $ s ^. ePorts)
 
     modPortParents :: Map (Ref ModPort ) (String, Ref Module)
-    modPortParents = getParents $ gs ^. moduleInfo
+    modPortParents = getParents $ ds ^. moduleInfo
 
     linkPortParents :: Map (Ref LinkPort) (String, Ref Link  )
-    linkPortParents = getParents $ gs ^. linkInfo
+    linkPortParents = getParents $ ds ^. linkInfo
 
 type Ident = String
 type ResourceName = String
 
 data DecodeElem n = Elem {
-    deName :: String
-  , deIdent :: Ident
-  , deSignature :: String
-  , dePorts :: Map PortName (Maybe (Ident,PortName))
-  , deResourceConstraints :: Map ResConName
-      (Maybe (Map ResourceTag ResourceName))
-  } deriving (Eq, Show, Read)
+    deName :: !String
+  , deIdent :: !Ident
+  , deSignature :: !String
+  , dePorts :: !(Map PortName (Maybe (Ident,PortName)))
+  , deResourceConstraints :: !(Map ResConName
+      (Maybe (Map ResourceTag ResourceName)))
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 data DecodeGraph = DecodeGraph {
-    dgLinks :: Map (Ref Link) (DecodeElem Link)
-  , dgModules :: Map (Ref Module) (DecodeElem Module)
-  } deriving (Eq, Show, Read)
+    dgLinks   :: !(Map (Ref Link) (DecodeElem Link))
+  , dgModules :: !(Map (Ref Module) (DecodeElem Module))
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 data DecodeBlock = DecodeBlock{
-    dbModules :: Map (Ref Module) (ElemOut Module ModPort)
-  , dbLinks :: Map (Ref Link) (ElemOut Link LinkPort)
-  , dbGraph :: DecodeGraph
-  } deriving (Eq, Show, Read)
-
-
+    dbModules :: !(Map (Ref Module) (ElemOut Module ModPort))
+  , dbLinks :: !(Map (Ref Link) (ElemOut Link LinkPort))
+  , dbGraph :: !DecodeGraph
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 data IncDecState = IncDecState {
-    idsBlock :: DecodeBlock
-  , idsLinkQueue :: Set (Ref Link)
-  , idsModuleQueue :: Set (Ref Module)
-  } deriving (Eq, Show, Read)
+    idsBlock :: !DecodeBlock
+  , idsLinkQueue :: !(Set (Ref Link))
+  , idsModuleQueue :: !(Set (Ref Module))
+  } deriving (Eq, Show, Read, Generic, NFData)
 
 type IDC = IncDecState
 
@@ -155,9 +156,8 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
     , idsModuleQueue = Set.singleton seed
   }
   where
-    gs = ds ^. _1
 
-    uidData = buildUIDData $ ds ^. _1
+    !uidData = trace "  building UID data" $ buildUIDData ds
 
     update :: Lens' s a -> (a -> (b,a)) -> s -> (b,s)
     update l u s = (\ (b,a) -> (b,l .~ a $ s)) $ u (s ^. l)
@@ -180,7 +180,8 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
       | Map.member rm (idc ^. block . modules) = Right idc
       -- actual work this time :V
       | Nothing <- modOut = Left $ "Could not extract module `" ++ show rm
-      | Just mo <- modOut = let (em,nl) = makeDEM rm mo in
+      | Just mo <- modOut = trace ("  decoding module : " ++ unpack rm) $
+        let (em,nl) = makeDEM rm mo in
           Right . (linkQueue %~ Set.union nl)
                 . (block . modules %~ Map.insert rm mo)
                 . (block . graph . modules %~ Map.insert rm em) $ idc
@@ -193,7 +194,8 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
       | Map.member rl (idc ^. block . links) = Right idc
       -- actual work this time
       | Nothing <- linkOut = Left $ "Could not extract link `" ++ show rl
-      | Just lo <- linkOut = let (el,nm) = makeDEL rl lo in
+      | Just lo <- linkOut = trace ("  decoding link   : " ++ unpack rl) $
+        let (el,nm) = makeDEL rl lo in
           Right . (moduleQueue %~ Set.union nm)
                 . (block . links %~ Map.insert rl lo)
                 . (block . graph . links %~ Map.insert rl el) $ idc

@@ -16,6 +16,9 @@ import EDG.Classes.Normalizable
 import Algebra.Lattice
 import Algebra.PartialOrd
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
@@ -36,7 +39,7 @@ data IntCons
     }
   -- | Universal predicate
   | ICBottom
-  deriving (Show, Read)
+  deriving (Show, Read, Generic, NFData)
 
 instance Normalizable (PredEq IntCons) where
   normalize = over PredEq icNorm

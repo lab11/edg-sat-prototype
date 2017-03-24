@@ -16,6 +16,9 @@ cabal-dev
 .cabal-sandbox/
 cabal.sandbox.config
 *.prof
+*.prof.html
+edg-prototype.svg
+edg-prototype.*.svg
 *.aux
 *.hp
 .stack-work/

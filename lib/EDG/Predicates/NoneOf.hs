@@ -8,12 +8,16 @@ import Algebra.AsPredicate
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
 -- | The set of elements our target has to be a member of
 newtype NoneOf a = NoneOf (Set a)
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 instance Newtype (NoneOf a) (Set a) where
   pack = NoneOf

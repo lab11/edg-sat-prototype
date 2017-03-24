@@ -20,7 +20,11 @@ import qualified Control.Lens hiding (
   , (<+=)
   , noneOf
   )
-import Control.Monad.Ether.Implicit
+-- import Control.Monad.Ether.Implicit
+import Control.Monad.Ether.Implicit.Writer
+import Control.Monad.Ether.Implicit.Except
+import Control.Monad.Ether.Implicit.Reader
+import Control.Monad.Ether.Implicit.State.Strict
 
 -- * MonadState + Getting
 
@@ -28,21 +32,26 @@ import Control.Monad.Ether.Implicit
 --   modify what's in the state.
 uses :: (MonadState s m) => LensLike' (Const b) s a -> (a -> b) -> m b
 uses l f = gets $ views l f
+{-# INLINE uses #-}
 
 -- | Get an element of the state.
 use :: (MonadState s m) => Getting a s a -> m a
 use = gets . view
+{-# INLINE use #-}
 
 -- * MonadState + Setting
 
 assign :: (MonadState s m) => ASetter s s a b -> b -> m ()
 assign l v = modify $ (set l v)
+{-# INLINE assign #-}
 
 (.=) :: (MonadState s m) => ASetter s s a b -> b -> m ()
 (.=) = assign
+{-# INLINE (.=) #-}
 
 (%=) :: (MonadState s m) => ASetter s s a b -> (a -> b) -> m ()
 (%=) l f = modify $ over l f
+{-# INLINE (%=) #-}
 
 -- * MonadState + Math/Num
 
@@ -50,5 +59,6 @@ assign l v = modify $ (set l v)
 --   new number and modify the state accordingly.
 (<+=) :: (Num a, MonadState s m)  => LensLike ((,) a) s s a a -> a -> m a
 l <+= a = state $ l <+~ a
+{-# INLINE (<+=) #-}
 
 

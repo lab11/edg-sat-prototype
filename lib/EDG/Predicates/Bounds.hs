@@ -5,6 +5,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 module EDG.Predicates.Bounds where
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Algebra.Lattice
 import Algebra.PartialOrd
 import Algebra.AsPredicate
@@ -25,10 +28,10 @@ implies True  a = a
 -- into a more powerful range type that is actually kinda useful.
 
 data LowerBound a = LowerBound IsInclusive a
-  deriving (Show, Read)
+  deriving (Show, Read, Generic, NFData)
 
 data UpperBound a = UpperBound IsInclusive a
-  deriving (Show, Read)
+  deriving (Show, Read, Generic, NFData)
 
 instance Eq (LowerBound Integer) where
   (==) lb lb' = (l == l')

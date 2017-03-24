@@ -25,6 +25,9 @@ import Control.Newtype.Util
 
 import Control.Applicative
 
+import GHC.Generics
+import Control.DeepSeq
+
 import GHC.Exts
 
 -- | The basic type of a record in this system, records store a number of
@@ -34,7 +37,7 @@ import GHC.Exts
 --   EDG.Library.Types. We keep the parameterized partial version
 --   here so that the modules are more organized.
 newtype Record' v = Record' {rMap :: Map String v}
-  deriving (Eq,Show,Read)
+  deriving (Eq,Show,Read,Generic, NFData)
 
 instance Newtype (Record' v) (Map String v) where
   pack = Record'
@@ -58,6 +61,10 @@ data RecordCons t where
 deriving instance (      Constrainable t, Eq   t,Eq   (Constraints t)) => Eq   (RecordCons t)
 deriving instance (Eq t, Constrainable t, Show t,Show (Constraints t)) => Show (RecordCons t)
 deriving instance (Eq t, Constrainable t, Read t,Read (Constraints t)) => Read (RecordCons t)
+
+instance (Eq t, Constrainable t, NFData t,NFData (Constraints t)) => NFData (RecordCons t) where
+  rnf (RCAmbig m) = rnf m
+  rnf _ = ()
 
 instance AsPredicate (RecordCons t) where
   type PredicateDomain (RecordCons t) = Record' t
@@ -151,6 +158,8 @@ instance (Eq t, Constrainable t, JoinSemiLattice (Ambiguous t)) => JoinSemiLatti
     | otherwise = RCTop
     where
       joinRC = RCAmbig $ Map.unionWith (\/) aMap bMap
+  (\/) _ _ = error $ "These states should be caught by calls to unSAT, this "
+    ++ "should be unreachable."
 
 instance (Eq t,Constrainable t, MeetSemiLattice (Ambiguous t)) => MeetSemiLattice (RecordCons t) where
   (/\) RCBottom _ = RCBottom

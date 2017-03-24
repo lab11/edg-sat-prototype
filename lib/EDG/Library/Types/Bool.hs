@@ -10,6 +10,9 @@ import Algebra.Lattice
 import Algebra.AsPredicate
 import Algebra.Constrainable
 
+import GHC.Generics
+import Control.DeepSeq
+
 import Control.Newtype
 import Control.Newtype.Util
 
@@ -26,7 +29,7 @@ import GHC.Exts
 --           constantly pack and unpack sets.
 --
 newtype BoolCons = BoolCons {bcOneOf :: OneOf Bool}
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic, NFData)
 
 -- TODO :: Better Show, Read instances that mimic the style of the isList
 --         representation.
