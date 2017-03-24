@@ -886,16 +886,15 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             putStrLn $ "\n\n"
             putStrLn $ "Decode of solution failed with : " ++ s
             return ()
-          Right decodeResult -> do
+          Right decodeResult -> time "Building Output Files" $ do
             -- Print output
             when printOutput $ E.pPrint decodeResult
             -- TODO :: Write output to file
             sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
-            outputGraph <- time "generating graph" $
-              evaluate $ E.genGraph decodeResult
-            sequence_ $ time "Writing Graph" <$>
-              E.writeGraph outputGraph <$> graphvizFile
+            time "Writing Graph" $ do
+              outputGraph <- evaluate $ E.genGraph decodeResult
+              sequence_ $ E.writeGraph outputGraph <$> graphvizFile
             return ()
       _ -> do
         E.pPrint solution
