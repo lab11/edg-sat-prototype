@@ -158,9 +158,87 @@ mcu = do
   -- definition and close the block, it's only useful as the very last
   -- statement in a block)
   endDef
-
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
+    modules = [
+        ("button",1,button)
+      , ("buttonDriver",1,buttonDriver)
+      , ("led",1,led)
+      , ("ledDriver",1,ledDriver)
+      , ("mcu",1,mcu)
+      ]
+  , links   = [
+        ("pwerLink",2,powerLink 4)
+      , ("swLink",2,swLink)
+      , ("gpioLink",2,gpioLink)
+      ]
+  }
+
+seed :: Module ()
+seed = do
+  setIdent "Control Logic"
+  setSignature "controlLogic"
+
+  led1 <- addPort "LED1" $ do
+    swPort
+    setType [
+        "data" <:= ledData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port led1 connected
+  constrain $ port led1 (typeVal "data.name") :== Lit (StringV "LED1")
+
+  switch1 <- addPort "Switch1" $ do
+    swPort
+    setType [
+        "data" <:= switchData
+      , "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port switch1 connected
+  constrain $ port switch1 (typeVal "data.name") :== Lit (StringV "Switch1")
+
+  -- ### Values I'm using to test graphviz output ###
+
+  setType [
+      "testInt" <:= IntV 30
+    , "testBool" <:= BoolV False
+    , "testString" <:= StringV "Testing123!!"
+    , "testUID" <:= NewUID
+    ]
+
+  r1 <- newResource "testResource1"
+  r2 <- newResource "testResource2"
+  r3 <- newResource "testResource3"
+  r4 <- newResource "testResource4"
+
+  constrainResources "testResourceConstraint1" (Lit $ BoolV True) [
+      "tag1" :|= [r1,r2]
+    , "tag2" :|= [r2,r3]
+    ]
+
+  constrainResources "testResourceConstraint2" (typeVal "testBool") [
+      "tag3" :|= [r1,r2,r4]
+    , "tag4" :|= [r2,r3,r4]
+    ]
+
+  return ()
+
+
+-- Some general notes about this:
+--
+-- - We don't keep track of which MCU each piece of software is running
+--   on, there's nothing stopping the system from plopping down two MCUs and
+--   not realizing there's no way to split the SW across them.
+--   Fixing this is left as an exercise for the reader.
+run :: EDGSettings -> IO ()
+run = makeSynthFunc testLibrary [("Seed",seed)]
+
+bigTestLibrary :: EDGLibrary
+bigTestLibrary = EDGLibrary{
     modules = [
         ("button",4,button)
       , ("buttonDriver",4,buttonDriver)
@@ -175,8 +253,8 @@ testLibrary = EDGLibrary{
       ]
   }
 
-seed :: Module ()
-seed = do
+bigSeed :: Module ()
+bigSeed = do
   setIdent "Control Logic"
   setSignature "controlLogic"
 
@@ -310,5 +388,5 @@ seed = do
 --   on, there's nothing stopping the system from plopping down two MCUs and
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
-run :: EDGSettings -> IO ()
-run = makeSynthFunc testLibrary [("Seed",seed)]
+bigRun :: EDGSettings -> IO ()
+bigRun = makeSynthFunc bigTestLibrary [("Seed",bigSeed)]

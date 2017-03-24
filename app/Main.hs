@@ -28,4 +28,5 @@ main = do
   (exampleName, settings) <- execParser opts
   case map toLower exampleName of
     "simon" -> Examples.Simon.run settings
-    _ -> putStrLn "No example chosen. Available examples are 'simon'."
+    "big-simon" -> Examples.Simon.bigRun settings
+    _ -> putStrLn "No example chosen. Available examples are 'simon','big-simon'."
