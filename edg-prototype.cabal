@@ -29,6 +29,9 @@ executable edg-prototype
     Examples.CommonModules
     Examples.Simon
     Examples.Logger
+    NewEncoding.CommonPorts
+    NewEncoding.CommonModules
+    NewEncoding.Simon
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
@@ -82,8 +85,8 @@ executable edg-prototype
     containers >= 0.5.7,
     -- Scrap your boilerplate, used for SBV's extra deriving classes
     syb >= 0.6,
-    -- Argument Handling 
-    optparse-applicative, 
+    -- Argument Handling
+    optparse-applicative,
     -- The library we are developing
     edg-prototype
 
@@ -228,11 +231,11 @@ library
     overload >= 0.1.0.3,
     -- Graphviz libary
     graphviz,
-    -- More powerful Text Type 
+    -- More powerful Text Type
     text,
-    -- Argument Handling 
+    -- Argument Handling
     optparse-applicative,
-    -- Allows for evaluation of data into a 
+    -- Allows for evaluation of data into a
     -- complete normal form, that should be
     -- significantly faster
     deepseq,
