@@ -16,3 +16,11 @@ Most of the work for the development environment is done by
 
 **TODO:** instructions on starting vagrant setting up the build environment 
 etc...
+
+### Profiling ###
+
+w/ fish shell
+```` 
+stack build --executable-profiling --library-profiling --ghc-options="-fprof-auto -rtsopts" ; and stack exec edg-prototype -- simon -o output-data.tmp.edg -g output-graph.tmp.png -s +RTS -p -h
+
+````

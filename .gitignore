@@ -16,6 +16,7 @@ cabal-dev
 .cabal-sandbox/
 cabal.sandbox.config
 *.prof
+*.prof.html
 *.aux
 *.hp
 .stack-work/
