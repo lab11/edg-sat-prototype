@@ -83,6 +83,8 @@ data GatherState = GatherState {
   , gsRecEqClassCounter :: RecEqClass
   -- For each value, stores information about it.
   , gsValInfo  :: (Map (Ref Value) ValInfo)
+  -- And the reverse lookup tables for values without a set class.
+  , gsReverseValEq :: (Map ValEqClass (Set (Ref Value)))
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
   , gsRecInfo  :: (Map (Ref Record) RecInfo)
@@ -124,14 +126,15 @@ initialGatherState = GatherState {
     gsUidCounter     = 0
   , gsValEqClassCounter = pack 0
   , gsRecEqClassCounter = pack 0
-  , gsValInfo     = Map.empty
-  , gsRecInfo     = Map.empty
-  , gsRecordKinds = Map.empty
-  , gsBarePortInfo = Map.empty
-  , gsLinkPortInfo = Map.empty
+  , gsValInfo        = Map.empty
+  , gsReverseValEq   = Map.empty
+  , gsRecInfo        = Map.empty
+  , gsRecordKinds    = Map.empty
+  , gsBarePortInfo   = Map.empty
+  , gsLinkPortInfo   = Map.empty
   , gsModulePortInfo = Map.empty
-  , gsLinkInfo = Map.empty
-  , gsModuleInfo = Map.empty
+  , gsLinkInfo       = Map.empty
+  , gsModuleInfo     = Map.empty
   , gsConnectionVars = Set.empty
   }
 
