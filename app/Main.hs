@@ -7,7 +7,7 @@ import Data.Char (toLower)
 import EDG (EDGSettings(..), parseSettings)
 
 import qualified Examples.Simon
--- import qualified Examples.Logger
+import qualified NewEncoding.Simon
 
 optParser :: Parser (String, EDGSettings)
 optParser = (,)
@@ -29,4 +29,5 @@ main = do
   case map toLower exampleName of
     "simon" -> Examples.Simon.run settings
     "big-simon" -> Examples.Simon.bigRun settings
-    _ -> putStrLn "No example chosen. Available examples are 'simon','big-simon'."
+    "newsimon" -> NewEncoding.Simon.run settings
+    _ -> putStrLn "No example chosen. See app/Main.hs for a list."
