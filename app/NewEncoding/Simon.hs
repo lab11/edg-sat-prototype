@@ -12,7 +12,7 @@ testLibrary = EDGLibrary{
       , ("mcu",1,mcu)
       ]
   , links   = [
-        ("gpioControlLink", 4, gpioControlLink)
+        ("seedLink", 2, seedLink)
       , ("electricalLink", 2, electricalLink)
       , ("digitalLink", 2, digitalLink)
       ]
@@ -24,26 +24,36 @@ seed = do
   setSignature "controlLogic"
 
   led1 <- addPort "led1" $ do
-    ledControl
+    seedPort
     setType [
-        "name" <:= StringV "led1"
-      , "dir" <:= StringV "consumer"
-      , "bandwidth" <:= FloatV 500
+        "control" <:= Record [
+            "api" <:= StringV "led"
+          , "name" <:= StringV "led1"
+          , "dir" <:= StringV "consumer"
+          , "data" <:= Record [
+              "bandwidth" <:= FloatV 500
+            ]
+          ]
       ]
     return ()
 
   constrain $ port led1 connected
 
-  --button1 <- addPort "button1" $ do
-  --  buttonControl
-  --  setType [
-  --      "name" <:= StringV "button1"
-  --    , "dir" <:= StringV "consumer"
-  --    , "bandwidth" <:= FloatV 500
-  --    ]
-  --  return ()
+  button1 <- addPort "button1" $ do
+    seedPort
+    setType [
+        "control" <:= Record [
+            "api" <:= StringV "button"
+          , "name" <:= StringV "button1"
+          , "dir" <:= StringV "consumer"
+          , "data" <:= Record [
+              "bandwidth" <:= FloatV 500
+            ]
+          ]
+      ]
+    return ()
 
-  --constrain $ port button1 connected
+  constrain $ port button1 connected
 
   return ()
 
