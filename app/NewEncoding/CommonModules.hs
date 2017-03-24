@@ -6,15 +6,6 @@ import EDG
 import NewEncoding.CommonPorts
 
 -- A button module
-buttonControl :: (IsPort p) => p ()
-buttonControl = do
-  genericGpio
-  setIdent "ButtonApi"
-  setType [
-      "apiType" <:= StringV "button"
-    ]
-  return ()
-
 button :: Module ()
 button = do
   setIdent "button"
@@ -25,6 +16,7 @@ button = do
     setType [
         "current" <:= FloatV 0.001  -- for when button closes and resistor shorts to ground
       , "dir" <:= StringV "sink"
+      , "control" <:= noControl
       ]
     return ()
   out <- addPort "out" $ do
@@ -32,41 +24,34 @@ button = do
     setType [
         "current" <:= FloatV 0  -- this resistor-switch topology doesn't allow current draw
       , "dir" <:= StringV "source"
+      , "control" <:= onOffControl
       ]
     return ()
-  swGpio <- addPort "gpioApi" $ do
-    gpioControl
+  constrain $ port out (typeVal "control.dir") :== Lit (StringV "consumer")
+
+  seed <- addPort "seed" $ do
+    seedPort
     setType [
-        "dir" <:= StringV "consumer"
+        "control" <:= Record [
+            "api" <:= StringV "button"
+          , "name" <:= StringC unknown
+          , "dir" <:= StringV "producer"
+          , "data" <:= Record [
+              "bandwidth" <:= FloatC unknown
+            ]
+          ]
       ]
     return ()
-  swButton <- addPort "buttonApi" $ do
-    buttonControl
-    setType [
-        "dir" <:= StringV "producer"
-      ]
-    return ()
+
   --constrain $ port vin connected
-  --constrain $ port out connected
-  --constrain $ port swButton connected :== port swGpio connected
-  constrain $ port swButton (typeVal "name") :== port swGpio (typeVal "name")
-  constrain $ port swButton (typeVal "bandwidth") :== port swGpio (typeVal "bandwidth")
-  constrain $ port swButton (typeVal "uid") :== port swGpio (typeVal "uid")
+  constrain $ port out connected
+  constrain $ port out (typeVal "control.name") :== port seed (typeVal "control.name")
+  constrain $ port out (typeVal "control.data") :== port seed (typeVal "control.data")
 
   constrain $ port vin (typeVal "voltage") :== port out (typeVal "voltage")
   -- TODO digital signal threhsolds
 
 -- A LED Module
-
-ledControl :: (IsPort p) => p ()
-ledControl = do
-  genericGpio
-  setIdent "LedApi"
-  setType [
-      "apiType" <:= StringV "led"
-    ]
-  return ()
-
 led :: Module ()
 led = do
   setIdent "led"
@@ -77,25 +62,30 @@ led = do
     setType [
         "current" <:= FloatV 0.01
       , "dir" <:= StringV "sink"
+      , "control" <:= onOffControl
       ]
     return ()
-  swGpio <- addPort "gpioApi" $ do
-    gpioControl
+  constrain $ port source (typeVal "control.dir") :== Lit (StringV "consumer")
+
+  seed <- addPort "seed" $ do
+    seedPort
     setType [
-        "dir" <:= StringV "consumer"
+        "control" <:= Record [
+            "api" <:= StringV "led"
+          , "name" <:= StringC unknown
+          , "dir" <:= StringV "producer"
+          , "data" <:= Record [
+              "bandwidth" <:= FloatC unknown
+            ]
+          ]
       ]
     return ()
-  swLed <- addPort "ledApi" $ do
-    ledControl
-    setType [
-        "dir" <:= StringV "producer"
-      ]
-    return ()
+
   constrain $ port source connected
-  constrain $ port swLed connected :== port swGpio connected
-  constrain $ port source (typeVal "uid") :== port swGpio (typeVal "uid")  -- must be together
+  constrain $ port source (typeVal "control.name") :== port seed (typeVal "control.name")
+  constrain $ port source (typeVal "control.data") :== port seed (typeVal "control.data")
   constrain $ port source (typeVal "voltage") :>= Lit (FloatV 3.0)  -- LED voltage drop
-  constrain $ port swLed (typeVal "bandwidth") :== port swGpio (typeVal "bandwidth")
+
   -- TODO digital signal threhsolds
 
 mcu :: Module ()
@@ -139,16 +129,9 @@ mcu = do
       digitalPort
       setType [
           "voltage" <:= FloatV 3.3
+        , "control" <:= onOffControl
         ]
       return ()
-
-  gpioSw <- addPort "gpio1Sw" $ do
-    gpioControl
-    setType [
-        "bandwidth" <:= FloatC $ 500 +/- 500
-      , "dir" <:= StringV "producer"
-      ]
-    return ()
 
   constrain $ port usbIn (typeVal "current") :== Sum (
     (port p5vOut $ typeVal "current") :

@@ -5,21 +5,24 @@ import EDG
 -- Control Schemes
 baseControl :: () => AmbigVal
 baseControl = Record [
-    "scheme" <:= StringC unknown
+    "api" <:= StringC unknown
+  , "name" <:= StringC unknown
   , "dir" <:= StringC $ oneOf ["none", "producer", "consumer"]
   , "data" <:= Record unknown
   ]
 
 noControl :: () => AmbigVal
 noControl = Record [
-    "scheme" <:= StringV "None"
+    "api" <:= StringV "None"
+  , "name" <:= StringV "none"
   , "dir" <:= StringV "none"
   , "data" <:= Record []
   ]
 
 onOffControl :: () => AmbigVal
 onOffControl = Record [
-    "scheme" <:= StringV "OnOff"
+    "api" <:= StringV "OnOff"
+  , "name" <:= StringC unknown
   , "dir" <:= StringC $ oneOf ["producer", "consumer"]
   , "data" <:= Record [
         "bandwidth" <:= FloatC unknown
@@ -28,7 +31,8 @@ onOffControl = Record [
 
 pwmControl :: () => AmbigVal
 pwmControl = Record [
-    "scheme" <:= StringV "pwm"
+    "api" <:= StringV "pwm"
+  , "name" <:= StringC unknown
   , "dir" <:= StringC $ oneOf ["producer", "consumer"]
   , "data" <:= Record [
         "period" <:= FloatC unknown
@@ -46,7 +50,7 @@ electricalPort = do
       "voltage" <:= FloatC unknown
     , "current" <:= FloatC unknown
     , "dir" <:= StringC $ oneOf ["source", "sink", "bi"]  -- current flow direction
-    , "controlScheme" <:= Record unknown  -- optional control scheme
+    , "control" <:= Record unknown  -- optional control scheme
     ]
   return ()
 
@@ -86,6 +90,19 @@ electricalLink = do
   constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
   constrain $ port source (typeVal "current") :== port sink (typeVal "current")
 
+  constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
+  constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
+  constrain $ (
+      ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
+      ) :|| (
+        (port source (typeVal "control.dir") :== Lit (StringV "consumer"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "producer"))
+      ) :|| (
+        (port source (typeVal "control.dir") :== Lit (StringV "none"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "none"))
+      ))
+
   return ()
 
 digitalLink :: Link ()
@@ -108,4 +125,52 @@ digitalLink = do
   constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
   constrain $ port source (typeVal "current") :== port sink (typeVal "current")
 
+  constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
+  constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
+  constrain $ (
+      ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
+      ) :|| (
+        (port source (typeVal "control.dir") :== Lit (StringV "consumer"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "producer"))
+      ) :|| (
+        (port source (typeVal "control.dir") :== Lit (StringV "none"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "none"))
+      ))
+
+  return ()
+
+seedPort :: (IsPort p) => p ()
+seedPort = do
+  setKind "SeedPort"
+  setIdent "SeedPort"
+  setType [
+      "control" <:= Record unknown  -- optional control scheme
+      -- TODO: add device-specific records
+    ]
+  return ()
+
+-- Seed Links
+seedLink :: Link ()
+seedLink = do
+  setIdent "SeedLink"
+  setSignature "SeedLink"
+
+  producer <- addPort "consumer" $ do
+    seedPort
+    return()
+
+  consumer <- addPort "producer" $ do
+    seedPort
+    return()
+
+  constrain $ port producer connected
+  constrain $ port consumer connected
+
+  constrain $ port producer (typeVal "control.api") :== port consumer (typeVal "control.api")
+  constrain $ port producer (typeVal "control.name") :== port consumer (typeVal "control.name")
+  -- TODO: breaks for unknown reasons!
+  --constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
+  constrain $ port producer (typeVal "control.dir") :== Lit (StringV "producer")
+  constrain $ port consumer (typeVal "control.dir") :== Lit (StringV "consumer")
   return ()
