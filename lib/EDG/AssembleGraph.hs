@@ -62,8 +62,8 @@ deriving instance Read UIDData
 deriving instance Generic UIDData
 deriving instance NFData UIDData
 
-buildUIDData :: GatherState -> UIDData
-buildUIDData gs = UIDData {
+buildUIDData :: DecodeState -> UIDData
+buildUIDData ds = UIDData {
     udModPorts=modPorts
   , udLinkPorts=linkPorts
   , udModules=modules
@@ -77,16 +77,16 @@ buildUIDData gs = UIDData {
     flipMap = Map.fromList . map (\ (a,b) -> (b,a)) . Map.toList
 
     modPorts :: Map UID' (Ref ModPort )
-    modPorts = flipMap . Map.map (^. pUid) $ gs ^. modulePortInfo
+    modPorts = flipMap . Map.map (^. pUid) $ ds ^. modulePortInfo
 
     linkPorts :: Map UID' (Ref LinkPort)
-    linkPorts = flipMap . Map.map (^. pUid) $ gs ^. linkPortInfo
+    linkPorts = flipMap . Map.map (^. pUid) $ ds ^. linkPortInfo
 
     modules :: Map UID' (Ref Module  )
-    modules = flipMap . Map.map (^. eUID) $ gs ^. moduleInfo
+    modules = flipMap . Map.map (^. eUID) $ ds ^. moduleInfo
 
     links :: Map UID' (Ref Link    )
-    links = flipMap . Map.map (^. eUID) $ gs ^. linkInfo
+    links = flipMap . Map.map (^. eUID) $ ds ^. linkInfo
 
     getParents :: Map (Ref a) (ElemInfo a b) -> Map (Ref b) (String, Ref a)
     getParents = Map.fromList . concat . Map.elems
@@ -94,10 +94,10 @@ buildUIDData gs = UIDData {
         . Map.toList $ s ^. ePorts)
 
     modPortParents :: Map (Ref ModPort ) (String, Ref Module)
-    modPortParents = getParents $ gs ^. moduleInfo
+    modPortParents = getParents $ ds ^. moduleInfo
 
     linkPortParents :: Map (Ref LinkPort) (String, Ref Link  )
-    linkPortParents = getParents $ gs ^. linkInfo
+    linkPortParents = getParents $ ds ^. linkInfo
 
 type Ident = String
 type ResourceName = String
@@ -156,9 +156,8 @@ decodeResult ds model seed = idsBlock <$> decodeStep IncDecState{
     , idsModuleQueue = Set.singleton seed
   }
   where
-    gs = ds ^. _1
 
-    !uidData = trace "  building UID data" $ buildUIDData $ ds ^. _1
+    !uidData = trace "  building UID data" $ buildUIDData ds
 
     update :: Lens' s a -> (a -> (b,a)) -> s -> (b,s)
     update l u s = (\ (b,a) -> (b,l .~ a $ s)) $ u (s ^. l)
