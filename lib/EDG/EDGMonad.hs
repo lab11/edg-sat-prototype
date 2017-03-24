@@ -82,23 +82,23 @@ data GatherState = GatherState {
   , gsValEqClassCounter :: ValEqClass
   , gsRecEqClassCounter :: RecEqClass
   -- For each value, stores information about it.
-  , gsValInfo  :: (Map (Ref Value) ValInfo)
+  , gsValInfo  :: !(Map (Ref Value) ValInfo)
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
-  , gsRecInfo  :: (Map (Ref Record) RecInfo)
+  , gsRecInfo  :: !(Map (Ref Record) RecInfo)
   -- For each equality class over a record stores the kind for each field.
-  , gsRecordKinds :: (Map RecEqClass RecKind)
+  , gsRecordKinds :: !(Map RecEqClass RecKind)
   -- Storage for each major class of port, raw ones that don't come from a
   -- context of a module or link
   , gsBarePortInfo   :: (Map (Ref Port) (PortInfo Port))
-  , gsLinkPortInfo   :: (Map (Ref LinkPort) (PortInfo LinkPort))
-  , gsModulePortInfo :: (Map (Ref ModPort ) (PortInfo ModPort))
+  , gsLinkPortInfo   :: !(Map (Ref LinkPort) (PortInfo LinkPort))
+  , gsModulePortInfo :: !(Map (Ref ModPort ) (PortInfo ModPort))
   -- And Linkwise for each class of element
-  , gsLinkInfo       :: (Map (Ref Link  ) (ElemInfo Link   LinkPort))
-  , gsModuleInfo     :: (Map (Ref Module) (ElemInfo Module ModPort ))
+  , gsLinkInfo       :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , gsModuleInfo     :: !(Map (Ref Module) (ElemInfo Module ModPort ))
   -- Convinience Store for all the connection booleans that we're
   -- going to be using for allSat
-  , gsConnectionVars :: Set (Ref Bool)
+  , gsConnectionVars :: !(Set (Ref Bool))
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -426,39 +426,113 @@ class SBVAble t => InvertSBV t where
 --
 --   TODO :: Convert this from a type alias to an actual type of its own, and
 --           make the other bits less vacuous.
-type DecodeState = (GatherState,SBVState)
+data DecodeState = DecodeState {
+  --   dsUidCounter     :: Integer
+  -- , dsValEqClassCounter :: ValEqClass
+  -- , dsRecEqClassCounter :: RecEqClass
+  --dFor each value, stores information about it.
+    dsValInfo  :: !(Map (Ref Value) ValInfo)
+  --dTODO :: Yeah, I should find a better way to do this, and generally
+  --d        minimize the meccesary amount of updating.
+  , dsRecInfo  :: !(Map (Ref Record) RecInfo)
+  --dFor each equality class over a record stores the kind for each field.
+  --, dsRecordKinds :: !(Map RecEqClass RecKind)
+  --dStorage for each major class of port, raw ones that don't come from a
+  --dcontext of a module or link
+  , dsBarePortInfo   :: (Map (Ref Port) (PortInfo Port))
+  , dsLinkPortInfo   :: !(Map (Ref LinkPort) (PortInfo LinkPort))
+  , dsModulePortInfo :: !(Map (Ref ModPort ) (PortInfo ModPort))
+  --dAnd Linkwise for each class of element
+  , dsLinkInfo       :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , dsModuleInfo     :: !(Map (Ref Module) (ElemInfo Module ModPort ))
+  --dConvinience Store for all the connection booleans that we're
+  --dgoing to be using for allSat
+  --, dsConnectionVars :: !(Set (Ref Bool))
+  --dStores the integer representations of each string
+  --dTODO :: Gather all the data for this in the correct spot.
+  --d,gsStringDecode :: Bimap Integer String
+  --dThe grand store that we use to get the SBV values for a given reference
+  --dIs basically useless outside of the actual Symbolic monad.
+  --   dsBoolRef     :: (Map (Ref Bool)    (SBV Bool))
+  -- , dsStringRef   :: (Map (Ref String)  (SBV String))
+  -- , dsFloatRef    :: (Map (Ref Float)   (SBV Float))
+  -- , dsUidRef      :: (Map (Ref UID')    (SBV UID'))
+  -- , dsIntegerRef  :: (Map (Ref Integer) (SBV Integer))
+  -- , dsValueRef    :: (Map (Ref Value)   (ValueSBV))
+  -- , dsRecordRef   :: (Map (Ref Record)  (RecSBV))
+  --dInformation to get the kinds of values
+  --, dsValInfo     :: (Map (Ref Value)  ValInfo)
+  --, dsRecInfo     :: (Map (Ref Record) RecInfo)
+  -- , dsRecordKinds :: (Map RecEqClass RecKind)
+  --dMap for assigning strings to integer values, so that they can be search
+  , dsStringDecode :: (Bimap Integer String)
+  }
 
+deriving instance (ExpContext EDG) => Eq   DecodeState
+deriving instance (ExpContext EDG) => Show DecodeState
+instance (ExpContext EDG, NFData (ExpValue EDG)
+  ,NFData (ExpLiteral EDG)) => NFData DecodeState where
+  rnf DecodeState{..} =
+    rnf @[_] [
+        rnf dsValInfo
+      , rnf dsRecInfo
+      , rnf dsBarePortInfo
+      , rnf dsLinkPortInfo
+      , rnf dsModulePortInfo
+      , rnf dsLinkInfo
+      , rnf dsModuleInfo
+      ]
+
+
+
+
+
+
+makeLensesWith abbreviatedFields ''DecodeState
 -- | Use the final GatherState and SBVState to generate a DecodeState that we
 --   can use to reconstruct the design.
 buildDecodeState :: GatherState -> SBVState -> DecodeState
-buildDecodeState = (,)
+buildDecodeState GatherState{..} SBVState{..} = DecodeState{
+    dsValInfo        = gsValInfo -- :: !(Map (Ref Value) ValInfo)
+  , dsRecInfo        = gsRecInfo -- :: !(Map (Ref Record) RecInfo)
+  , dsBarePortInfo   = gsBarePortInfo -- :: (Map (Ref Port) (PortInfo Port))
+    -- :: !(Map (Ref LinkPort) (PortInfo LinkPort))
+  , dsLinkPortInfo   = gsLinkPortInfo
+    -- :: !(Map (Ref ModPort ) (PortInfo ModPort))
+  , dsModulePortInfo = gsModulePortInfo
+    -- :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , dsLinkInfo       = gsLinkInfo
+    --  :: !(Map (Ref Module) (ElemInfo Module ModPort ))
+  , dsModuleInfo     = gsModuleInfo
+  , dsStringDecode   = ssStringDecode -- :: (Bimap Integer String)
+  }
 
 -- | Get the string Decoder from the decodeState
 getDSStringDecode :: DecodeState -> Bimap Integer String
-getDSStringDecode d = d ^. _2 . stringDecode
+getDSStringDecode d = d ^. stringDecode
 
 -- | Get the map of value information from the decode state.
 getDSValInfo :: DecodeState -> Map (Ref Value) ValInfo
-getDSValInfo s = s ^. _2 . valInfo
+getDSValInfo s = s ^. valInfo
 
 -- | get the map of record information from the decode state
 getDSRecInfo :: DecodeState -> Map (Ref Record) RecInfo
-getDSRecInfo s = s ^. _2 . recInfo
+getDSRecInfo s = s ^. recInfo
 
 getDSBarePortInfo :: DecodeState -> Map (Ref Port) (PortInfo Port)
-getDSBarePortInfo d = d ^. _1 . barePortInfo
+getDSBarePortInfo d = d ^. barePortInfo
 
 getDSModulePortInfo :: DecodeState -> Map (Ref ModPort) (PortInfo ModPort)
-getDSModulePortInfo d = d ^. _1 . modulePortInfo
+getDSModulePortInfo d = d ^. modulePortInfo
 
 getDSLinkPortInfo :: DecodeState -> Map (Ref LinkPort) (PortInfo LinkPort)
-getDSLinkPortInfo d = d ^. _1 . linkPortInfo
+getDSLinkPortInfo d = d ^. linkPortInfo
 
 getDSModuleInfo :: DecodeState -> Map (Ref Module) (ElemInfo Module ModPort)
-getDSModuleInfo d = d ^. _1 . moduleInfo
+getDSModuleInfo d = d ^. moduleInfo
 
 getDSLinkInfo :: DecodeState -> Map (Ref Link) (ElemInfo Link LinkPort)
-getDSLinkInfo d = d ^. _1 . linkInfo
+getDSLinkInfo d = d ^. linkInfo
 
 -- | ease of se internal funtion that allow us to easily generate a binary
 --   operator on refs from an operator on sbv values
