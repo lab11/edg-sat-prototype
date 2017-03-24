@@ -82,23 +82,23 @@ data GatherState = GatherState {
   , gsValEqClassCounter :: ValEqClass
   , gsRecEqClassCounter :: RecEqClass
   -- For each value, stores information about it.
-  , gsValInfo  :: !(Map (Ref Value) ValInfo)
+  , gsValInfo  :: (Map (Ref Value) ValInfo)
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
-  , gsRecInfo  :: !(Map (Ref Record) RecInfo)
+  , gsRecInfo  :: (Map (Ref Record) RecInfo)
   -- For each equality class over a record stores the kind for each field.
-  , gsRecordKinds :: !(Map RecEqClass RecKind)
+  , gsRecordKinds :: (Map RecEqClass RecKind)
   -- Storage for each major class of port, raw ones that don't come from a
   -- context of a module or link
   , gsBarePortInfo   :: (Map (Ref Port) (PortInfo Port))
-  , gsLinkPortInfo   :: !(Map (Ref LinkPort) (PortInfo LinkPort))
-  , gsModulePortInfo :: !(Map (Ref ModPort ) (PortInfo ModPort))
+  , gsLinkPortInfo   :: (Map (Ref LinkPort) (PortInfo LinkPort))
+  , gsModulePortInfo :: (Map (Ref ModPort ) (PortInfo ModPort))
   -- And Linkwise for each class of element
-  , gsLinkInfo       :: !(Map (Ref Link  ) (ElemInfo Link   LinkPort))
-  , gsModuleInfo     :: !(Map (Ref Module) (ElemInfo Module ModPort ))
+  , gsLinkInfo       :: (Map (Ref Link  ) (ElemInfo Link   LinkPort))
+  , gsModuleInfo     :: (Map (Ref Module) (ElemInfo Module ModPort ))
   -- Convinience Store for all the connection booleans that we're
   -- going to be using for allSat
-  , gsConnectionVars :: !(Set (Ref Bool))
+  , gsConnectionVars :: (Set (Ref Bool))
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -211,10 +211,12 @@ instance NamedMonad (ExtractMonad a) where
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
 newUID = uidCounter @(GatherState) <+= 1
+{-# INLINE newUID #-}
 
 -- | Get a wrapped new UID
 newConcreteUID :: EDGMonad UID'
 newConcreteUID = UID' <$> newUID
+{-# INLINE newConcreteUID #-}
 
 -- | Get a new EqClassID and increment the counter.
 newValEqClass :: EDGMonad ValEqClass
@@ -222,6 +224,7 @@ newValEqClass = do
   n <- uses @GS valEqClassCounter (pack . (+ 1) . unpack)
   valEqClassCounter @GS .= n
   return n
+{-# INLINE newValEqClass #-}
 
 -- | Get a new EqClassID and increment the counter.
 newRecEqClass :: EDGMonad RecEqClass
@@ -229,6 +232,7 @@ newRecEqClass = do
   n <- uses @GS recEqClassCounter  (pack . (+ 1) . unpack)
   recEqClassCounter @GS .= n
   return n
+{-# INLINE newRecEqClass #-}
 
 -- | Catch an expcetion and append a string to it, so that we can have better
 --   knowledge of what's actually happening.
@@ -246,16 +250,19 @@ errContext s e = do
     appendContext n = throw . unlines
       . (\ e -> [("In Context ("++n++") : ") ++ s] ++ e )
       . map ("  " ++) . lines
+{-# INLINE errContext #-}
 
 -- | throw an error when an operation that returns maybe fails.
 maybeThrow :: (MonadExcept String m) => String -> Maybe a -> m a
 maybeThrow s  Nothing = throw s
 maybeThrow _ (Just v) = return v
+{-# INLINE maybeThrow #-}
 
 -- TODO :: Change typesig to following and reimplement when we make the
 --         ExtractMonad changes.
 maybeThrow' :: String -> Maybe a -> Maybe a
 maybeThrow' _ = id
+{-# INLINE maybeThrow' #-}
 
 
 -- | The class for contrianable types that can be written as an element in an
@@ -402,6 +409,7 @@ fixAmbiguous :: SBVAble t => Ambiguous t -> EDGMonad (Ambiguous t)
 fixAmbiguous Impossible   = trace "fixAmbigImp" $ return Impossible
 fixAmbiguous (Concrete v) = Concrete <$> fixConcrete v
 fixAmbiguous (Abstract c) = Abstract <$> fixAbstract c
+{-# INLINE fixAmbiguous #-}
 
 -- | given an anbiguous value, and a symbolic value gives you a symbolic bool
 --   for if they match.
@@ -409,6 +417,7 @@ isAmbiguous :: SBVAble t => Ambiguous t -> SBVType t -> SBVMonad (SBV Bool)
 isAmbiguous Impossible   _ = return $ S.literal False
 isAmbiguous (Concrete v) s = isConcrete v s
 isAmbiguous (Abstract c) s = isAbstract c s
+{-# INLINE isAmbiguous #-}
 
 -- | Can we, given a reference to a particular element in a SatModel to
 --   retrieve, retrieve it? Well, if we have the particular context, which
@@ -506,33 +515,42 @@ buildDecodeState GatherState{..} SBVState{..} = DecodeState{
   , dsModuleInfo     = gsModuleInfo
   , dsStringDecode   = ssStringDecode -- :: (Bimap Integer String)
   }
+{-# INLINE buildDecodeState #-}
 
 -- | Get the string Decoder from the decodeState
 getDSStringDecode :: DecodeState -> Bimap Integer String
-getDSStringDecode d = d ^. stringDecode
+getDSStringDecode = dsStringDecode
+{-# INLINE getDSStringDecode #-}
 
 -- | Get the map of value information from the decode state.
 getDSValInfo :: DecodeState -> Map (Ref Value) ValInfo
-getDSValInfo s = s ^. valInfo
+getDSValInfo = dsValInfo
+{-# INLINE getDSValInfo #-}
 
 -- | get the map of record information from the decode state
 getDSRecInfo :: DecodeState -> Map (Ref Record) RecInfo
-getDSRecInfo s = s ^. recInfo
+getDSRecInfo = dsRecInfo
+{-# INLINE getDSRecInfo #-}
 
 getDSBarePortInfo :: DecodeState -> Map (Ref Port) (PortInfo Port)
-getDSBarePortInfo d = d ^. barePortInfo
+getDSBarePortInfo = dsBarePortInfo
+{-# INLINE getDSBarePortInfo #-}
 
 getDSModulePortInfo :: DecodeState -> Map (Ref ModPort) (PortInfo ModPort)
-getDSModulePortInfo d = d ^. modulePortInfo
+getDSModulePortInfo = dsModulePortInfo
+{-# INLINE getDSModulePortInfo #-}
 
 getDSLinkPortInfo :: DecodeState -> Map (Ref LinkPort) (PortInfo LinkPort)
-getDSLinkPortInfo d = d ^. linkPortInfo
+getDSLinkPortInfo = dsLinkPortInfo
+{-# INLINE getDSLinkPortInfo #-}
 
 getDSModuleInfo :: DecodeState -> Map (Ref Module) (ElemInfo Module ModPort)
-getDSModuleInfo d = d ^. moduleInfo
+getDSModuleInfo = dsModuleInfo
+{-# INLINE getDSModuleInfo #-}
 
 getDSLinkInfo :: DecodeState -> Map (Ref Link) (ElemInfo Link LinkPort)
-getDSLinkInfo d = d ^. linkInfo
+getDSLinkInfo = dsLinkInfo
+{-# INLINE getDSLinkInfo #-}
 
 -- | ease of se internal funtion that allow us to easily generate a binary
 --   operator on refs from an operator on sbv values
@@ -552,6 +570,7 @@ mkBinOp op opName a b name = errContext context $ do
   where
     context = opName ++ " `" ++ show a ++ "` `" ++ show b ++ "` `"
       ++ show name ++ "`"
+{-# INLINE mkBinOp #-}
 
 -- | ease of se internal funtion that allow us to easily generate a unary
 --   operator on refs from an operator on sbv values
@@ -570,6 +589,7 @@ mkUnOp op opName a name = errContext context $ do
   where
     context = opName ++ " `" ++ show a ++ "` `"
       ++ show name ++ "`"
+{-# INLINE mkUnOp #-}
 
 -- | Get an equality constraint
 class (SBVAble t,SBVAble Bool) => EDGEquals t where
@@ -593,12 +613,14 @@ class (SBVAble t,SBVAble Bool) => EDGEquals t where
 --   pretty obvious.
 (.==)   :: EDGEquals t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.==) a b = equalE a b ("equalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.==) #-}
 
 -- | Same as `unequalE` but chooses its own name, usually just something
 --   pretty obvious.
 (./=)   :: EDGEquals t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (./=) a b = unequalE a b ("unequalE (" ++ getName a ++ ") ("
             ++ getName b ++ ")")
+{-# INLINE (./=) #-}
 
 -- | And some constraints for boolean operators.
 --
@@ -619,37 +641,44 @@ class (SBVAble t, SBVAble Bool) => EDGLogic t where
 --   pretty obvious.
 notE'    :: EDGLogic t => RefType t -> EDGMonad (RefType t)
 notE' a = notE a ("notE (" ++ getName a ++ ")")
+{-# INLINE notE' #-}
 
 -- | Same as `andE` but chooses its own name, usually just something
 --   pretty obvious.
 (.&&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.&&) a b = andE a b ("andE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.&&) #-}
 
 -- | Same as `orE` but chooses its own name, usually just something
 --   pretty obvious.
 (.||)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.||) a b = orE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.||) #-}
 
 -- | Same as `impliesE` but chooses its own name, usually just something
 --   pretty obvious.
 (.=>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") ("
             ++ getName b ++ ")")
+{-# INLINE (.=>) #-}
 
 -- | Same as `nandE` but chooses its own name, usually just something
 --   pretty obvious.
 (.~&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.~&) a b = nandE a b ("nandE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.~&) #-}
 
 -- | Same as `norE` but chooses its own name, usually just something
 --   pretty obvious.
 (.~|)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.~|) a b = norE a b ("norE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.~|) #-}
 
 -- | Same as `xorE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<+>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.<+>) a b = xorE a b ("xorE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.<+>) #-}
 
 class (SBVAble t) => EDGNum t where
   negateE :: RefType t ->              String -> EDGMonad (RefType t)
@@ -681,12 +710,15 @@ negateE' a = negateE a ("negateE (" ++ getName a ++ ")")
 
 (.+) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.+) a b = plusE a b ("plusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.+) #-}
 
 (.-) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.-) a b = minusE a b ("minusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.-) #-}
 
 (.*) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
 (.*) a b = multE a b ("multE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.*) #-}
 
 -- | And some constraints for ordered values
 class (SBVAble t, SBVAble Bool) => EDGOrd t where
@@ -719,21 +751,25 @@ class (SBVAble t, SBVAble Bool) => EDGOrd t where
 --   pretty obvious.
 (.<)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.<) a b = ltE a b ("ltE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.<) #-}
 
 -- | Same as `lteE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.<=) a b = lteE a b ("lteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.<=) #-}
 
 -- | Same as `gtE` but chooses its own name, usually just something
 --   pretty obvious.
 (.>)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.>) a b = gtE a b ("gtE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.>) #-}
 
 -- | Same as `gteE` but chooses its own name, usually just something
 --   pretty obvious.
 (.>=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 (.>=) a b = gteE a b ("gteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE (.>=) #-}
 
 -- | And some constraints for ordered values
 class (SBVAble t, SBVAble Bool) => EDGPartialOrd t where
@@ -743,6 +779,7 @@ class (SBVAble t, SBVAble Bool) => EDGPartialOrd t where
 --   pretty obvious.
 leqE' :: EDGPartialOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
 leqE' a b = leqE a b ("leqE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+{-# INLINE leqE' #-}
 
 -- NOTE :: A special instance that helps us detect when we try to constrain
 --         our problem with a constant False. This is a bit problematic
