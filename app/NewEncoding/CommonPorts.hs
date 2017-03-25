@@ -1,6 +1,7 @@
 module NewEncoding.CommonPorts where
 
 import EDG
+import Control.Monad
 
 -- Control Schemes
 baseControl :: () => AmbigVal
@@ -70,38 +71,31 @@ digitalPort = do
   return ()
 
 -- Electrical Links
-electricalLink :: Link ()
-electricalLink = do
-  setIdent "ElectricalLink"
-  setSignature "ElectricalLink"
+powerLink :: Int -> Link ()
+powerLink numSinks = do
+  setIdent "PowerLink"
+  setSignature "PowerLink"
 
   source <- addPort "source" $ do
     electricalPort
     setType ["dir" <:= StringV "source"]
     return()
 
-  sink <- addPort "sink" $ do
-    electricalPort
-    setType ["dir" <:= StringV "sink"]
-    return()
+  sinks <- forM @[] [1..numSinks] $ \ sinkId ->
+    addPort ("sink" ++ (show sinkId)) $ do
+      electricalPort
+      setType ["dir" <:= StringV "sink"]
+      return()
 
   constrain $ port source connected
-  constrain $ port sink connected
-  constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
-  constrain $ port source (typeVal "current") :== port sink (typeVal "current")
+  constrain $ Any (map (\ sink -> port sink connected) sinks)
+  constrain $ port source (typeVal "current") :== Sum (map (\ sink -> port sink (typeVal "current")) sinks)
 
-  constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
-  constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
-  constrain $ (
-      ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
-      ) :|| (
-        (port source (typeVal "control.dir") :== Lit (StringV "consumer"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "producer"))
-      ) :|| (
-        (port source (typeVal "control.dir") :== Lit (StringV "none"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "none"))
-      ))
+  forM sinks $ \ sink -> do
+    constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
+    constrain $ port source (typeVal "control.api") :== Lit (StringV "None")
+    constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
+  constrain $ port source (typeVal "control.api") :== Lit (StringV "None")
 
   return ()
 
@@ -127,6 +121,7 @@ digitalLink = do
 
   constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
   constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
+  constrain $ port source (typeVal "control.data") :== port sink (typeVal "control.data")
   constrain $ (
       ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
         :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
@@ -185,6 +180,5 @@ seedLink = do
 
   constrain $ port producer (typeVal "control.api") :== port consumer (typeVal "control.api")
   constrain $ port producer (typeVal "control.name") :== port consumer (typeVal "control.name")
-  -- TODO: breaks for unknown reasons!
-  --constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
+  constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
   return ()

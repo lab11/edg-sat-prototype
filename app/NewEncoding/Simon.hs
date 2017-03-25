@@ -7,13 +7,13 @@ import NewEncoding.CommonModules
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
-        ("button",1,button)
-      , ("led",1,led)
+        ("button",2,button)
+      , ("led",2,led)
       , ("mcu",1,mcu)
       ]
-  , links   = [
-        ("seedLink", 2, seedLink)
-      , ("electricalLink", 2, electricalLink)
+  , links = [
+        ("seedLink", 4, seedLink)
+      , ("electricalLink", 2, powerLink 2)
       , ("digitalLink", 2, digitalLink)
       ]
   }
@@ -47,7 +47,7 @@ seed = do
           , "name" <:= StringV "button1"
           , "dir" <:= StringV "consumer"
           , "data" <:= Record [
-              "bandwidth" <:= FloatV 500
+              "bandwidth" <:= FloatV 100
             ]
           ]
       ]
