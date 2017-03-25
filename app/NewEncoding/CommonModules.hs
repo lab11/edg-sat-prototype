@@ -43,7 +43,7 @@ button = do
       ]
     return ()
 
-  --constrain $ port vin connected
+  constrain $ port vin connected
   constrain $ port out connected
   constrain $ port out (typeVal "control.name") :== port seed (typeVal "control.name")
   constrain $ port out (typeVal "control.data") :== port seed (typeVal "control.data")
@@ -124,8 +124,8 @@ mcu = do
       ]
     return ()
 
-  gpios <- forM ["gpio1","gpio2"] $ \ name ->
-    addPort name $ do
+  gpios <- forM [1..4] $ \ gpioId ->
+    addPort ("gpio" ++ (show gpioId)) $ do
       digitalPort
       setType [
           "voltage" <:= FloatV 3.3
