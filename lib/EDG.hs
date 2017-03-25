@@ -823,8 +823,8 @@ parseSettings = EDGSettings
           <> showDefault
       )
   <*> (switch
-        $  long "print"
-        <> short 'p'
+        $  long "stdout"
+        <> short 't'
         <> help "Print the output to STDOUT"
         <> showDefault
       )
@@ -834,7 +834,7 @@ parseSettings = EDGSettings
         <> metavar "FILE"
         <> help "Write the output to FILE"
       )
-  <*> (some . strOption
+  <*> (many . strOption
         $  long "graph-output"
         <> short 'g'
         <> metavar "FILE"
@@ -871,6 +871,33 @@ makeSynthFunc l m s = synthesizeWithSettings s l m
 deriving instance Generic SBV.SatResult
 deriving instance NFData SBV.SatResult
 
+-- | Wrapper type for a model that should keep us from having to
+--   constantly recalculate the dictionary
+data ModelableWrapper a = MW{
+    model :: a
+  , dict :: Map String SBV.CW
+  , modVal :: forall b. SBV.SymWord b => String -> Maybe b
+  }
+
+instance SBV.Modelable a => SBV.Modelable (ModelableWrapper a) where
+  modelExists = SBV.modelExists . model
+  getModel = SBV.getModel . model
+  getModelDictionary = dict
+  getModelValue s a = modVal a s
+  getModelUninterpretedValue s = SBV.getModelUninterpretedValue s . model
+  extractModel = SBV.extractModel . model
+
+-- | Wrap a modelable to cache the dictionary
+wrapModel :: SBV.Modelable a => a -> ModelableWrapper a
+wrapModel a = MW{
+    model = a
+  , dict = dc
+  , modVal = (\ s -> SBV.fromCW <$> Map.lookup s dc)
+  }
+  where
+    dc = SBV.getModelDictionary a
+
+
 -- | TODO
 synthesizeWithSettings :: EDGSettings
                        -> EDGLibrary -> [(String,Module ())] -> IO ()
@@ -889,7 +916,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             decodeState <- evaluate . force $
               E.buildDecodeState gatherState sbvState
             decodeResult' <- evaluate . force $
-              E.decodeResult decodeState solution sm
+              E.decodeResult decodeState (wrapModel solution) sm
             return (decodeState, decodeResult')
         case decodeResult' of
           Left s -> do
