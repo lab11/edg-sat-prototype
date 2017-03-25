@@ -162,6 +162,10 @@ import Options.Applicative
 import Data.Semigroup ((<>))
 import Debug.Trace
 
+import qualified Data.SBV as SBV
+-- import qualified Data.SBV.Dynamic as SBV hiding (satWith)
+-- import qualified Data.SBV.Internals as SBV hiding (satWith)
+
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import qualified Text.Pretty.Simple as T
@@ -513,7 +517,6 @@ pattern If c t f = E.If c t f
 -- | TODO
 pattern Count a = E.Count a
 
-
 -- * Elements of a Design
 
 -- | TODO :: Further Documentation
@@ -797,17 +800,18 @@ data EDGSettings = EDGSettings {
     verboseSBV :: Bool
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
-  , graphvizFile :: Maybe FilePath
-  -- , smtlibFile :: Maybe FilePath
+  , graphvizFile :: [FilePath]
+  , smtLibFile :: Maybe FilePath
   }
 
 -- | TODO
 defaultSettings :: EDGSettings
 defaultSettings = EDGSettings{
     verboseSBV = False
-  , printOutput = True
+  , printOutput = False
   , outputFile = Nothing
-  , graphvizFile = Just "test.png"
+  , graphvizFile = []
+  , smtLibFile = Nothing
   }
 
 parseSettings :: Parser EDGSettings
@@ -818,10 +822,10 @@ parseSettings = EDGSettings
           <> help "Print the full input problem sent to the SMT solver"
           <> showDefault
       )
-  <*> (flag True False
-        $  long "supress"
-        <> short 's'
-        <> help "Don't print the output to STDOUT"
+  <*> (switch
+        $  long "print"
+        <> short 'p'
+        <> help "Print the output to STDOUT"
         <> showDefault
       )
   <*> (optional . strOption
@@ -830,13 +834,21 @@ parseSettings = EDGSettings
         <> metavar "FILE"
         <> help "Write the output to FILE"
       )
-  <*> (optional . strOption
+  <*> (some . strOption
         $  long "graph-output"
         <> short 'g'
         <> metavar "FILE"
-        <> value "test.png" -- NOTE :: Remove this in a bit? Once the
-                            --         the X11/GTK output is working?
-        <> help "Write the graph to FILE"
+        <> help ("Write the graph to FILE. Many supported filetypes "
+          ++ "incl. 'png','svg','dot','pdf','gif','bmp',etc.."
+          ++ "\n This option can be used multiple times to create multiple "
+          ++ "files.")
+      )
+  <*> (optional . strOption
+        $  long "smt-lib-output"
+        <> short 's'
+        <> metavar "FILE"
+        <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
+          ++ "debugging and seeing how large things are.")
       )
 
 -- | TODO
@@ -889,8 +901,13 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
           Right decodeResult -> time "Building Output Files" $ do
             -- Print output
             when printOutput $ E.pPrint decodeResult
+            -- Generate and print smtlib file
+            sequence_ $ time "generating/writing smt-lib file"
+              <$> (flip fmap smtLibFile $ \ f -> do
+                s <- SBV.compileToSMTLib SBV.SMTLib2 True symbM
+                writeFile f s)
             -- TODO :: Write output to file
-            sequence_ $
+            time "writing output data file" $ sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
             time "Writing Graph" $ do
               outputGraph <- evaluate $ E.genGraph decodeResult

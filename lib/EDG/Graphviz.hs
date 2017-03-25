@@ -38,7 +38,7 @@ import Control.Monad
 import Debug.Trace
 
 import Data.Void
-import Data.List (intersperse)
+import Data.List (intersperse,isSuffixOf)
 import Data.Maybe (fromJust)
 
 import EDG.Elements.Port
@@ -205,10 +205,24 @@ genGraph db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..} =
 
 
 getExt :: FilePath -> GraphvizOutput
-getExt = undefined
+getExt s
+  | isSuffixOf ".bmp"  s = Bmp
+  | isSuffixOf ".dot"  s = DotOutput
+  | isSuffixOf ".xdot" s = XDot Nothing
+  | isSuffixOf ".eps"  s = Eps
+  | isSuffixOf ".gif"  s = Gif
+  | isSuffixOf ".jpg"  s = Jpeg
+  | isSuffixOf ".jpeg" s = Jpeg
+  | isSuffixOf ".pdf"  s = Pdf
+  | isSuffixOf ".txt"  s = PlainExt
+  | isSuffixOf ".png"  s = Png
+  | isSuffixOf ".ps"   s = Ps
+  | isSuffixOf ".svg"  s = Svg
+  | isSuffixOf ".tiff" s = Svg
+  | otherwise = error $ "Output file \"" ++ s ++ "\" has unknown filetype."
 
 writeGraph :: DotGraph String -> FilePath -> IO FilePath
-writeGraph dg fp = runGraphvizCommand Fdp dg Png fp
+writeGraph dg fp = runGraphvizCommand Fdp dg (getExt fp) fp
 
 -- * Shit to do with formatting *
 
