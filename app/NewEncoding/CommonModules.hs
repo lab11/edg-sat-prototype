@@ -96,7 +96,7 @@ mcu = do
       "MHz" <:= FloatV 8.0  -- TODO: is this useful?
     ]
   usbIn <- addPort "UsbIn" $ do
-    electricalPort
+    dummyElectricalPort
     setType [
         "voltage" <:= FloatV 5.0
       , "current" <:= FloatC $ 0.25 +/- 0.25
