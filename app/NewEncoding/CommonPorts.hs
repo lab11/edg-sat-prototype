@@ -43,8 +43,8 @@ pwmControl = Record [
 
 -- Electrical Ports
 
-electricalPort :: (IsPort p) => p ()
-electricalPort = do
+dummyElectricalPort :: (IsPort p) => p ()
+dummyElectricalPort = do
   setKind "ElectricalPort"
   setIdent "ElectricalPort"
   setType [
@@ -53,6 +53,12 @@ electricalPort = do
     , "dir" <:= StringC $ oneOf ["source", "sink", "bi"]  -- current flow direction
     , "control" <:= Record unknown  -- optional control scheme
     ]
+  return ()
+
+electricalPort :: (IsPort p) => p ()
+electricalPort = do
+  dummyElectricalPort
+  constrain $ Not connected :=> ((typeVal "current") :== Lit (FloatV 0))
   return ()
 
 digitalPort :: (IsPort p) => p ()
@@ -93,9 +99,8 @@ powerLink numSinks = do
 
   forM sinks $ \ sink -> do
     constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
-    constrain $ port source (typeVal "control.api") :== Lit (StringV "None")
-    constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
-  constrain $ port source (typeVal "control.api") :== Lit (StringV "None")
+    constrain $ port sink (typeVal "control") :== Lit (noControl)
+  constrain $ port source (typeVal "control") :== Lit (noControl)
 
   return ()
 
@@ -121,7 +126,7 @@ digitalLink = do
 
   constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
   constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
-  constrain $ port source (typeVal "control.data") :== port sink (typeVal "control.data")
+  --constrain $ port source (typeVal "control.data") :== port sink (typeVal "control.data")
   constrain $ (
       ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
         :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
@@ -129,8 +134,8 @@ digitalLink = do
         (port source (typeVal "control.dir") :== Lit (StringV "consumer"))
         :&& (port sink (typeVal "control.dir") :== Lit (StringV "producer"))
       ) :|| (
-        (port source (typeVal "control.dir") :== Lit (StringV "none"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "none"))
+        (port source (typeVal "control") :== Lit (noControl))
+        :&& (port sink (typeVal "control") :== Lit (noControl))
       ))
 
   return ()
@@ -180,5 +185,5 @@ seedLink = do
 
   constrain $ port producer (typeVal "control.api") :== port consumer (typeVal "control.api")
   constrain $ port producer (typeVal "control.name") :== port consumer (typeVal "control.name")
-  constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
+  --constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
   return ()
