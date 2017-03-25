@@ -121,7 +121,7 @@ digitalLink = do
 
   constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
   constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
-  constrain $ port source (typeVal "control.data") :== port sink (typeVal "control.data")
+  constrain $ port source (typeVal "control.data") :== port sink (typeVal "control.data")  -- this constraint causes edg to crash pre-synthesis
   constrain $ (
       ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
         :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
@@ -180,5 +180,5 @@ seedLink = do
 
   constrain $ port producer (typeVal "control.api") :== port consumer (typeVal "control.api")
   constrain $ port producer (typeVal "control.name") :== port consumer (typeVal "control.name")
-  constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
+  constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")  -- this constraint causes edg to crash pre-synthesis
   return ()
