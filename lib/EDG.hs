@@ -162,6 +162,8 @@ import Options.Applicative
 import Data.Semigroup ((<>))
 import Debug.Trace
 
+import Data.Time
+
 import qualified Data.SBV as SBV
 -- import qualified Data.SBV.Dynamic as SBV hiding (satWith)
 -- import qualified Data.SBV.Internals as SBV hiding (satWith)
@@ -969,12 +971,18 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     time :: String -> IO t -> IO t
     time s a = do
         putStrLn $ "Starting : " ++ s
-        start <- getCPUTime
+        cStart <- getCPUTime
+        wStart <- getCurrentTime
         v <- a
-        end   <- getCPUTime
+        cEnd   <- getCPUTime
+        wEnd <- getCurrentTime
         putStrLn $ "Finished : " ++ s
-        let diff = (fromIntegral (end - start)) / (10^12)
-        printf "Computation time (%s): %0.3f sec\n" (s :: String)(diff :: Double)
+        let cDiff = (fromIntegral (cEnd - cStart)) / (10^12)
+            wDiff = (fromRational . toRational $ diffUTCTime wEnd wStart)-- / (10^12)
+        printf ("Computation time (%s):\n"
+          ++ "  cpu  : %0.3f sec\n"
+          ++ "  wall : %0.3f sec\n" :: String)
+          (s :: String)(cDiff :: Double)(wDiff :: Double)
         return v
 -- * Utility Functions
 
