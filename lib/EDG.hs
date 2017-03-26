@@ -153,6 +153,7 @@ import Control.Newtype
 import Text.Printf
 import Control.Exception
 import System.CPUTime
+import System.Exit
 import Control.Monad
 import Control.Exception (evaluate)
 import Control.DeepSeq
@@ -804,6 +805,7 @@ data EDGSettings = EDGSettings {
   , outputFile :: Maybe FilePath
   , graphvizFile :: [FilePath]
   , smtLibFile :: Maybe FilePath
+  , supressSMT :: Bool
   }
 
 -- | TODO
@@ -814,6 +816,7 @@ defaultSettings = EDGSettings{
   , outputFile = Nothing
   , graphvizFile = []
   , smtLibFile = Nothing
+  , supressSMT = False
   }
 
 parseSettings :: Parser EDGSettings
@@ -851,6 +854,11 @@ parseSettings = EDGSettings
         <> metavar "FILE"
         <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
           ++ "debugging and seeing how large things are.")
+      )
+  <*> (switch
+        $  long "skip-smt"
+        <> help ("Skip the SMT solving phase of the process, useful for "
+          ++ "profiling.")
       )
 
 -- | TODO
@@ -909,6 +917,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     -- Solve the initial sat problem
     (symbM,gatherState,sm) <- time "Precomputation" $
       evaluate . (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
+    when supressSMT exitSuccess
     solution <- time "Sat Solving" $ (fmap force) $
       SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
     case solution of
