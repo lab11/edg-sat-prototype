@@ -237,6 +237,26 @@ seed = do
 run :: EDGSettings -> IO ()
 run = makeSynthFunc testLibrary [("Seed",seed)]
 
+
+medTestLibrary :: EDGLibrary
+medTestLibrary = EDGLibrary{
+    modules = [
+        ("button",3,button)
+      , ("buttonDriver",3,buttonDriver)
+      , ("led",4,led)
+      , ("ledDriver",3,ledDriver)
+      , ("mcu",1,mcu)
+      ]
+  , links   = [
+        ("pwerLink",4,powerLink 8)
+      , ("swLink",4,swLink)
+      , ("gpioLink",4,gpioLink)
+      ]
+  }
+
+medRun :: EDGSettings -> IO ()
+medRun = makeSynthFunc medTestLibrary [("Seed",seed)]
+
 bigTestLibrary :: EDGLibrary
 bigTestLibrary = EDGLibrary{
     modules = [

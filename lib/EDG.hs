@@ -153,6 +153,7 @@ import Control.Newtype
 import Text.Printf
 import Control.Exception
 import System.CPUTime
+import System.Exit
 import Control.Monad
 import Control.Exception (evaluate)
 import Control.DeepSeq
@@ -161,6 +162,8 @@ import GHC.Generics
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Debug.Trace
+
+import Data.Time
 
 import qualified Data.SBV as SBV
 -- import qualified Data.SBV.Dynamic as SBV hiding (satWith)
@@ -802,6 +805,7 @@ data EDGSettings = EDGSettings {
   , outputFile :: Maybe FilePath
   , graphvizFile :: [FilePath]
   , smtLibFile :: Maybe FilePath
+  , supressSMT :: Bool
   }
 
 -- | TODO
@@ -812,6 +816,7 @@ defaultSettings = EDGSettings{
   , outputFile = Nothing
   , graphvizFile = []
   , smtLibFile = Nothing
+  , supressSMT = False
   }
 
 parseSettings :: Parser EDGSettings
@@ -849,6 +854,11 @@ parseSettings = EDGSettings
         <> metavar "FILE"
         <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
           ++ "debugging and seeing how large things are.")
+      )
+  <*> (switch
+        $  long "skip-smt"
+        <> help ("Skip the SMT solving phase of the process, useful for "
+          ++ "profiling.")
       )
 
 -- | TODO
@@ -907,17 +917,18 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     -- Solve the initial sat problem
     (symbM,gatherState,sm) <- time "Precomputation" $
       evaluate . (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
-    solution <- time "Sat Solving" $ (fmap force) $
-      SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
+    when supressSMT exitSuccess
+    solution :: SBV.SatResult <- time "Sat Solving" $ (evaluate . force) =<<
+      (SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM)
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
-        sbvState <- IO.readIORef ss
-        (decodeState,decodeResult') <- time "Decoding SAT Output" $ do
+        (decodeState,decodeResult',sbvState) <- time "Decoding SAT Output" $ do
+            sbvState <- IO.readIORef ss
             decodeState <- evaluate . force $
               E.buildDecodeState gatherState sbvState
             decodeResult' <- evaluate . force $
               E.decodeResult decodeState (wrapModel solution) sm
-            return (decodeState, decodeResult')
+            return (decodeState, decodeResult',sbvState)
         case decodeResult' of
           Left s -> do
             putStrLn $ "Resulting solution was : "
@@ -950,7 +961,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
           ms = concat . map makeDups $ modules
       trace "adding links" $ mapM_ (uncurry E.addLink) ls
       trace "adding modules" $ mapM_ (uncurry E.addModule) ms
-      seedRefs <- trace "adding seeds" $
+      seedRefs <- trace "adding seeds " $
         flip mapM seeds $ \(seedName,seedModule) -> do
           seed <- E.addModule seedName seedModule
           E.assertModuleUsed seed
@@ -969,12 +980,18 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     time :: String -> IO t -> IO t
     time s a = do
         putStrLn $ "Starting : " ++ s
-        start <- getCPUTime
+        cStart <- getCPUTime
+        wStart <- getCurrentTime
         v <- a
-        end   <- getCPUTime
+        cEnd   <- getCPUTime
+        wEnd <- getCurrentTime
         putStrLn $ "Finished : " ++ s
-        let diff = (fromIntegral (end - start)) / (10^12)
-        printf "Computation time (%s): %0.3f sec\n" (s :: String)(diff :: Double)
+        let cDiff = (fromIntegral (cEnd - cStart)) / (10^12)
+            wDiff = (fromRational . toRational $ diffUTCTime wEnd wStart)-- / (10^12)
+        printf ("Computation time (%s):\n"
+          ++ "  cpu  : %0.3f sec\n"
+          ++ "  wall : %0.3f sec\n" :: String)
+          (s :: String)(cDiff :: Double)(wDiff :: Double)
         return v
 -- * Utility Functions
 
