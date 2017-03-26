@@ -249,6 +249,7 @@ addRecordKind :: RecKind -> EDGMonad RecEqClass
 addRecordKind k = errContext context $ do
   eqc <- newRecEqClass
   recordKinds @GS %= Map.insert eqc k
+  reverseRecEq @GS %= Map.insert eqc mempty
   errContext (context ++ " `" ++ show eqc ++ "`") $ return eqc
   where
     context = "addRecordKind `" ++ show k ++ "`"
@@ -509,7 +510,7 @@ joinRecordEqCl' d eqa eqb
       show kb) $ combineKinds' d' ka kb
     -- Replace the elements with that new eqclass
     replaceKind' d' eqa eqn
-    replaceKind' d' eqb eqn
+    when (eqa /= eqb) $ replaceKind' d' eqb eqn
     -- return the new eqclass
     return eqn
   where
@@ -627,43 +628,53 @@ replaceKind = replaceKind' 0
 --   initialized correctly.
 replaceKind' :: Int -> RecEqClass -> RecEqClass -> EDGMonad ()
 replaceKind' d eqo eqn = errContext context $ do
+  -- Get the set for the old eq class
+  so <- maybeThrow ("Could not find recEqClass `" ++ show eqo ++ "`")
+    =<< uses @GS reverseRecEq (Map.lookup eqo)
+  -- add all the elements from that set to the new Eq class.
+  reverseRecEq @GS %= Map.adjust (Set.union so :: Set (Ref Record) -> Set (Ref Record)) eqn
+  -- delete the old EqClass
+  reverseRecEq @GS %= Map.delete eqo
   -- Replace instances of eqo in recInfo
-  recInfo @GS %= Map.mapWithKey repSingleRecInfo
+  mapM_ (\ r -> recInfo @GS %= Map.adjust updateRecEq r) so
   -- Replaces instances of eqo in recordKinds
+  -- TODO :: This should be replaced with another reverse lookup
+  --         table.
   recordKinds @GS %= Map.map (Map.map repValKind)
   -- Delete the old kind
   errContext ("Deleting Kind # " ++ show eqo) $
     recordKinds @GS %= Map.delete eqo
   -- Ensure all the fields have the correct values created.
-  ris <- use @GS recInfo
-  errContext ("replaceKind ris: " ++ show ris) $
-    Map.traverseWithKey (condCreateFields d) ris
-  return ()
+  mapM_ (createFields' d) so
+  --ris <- use @GS recInfo
+  -- errContext ("replaceKind ris: " ++ show ris) $
+  --   Map.traverseWithKey (condCreateFields d) ris
+  -- return ()
   where
+
+    context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
+      ++ show eqn ++ "`"
+
+    updateRecEq :: RecInfo -> RecInfo
+    updateRecEq ri@RecInfo{..}
+      | riEqClass == eqo = ri{riEqClass=eqn}
+      | otherwise = error $ "Trying to update a recEqClass that has the "
+        ++ "wrong class set."
+
     -- Replace the thing inside a valkind
     repValKind :: ValKind -> ValKind
     repValKind r
       | Record eq <- r, eq == eqo = Record eqn
       | otherwise = r
 
-    context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
-      ++ show eqn ++ "`"
-
-    -- | if the recInfo points to our old element, replace it with the new
-    --   one.
-    repSingleRecInfo :: Ref Record -> RecInfo -> RecInfo
-    repSingleRecInfo r ri@RecInfo{..}
-      | riEqClass == eqo = ri{riEqClass=eqn}
-      | otherwise = ri
-
-    -- | if the record has the new eqClass then make create the fields
-    --   if needed.
-    condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
-    condCreateFields d r ri@RecInfo{..}
-      | riEqClass == eqn = errContext context $ createFields' d r
-      | otherwise = errContext (context ++ " !! nop") $ return ()
-      where
-        context = "condCreateFields `" ++ show d ++ "` `" ++ show r ++ "`"
+    -- -- | if the record has the new eqClass then make create the fields
+    -- --   if needed.
+    -- condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
+    -- condCreateFields d r ri@RecInfo{..}
+    --   | riEqClass == eqn = errContext context $ createFields' d r
+    --   | otherwise = errContext (context ++ " !! nop") $ return ()
+    --   where
+    --     context = "condCreateFields `" ++ show d ++ "` `" ++ show r ++ "`"
 
 -- | makes sure all the variables are correctly initialise for a given
 --   record. Recursively verifies that the kinds of things are correct.
@@ -1178,6 +1189,7 @@ instance SBVAble Record where
             kn = Map.empty
         -- get the eqclass for the new kinds
         eq <- addRecordKind kn
+        reverseRecEq @GS %= Map.adjust (Set.insert rf) eq
         -- insert it into the usual map
         recInfo @GS %= Map.insert rf RecInfo{riFields=fs, riEqClass=eq}
         returnAnd rf $ errContext context $ sbv rf
