@@ -1,5 +1,12 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+
 
 module EDG.EDGDatatype where
+
+import GHC.TypeLits
 
 import Data.EqMap (EqMap)
 import qualified Data.EqMap as EqMap
@@ -57,11 +64,16 @@ import EDG.Expression
 -- newtype Ref a = Ref {unRef :: String}
 --   deriving (Show, Read, Eq, Ord, Generic, NFData)
 
-newtype Ref a = Ref {unRef :: Integer}
-  deriving (Show, Read, Eq, Ord, Generic, NFData)
+newtype Ref a = NRef {unRef :: Integer}
+  deriving ({- Show, -} Read, Eq, Ord, Generic, NFData)
+
+-- instance TypeError (Text "Cannot 'Show' Refs." :$$:
+--                     Text "replace with actual lookup")
+--          => Show (Ref a) where
+--    showsPrec = error "unreachable"
 
 instance Newtype (Ref a) Integer where
-  pack = Ref
+  pack = NRef
   unpack = unRef
 
 -- | This time we fill the type with unit so that we can use the flags
@@ -123,7 +135,7 @@ data ValInfo = ValInfo {
     viKindRef :: (Ref Integer)
     -- Reference to the actual stored value.
   , viValRef  :: ValRef
-} deriving (Show, Read, Eq, Generic, NFData)
+} deriving ({- Show,-} Read, Eq, Generic, NFData)
 
 data ValueSBV = ValueSBV {
   -- The stored integer
@@ -139,7 +151,7 @@ data RecInfo = RecInfo {
     -- | known and assigned fields of the record.
     riFields  :: (Map String (Ref Bool, Ref Value))
   , riEqClass :: RecEqClass
-} deriving (Show, Eq, Read, Generic, NFData)
+} deriving ({-Show,-} Eq, Read, Generic, NFData)
 
 
 data RecSBV = RecSBV {

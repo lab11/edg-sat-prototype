@@ -39,11 +39,13 @@ import EDG.EDGDatatype
 
 -- Find better place to put this
 preventConjunction :: Set (Ref Bool) -> SBVMonad ()
-preventConjunction (Set.toList -> bls) = errContext context $ do
-  terms <- mapM sbv bls
-  constrain $ S.bnot (S.bAnd terms)
+preventConjunction (Set.toList -> bls) = do
+  bls' <- mapM getRefSBV bls
+  let context = "preventConjunction `" ++ show bls' ++ "`"
+  errContext context $ do
+    terms <- mapM sbv bls
+    constrain $ S.bnot (S.bAnd terms)
   where
-    context = "preventConjunction `" ++ show bls ++ "`"
 
 
 -- * Instances for Bool
@@ -88,7 +90,9 @@ instance SBVAble Bool where
   add r s = do
     exists <- uses @SBVS boolRef (Map.member r)
     case exists of
-      True  -> throw $ "Reference to Bool `" ++ show r ++ "` already exists."
+      True  -> do
+        nr <- getRefSBV r
+        throw $ "Reference to Bool `" ++ nr ++ "` already exists."
       False -> do
         boolRef @SBVS %= (Map.insert r s)
 

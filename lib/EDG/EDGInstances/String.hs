@@ -107,9 +107,6 @@ instance SBVAble String where
       True  -> throw $ "Reference to string `" ++ show r ++ "` already exists."
       False -> stringRef @SBVS %= (Map.insert r s)
 
-  getName :: Ref String -> String
-  getName = unpack
-
 instance InvertSBV String where
 
   -- TODO :: Change the entire implementation so that you can decode with only

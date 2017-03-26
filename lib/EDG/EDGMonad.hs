@@ -117,7 +117,7 @@ data GatherState = GatherState {
 
 -- This is where we need undecidable instances, but ExpContext EDG is
 -- unambiguous created later on. There's no real recursion or anything.
-deriving instance (ExpContext EDG) => Show GatherState
+-- deriving instance (ExpContext EDG) => Show GatherState
 deriving instance (ExpContext EDG) => Read GatherState
 deriving instance () => Generic GatherState
 deriving instance (ExpContext EDG, NFData (ExpValue EDG)
@@ -172,7 +172,7 @@ data SBVState = SBVState {
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: (Bimap Integer String)
   , ssRefStrings :: Map Integer String
-  } deriving (Show)
+  } -- deriving (Show)
 
 instance NFData SBVState where
   -- | We're explicitly not trying to evaluate each of the SBV variables
@@ -231,16 +231,20 @@ newRef :: String -> EDGMonad (Ref a)
 newRef s = do
   rid <- refCounter @GS <+= 1
   refStrings @GS %= Map.insert rid s
-  return $ Ref rid
+  return $ NRef rid
 
 -- | get the string that goes with a particular reference
 getRefEDG :: Ref a -> EDGMonad String
-getRefEDG (Ref i) = maybeThrow ("no refstring for id `" ++ show i ++ "'")
-  =<< (uses @GS refStrings $ Map.lookup i)
+getRefEDG r@(NRef i) = do
+  ni <- getRefEDG r
+  maybeThrow ("no refstring for id `" ++ ni ++ "'")
+    =<< (uses @GS refStrings $ Map.lookup i)
 
 getRefSBV :: Ref a -> SBVMonad String
-getRefSBV (Ref i) = maybeThrow ("no refstring for id `" ++ show i ++ "'")
-  =<< (uses @SBVS refStrings $ Map.lookup i)
+getRefSBV r@(NRef i) = do
+  ni <- getRefSBV r
+  maybeThrow ("no refstring for id `" ++ ni ++ "'")
+    =<< (uses @SBVS refStrings $ Map.lookup i)
 
 
 -- | Get a newUID and increment the counter.
@@ -310,7 +314,7 @@ class (S.EqSymbolic (SBVType t)
   ,Show t
   ,Show (Constraints t)
   ,Show (SBVType t)
-  ,Show (RefType t)
+  -- ,Show (RefType t)
   ) => SBVAble t where
 
   -- | The type of the particular variable in SBV land, in a way that allows us
@@ -525,7 +529,7 @@ data DecodeState = DecodeState {
   }
 
 deriving instance (ExpContext EDG) => Eq   DecodeState
-deriving instance (ExpContext EDG) => Show DecodeState
+-- deriving instance (ExpContext EDG) => Show DecodeState
 instance (ExpContext EDG, NFData (ExpValue EDG)
   ,NFData (ExpLiteral EDG)) => NFData DecodeState where
   rnf DecodeState{..} =
@@ -566,9 +570,9 @@ buildDecodeState GatherState{..} SBVState{..} = DecodeState{
 {-# INLINE buildDecodeState #-}
 
 getRefDS :: DecodeState -> Ref a -> String
-getRefDS ds r@(Ref i) = case Map.lookup i (ds ^. refStrings) of
+getRefDS ds r@(NRef i) = case Map.lookup i (ds ^. refStrings) of
   Just s -> s
-  Nothing -> error $ "No name found for ref `" ++ show r ++ "`"
+  Nothing -> error $ "No name found for ref w/ number `" ++ show i ++ "`"
 {-# INLINE getRefDS #-}
 
 -- | Get the string Decoder from the decodeState
@@ -614,16 +618,18 @@ mkBinOp :: (SBVAble i,SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))
         -> RefType i -> RefType j
         -> String
         -> EDGMonad (RefType k)
-mkBinOp op opName a b name = errContext context $ do
-  n <- ref name
-  returnAnd n $ errContext context $ do
-    av <- sbv a
-    bv <- sbv b
-    nv <- sbv n
-    constrain $ nv S..== (op av bv)
-  where
-    context = opName ++ " `" ++ show a ++ "` `" ++ show b ++ "` `"
-      ++ show name ++ "`"
+mkBinOp op opName a b name = do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  let context = opName ++ " `" ++ na ++ "` `" ++ nb ++ "` `"
+                ++ show name ++ "`"
+  errContext context $ do
+    n <- ref name
+    returnAnd n $ errContext context $ do
+      av <- sbv a
+      bv <- sbv b
+      nv <- sbv n
+      constrain $ nv S..== (op av bv)
 {-# INLINE mkBinOp #-}
 
 -- | ease of se internal funtion that allow us to easily generate a unary
@@ -634,15 +640,17 @@ mkUnOp :: (SBVAble j, SBVAble k, S.EqSymbolic (SBVType k))
        ->  RefType j
        ->  String
        ->  EDGMonad (RefType k)
-mkUnOp op opName a name = errContext context $ do
-  n <- ref name
-  returnAnd n $ errContext context $ do
-    av <- sbv a
-    nv <- sbv n
-    constrain $ nv S..== (op av)
+mkUnOp op opName a name = do
+  na <- getNameEDG a
+  let context = opName ++ " `" ++ na ++ "` `"
+                ++ name ++ "`"
+  errContext context $ do
+    n <- ref name
+    returnAnd n $ errContext context $ do
+      av <- sbv a
+      nv <- sbv n
+      constrain $ nv S..== (op av)
   where
-    context = opName ++ " `" ++ show a ++ "` `"
-      ++ show name ++ "`"
 {-# INLINE mkUnOp #-}
 
 -- | Get an equality constraint

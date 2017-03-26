@@ -48,8 +48,9 @@ instance SBVAble Integer where
   type RefType Integer = Ref Integer
 
   ref :: String -> EDGMonad (Ref Integer)
-  ref name = let n = Ref name in errContext context $
-      returnAnd n (errContext context $ sbv n)
+  ref name = errContext context $ do
+    n <- newRef name
+    returnAnd n (errContext context $ sbv n)
     where
       context = "(ref :: Integer) `" ++ name ++ "`"
 
@@ -87,38 +88,39 @@ instance SBVAble Integer where
       context = "(isAbstract :: Integer) `" ++ show s ++ "'"
 
   sbv :: Ref Integer -> SBVMonad (SBV Integer)
-  sbv r = errContext ("SBV:" ++ context) $ do
-    val <- uses @SBVS integerRef (Map.lookup r)
-    case val of
-      Just v  -> return v
-      Nothing -> do
-        s <- sInteger . unpack $ r
-        add r s
-        return s
-    where
-      context = "(sbv :: Integer) `" ++ show r ++ "`"
+  sbv r = do
+    nr <- getRefSBV r
+    let context = "(sbv :: Integer) `" ++ nr ++ "`"
+    errContext ("SBV:" ++ context) $ do
+      val <- uses @SBVS integerRef (Map.lookup r)
+      case val of
+        Just v  -> return v
+        Nothing -> do
+          n <- getRefSBV r
+          s <- sInteger n
+          add r s
+          return s
 
   lit :: Integer     -> SBVMonad (SBV Integer)
-  lit l = errContext context $ return . S.literal $ l
+  lit l = do
+    errContext context $ return . S.literal $ l
     where
       context = "(lit :: Integer) `" ++ show l ++ "`"
 
   add :: Ref Integer -> SBV Integer -> SBVMonad ()
   add r s = do
-    exists <- uses @SBVS integerRef (Map.member r)
-    case exists of
-      True  -> throw $ "Reference to integer `" ++ show r ++ "` already exists."
-      False -> integerRef @SBVS %= (Map.insert r s)
-    where
-      context = "(add :: Integer) `" ++ show r ++ "` `" ++ show s ++ "`"
-
-  getName :: Ref Integer -> String
-  getName = unpack
+    nr <- getRefSBV r
+    let context = "(add :: Integer) `" ++ nr ++ "` `" ++ show s ++ "`"
+    errContext context $ do
+      exists <- uses @SBVS integerRef (Map.member r)
+      case exists of
+        True  -> throw $ "Reference to integer `" ++ nr ++ "` already exists."
+        False -> integerRef @SBVS %= (Map.insert r s)
 
 instance InvertSBV Integer where
 
   extract :: Modelable a => DecodeState -> a -> Ref Integer -> Maybe Integer
-  extract _ model (Ref name) = getModelValue name model
+  extract ds model r = getModelValue (getRefDS ds r) model
 
 instance EDGEquals Integer
 instance EDGOrd Integer

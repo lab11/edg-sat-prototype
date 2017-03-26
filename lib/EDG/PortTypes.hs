@@ -245,7 +245,7 @@ data PortInfo n = PortInfo {
 
 deriving instance Ord UID'
 deriving instance ExpContext EDG => Eq   (PortInfo n)
-deriving instance ExpContext EDG => Show (PortInfo n)
+-- deriving instance ExpContext EDG => Show (PortInfo n)
 deriving instance ExpContext EDG => Read (PortInfo n)
 deriving instance ExpContext EDG => Generic (PortInfo a)
 deriving instance (ExpContext EDG,NFData (ExpValue EDG)

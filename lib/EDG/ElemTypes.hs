@@ -290,7 +290,7 @@ data ResourceInfo = ResourceInfo {
   }
 
 deriving instance () => Eq   (ResourceInfo)
-deriving instance () => Show (ResourceInfo)
+-- deriving instance () => Show (ResourceInfo)
 deriving instance () => Read (ResourceInfo)
 deriving instance () => Generic (ResourceInfo)
 deriving instance () => NFData (ResourceInfo)
@@ -302,7 +302,7 @@ data ResourceTagInfo = ResourceTagInfo {
   }
 
 deriving instance () => Eq   (ResourceTagInfo)
-deriving instance () => Show (ResourceTagInfo)
+-- deriving instance () => Show (ResourceTagInfo)
 deriving instance () => Read (ResourceTagInfo)
 deriving instance () => Generic (ResourceTagInfo)
 deriving instance () => NFData (ResourceTagInfo)
@@ -331,7 +331,7 @@ data ElemInfo n p = ElemInfo {
   }
 
 deriving instance (ExpContext n,ExpContext p) => Eq   (ElemInfo n p)
-deriving instance (ExpContext n,ExpContext p) => Show (ElemInfo n p)
+-- deriving instance (ExpContext n,ExpContext p) => Show (ElemInfo n p)
 deriving instance (ExpContext n,ExpContext p) => Read (ElemInfo n p)
 deriving instance () => Generic (ElemInfo n p)
 deriving instance (ExpContext n,ExpContext p

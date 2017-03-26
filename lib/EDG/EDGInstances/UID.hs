@@ -89,9 +89,6 @@ instance SBVAble UID' where
       True  -> throw $ "Reference to UID' `" ++ show r ++ "` already exists."
       False -> uidRef @SBVS %= (Map.insert r s)
 
-  getName :: Ref UID' -> String
-  getName = unpack
-
   fixAbstract :: UIDCons -> EDGMonad UIDCons
   fixAbstract UCNew = UCVal . UID' <$> newUID
   fixAbstract a     = return a

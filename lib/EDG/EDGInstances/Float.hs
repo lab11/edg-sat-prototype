@@ -49,7 +49,9 @@ instance SBVAble Float where
   type RefType Float = Ref Float
 
   ref :: String -> EDGMonad (Ref Float)
-  ref name = let n = Ref name in ec $ returnAnd n (ec $ sbv n)
+  ref name = ec $ do
+    n <- newRef name
+    returnAnd n (ec $ sbv n)
     where
       ec :: (NamedMonad m, MonadExcept String m) => m a -> m a
       ec = errContext $ "(ref :: String) `" ++ name ++ "`"
@@ -81,7 +83,8 @@ instance SBVAble Float where
     case val of
       Just v  -> return v
       Nothing -> do
-        s <- sFloat . unpack $ r
+        name <- getNameSBV r
+        s <- sFloat name
         add r s
         return s
 
@@ -92,16 +95,15 @@ instance SBVAble Float where
   add r s = do
     exists <- uses @SBVS floatRef (Map.member r)
     case exists of
-      True  -> throw $ "Reference to float `" ++ show r ++ "` already exists."
+      True  -> do
+        nr <- getRefSBV r
+        throw $ "Reference to float `" ++ nr ++ "` already exists."
       False -> floatRef @SBVS %= (Map.insert r s)
-
-  getName :: Ref Float -> String
-  getName = unpack
 
 instance InvertSBV Float where
 
   extract :: Modelable a => DecodeState -> a -> Ref Float -> Maybe Float
-  extract _ model (Ref name) = getModelValue name model
+  extract ds model r = getModelValue (getRefDS ds r) model
 
 instance EDGEquals Float
 instance EDGOrd Float
