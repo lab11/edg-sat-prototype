@@ -55,7 +55,8 @@ instance SBVAble Bool where
   -- TODO :: see if we really need to keep track of the names in GatherMonad
   --         so that we can assign them UIDs or something.
   ref :: String -> EDGMonad (Ref Bool)
-  ref name = let n = Ref name in errContext context $
+  ref name =  errContext context $ do
+    n <- newRef name
     returnAnd n (errContext context $ sbv n)
     where
       context = "(ref :: Bool) `" ++ name ++ "`"
@@ -74,7 +75,8 @@ instance SBVAble Bool where
     case val of
       Just v  -> return v
       Nothing -> do
-        s <- sBool . unpack $ r
+        name <- getRefSBV r
+        s <- sBool name
         add r s
         return s
 
@@ -90,13 +92,10 @@ instance SBVAble Bool where
       False -> do
         boolRef @SBVS %= (Map.insert r s)
 
-  getName :: Ref Bool -> String
-  getName = unpack
-
 instance InvertSBV Bool where
 
   extract :: Modelable a => DecodeState -> a -> Ref Bool -> Maybe Bool
-  extract _ model (Ref name) = getModelValue name model
+  extract ds model r = getModelValue (getRefDS ds r) model
 
 instance EDGEquals Bool
 

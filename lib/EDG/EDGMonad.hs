@@ -107,6 +107,9 @@ data GatherState = GatherState {
   -- Convinience Store for all the connection booleans that we're
   -- going to be using for allSat
   , gsConnectionVars :: (Set (Ref Bool))
+  -- A counter to generate new references
+  , gsRefCounter :: Integer
+  , gsRefStrings :: Map Integer String
   -- Stores the integer representations of each string
   -- TODO :: Gather all the data for this in the correct spot.
   -- ,gsStringDecode :: Bimap Integer String
@@ -130,6 +133,7 @@ type GS = GatherState
 initialGatherState :: GatherState
 initialGatherState = GatherState {
     gsUidCounter     = 0
+  , gsRefCounter     = 0
   , gsValEqClassCounter = pack 0
   , gsRecEqClassCounter = pack 0
   , gsValInfo        = Map.empty
@@ -144,6 +148,7 @@ initialGatherState = GatherState {
   , gsLinkInfo       = Map.empty
   , gsModuleInfo     = Map.empty
   , gsConnectionVars = Set.empty
+  , gsRefStrings = Map.empty
   }
 
 -- | The monad we use for generating the SMT problem, should be the standard
@@ -166,6 +171,7 @@ data SBVState = SBVState {
   , ssRecordKinds :: (Map RecEqClass RecKind)
   -- Map for assigning strings to integer values, so that they can be search
   , ssStringDecode :: (Bimap Integer String)
+  , ssRefStrings :: Map Integer String
   } deriving (Show)
 
 instance NFData SBVState where
@@ -194,6 +200,7 @@ transformState GatherState{..} = SBVState {
   , ssRecInfo = gsRecInfo
   , ssRecordKinds = gsRecordKinds
   , ssStringDecode = Bimap.empty
+  , ssRefStrings = gsRefStrings
   }
 
 -- | This monad lets us construct the design in a nice recursive fashion while
@@ -218,6 +225,23 @@ instance NamedMonad SBVMonad where
 
 instance NamedMonad (ExtractMonad a) where
   monadName = return "Extract"
+
+-- | Get a new reference with a particular string
+newRef :: String -> EDGMonad (Ref a)
+newRef s = do
+  rid <- refCounter @GS <+= 1
+  refStrings @GS %= Map.insert rid s
+  return $ Ref rid
+
+-- | get the string that goes with a particular reference
+getRefEDG :: Ref a -> EDGMonad String
+getRefEDG (Ref i) = maybeThrow ("no refstring for id `" ++ show i ++ "'")
+  =<< (uses @GS refStrings $ Map.lookup i)
+
+getRefSBV :: Ref a -> SBVMonad String
+getRefSBV (Ref i) = maybeThrow ("no refstring for id `" ++ show i ++ "'")
+  =<< (uses @SBVS refStrings $ Map.lookup i)
+
 
 -- | Get a newUID and increment the counter.
 newUID :: EDGMonad Integer
@@ -360,10 +384,19 @@ class (S.EqSymbolic (SBVType t)
 
 
   -- | Gets the name out of the Ref, mostly just internal.
-  getName :: RefType t -> String
-  default getName :: Newtype (RefType t) String => RefType t -> String
-  getName = unpack
+  getNameEDG :: RefType t -> EDGMonad String
+  default getNameEDG :: (Newtype (RefType t) Integer, RefType t ~ Ref t')
+      => RefType t -> EDGMonad String
+  getNameEDG = getRefEDG
 
+  -- | Gets the name out of the Ref, mostly just internal.
+  getNameSBV :: RefType t -> SBVMonad String
+  default getNameSBV :: (Newtype (RefType t) Integer, RefType t ~ Ref t')
+      => RefType t -> SBVMonad String
+  getNameSBV = getRefSBV
+
+  -- default getNameSBV :: Newtype (RefType t) Integer => RefType t -> String
+  -- getNameEDG = getRefEDG
   -- | Takes the version of a type used by the library and converts it into
   --   one that can be used during the evaluation process. This is mostly for
   --   saving metadata, assigning UIDs and similar tasks.
@@ -487,6 +520,7 @@ data DecodeState = DecodeState {
   --, dsRecInfo     :: (Map (Ref Record) RecInfo)
   -- , dsRecordKinds :: (Map RecEqClass RecKind)
   --dMap for assigning strings to integer values, so that they can be search
+  , dsRefStrings :: Map Integer String -- gsRefStrings
   , dsStringDecode :: (Bimap Integer String)
   }
 
@@ -527,8 +561,15 @@ buildDecodeState GatherState{..} SBVState{..} = DecodeState{
     --  :: !(Map (Ref Module) (ElemInfo Module ModPort ))
   , dsModuleInfo     = gsModuleInfo
   , dsStringDecode   = ssStringDecode -- :: (Bimap Integer String)
+  , dsRefStrings = ssRefStrings
   }
 {-# INLINE buildDecodeState #-}
+
+getRefDS :: DecodeState -> Ref a -> String
+getRefDS ds r@(Ref i) = case Map.lookup i (ds ^. refStrings) of
+  Just s -> s
+  Nothing -> error $ "No name found for ref `" ++ show r ++ "`"
+{-# INLINE getRefDS #-}
 
 -- | Get the string Decoder from the decodeState
 getDSStringDecode :: DecodeState -> Bimap Integer String
@@ -625,14 +666,19 @@ class (SBVAble t,SBVAble Bool) => EDGEquals t where
 -- | Same as `equalE` but chooses its own name, usually just something
 --   pretty obvious.
 (.==)   :: EDGEquals t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.==) a b = equalE a b ("equalE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.==) a b = do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  equalE a b ("equalE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.==) #-}
 
 -- | Same as `unequalE` but chooses its own name, usually just something
 --   pretty obvious.
 (./=)   :: EDGEquals t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(./=) a b = unequalE a b ("unequalE (" ++ getName a ++ ") ("
-            ++ getName b ++ ")")
+(./=) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  unequalE a b ("unequalE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (./=) #-}
 
 -- | And some constraints for boolean operators.
@@ -653,44 +699,64 @@ class (SBVAble t, SBVAble Bool) => EDGLogic t where
 -- | Same as `notE` but chooses its own name, usually just something
 --   pretty obvious.
 notE'    :: EDGLogic t => RefType t -> EDGMonad (RefType t)
-notE' a = notE a ("notE (" ++ getName a ++ ")")
+notE' a =  do
+  na <- getNameEDG a
+  notE a ("notE (" ++ na ++ ")")
 {-# INLINE notE' #-}
 
 -- | Same as `andE` but chooses its own name, usually just something
 --   pretty obvious.
 (.&&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.&&) a b = andE a b ("andE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.&&) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  andE a b ("andE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.&&) #-}
 
 -- | Same as `orE` but chooses its own name, usually just something
 --   pretty obvious.
 (.||)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.||) a b = orE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.||) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  orE a b ("orE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.||) #-}
 
 -- | Same as `impliesE` but chooses its own name, usually just something
 --   pretty obvious.
 (.=>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") ("
-            ++ getName b ++ ")")
+(.=>) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  impliesE a b ("impliesE (" ++ na ++ ") ("
+            ++ nb ++ ")")
 {-# INLINE (.=>) #-}
 
 -- | Same as `nandE` but chooses its own name, usually just something
 --   pretty obvious.
 (.~&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.~&) a b = nandE a b ("nandE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.~&) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  nandE a b ("nandE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.~&) #-}
 
 -- | Same as `norE` but chooses its own name, usually just something
 --   pretty obvious.
 (.~|)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.~|) a b = norE a b ("norE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.~|) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  norE a b ("norE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.~|) #-}
 
 -- | Same as `xorE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<+>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.<+>) a b = xorE a b ("xorE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.<+>) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  xorE a b ("xorE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.<+>) #-}
 
 class (SBVAble t) => EDGNum t where
@@ -719,18 +785,29 @@ class (SBVAble t) => EDGNum t where
   multE = mkBinOp (*) "multE"
 
 negateE' :: EDGNum t => RefType t -> EDGMonad (RefType t)
-negateE' a = negateE a ("negateE (" ++ getName a ++ ")")
+negateE' a =  do
+  na <- getNameEDG a
+  negateE a ("negateE (" ++ na ++ ")")
 
 (.+) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.+) a b = plusE a b ("plusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.+) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  plusE a b ("plusE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.+) #-}
 
 (.-) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.-) a b = minusE a b ("minusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.-) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  minusE a b ("minusE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.-) #-}
 
 (.*) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.*) a b = multE a b ("multE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.*) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  multE a b ("multE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.*) #-}
 
 -- | And some constraints for ordered values
@@ -763,25 +840,37 @@ class (SBVAble t, SBVAble Bool) => EDGOrd t where
 -- | Same as `ltE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.<) a b = ltE a b ("ltE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.<) a b = do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  ltE a b ("ltE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.<) #-}
 
 -- | Same as `lteE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.<=) a b = lteE a b ("lteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.<=) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  lteE a b ("lteE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.<=) #-}
 
 -- | Same as `gtE` but chooses its own name, usually just something
 --   pretty obvious.
 (.>)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.>) a b = gtE a b ("gtE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.>) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  gtE a b ("gtE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.>) #-}
 
 -- | Same as `gteE` but chooses its own name, usually just something
 --   pretty obvious.
 (.>=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.>=) a b = gteE a b ("gteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.>=) a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  gteE a b ("gteE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE (.>=) #-}
 
 -- | And some constraints for ordered values
@@ -791,7 +880,10 @@ class (SBVAble t, SBVAble Bool) => EDGPartialOrd t where
 -- | Same as `gteE` but chooses its own name, usually just something
 --   pretty obvious.
 leqE' :: EDGPartialOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-leqE' a b = leqE a b ("leqE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+leqE' a b =  do
+  na <- getNameEDG a
+  nb <- getNameEDG b
+  leqE a b ("leqE (" ++ na ++ ") (" ++ nb ++ ")")
 {-# INLINE leqE' #-}
 
 -- NOTE :: A special instance that helps us detect when we try to constrain

@@ -54,10 +54,13 @@ import EDG.Expression
 
 -- | Tagged type we'll be using as references that can cross the Gather/SBV
 --   boundary.
-newtype Ref a = Ref {unRef :: String}
+-- newtype Ref a = Ref {unRef :: String}
+--   deriving (Show, Read, Eq, Ord, Generic, NFData)
+
+newtype Ref a = Ref {unRef :: Integer}
   deriving (Show, Read, Eq, Ord, Generic, NFData)
 
-instance Newtype (Ref a) String where
+instance Newtype (Ref a) Integer where
   pack = Ref
   unpack = unRef
 
