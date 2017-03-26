@@ -918,17 +918,17 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     (symbM,gatherState,sm) <- time "Precomputation" $
       evaluate . (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
     when supressSMT exitSuccess
-    solution <- time "Sat Solving" $ (fmap force) $
-      SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
+    solution :: SBV.SatResult <- time "Sat Solving" $ (evaluate . force) =<<
+      (SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM)
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
-        sbvState <- IO.readIORef ss
-        (decodeState,decodeResult') <- time "Decoding SAT Output" $ do
+        (decodeState,decodeResult',sbvState) <- time "Decoding SAT Output" $ do
+            sbvState <- IO.readIORef ss
             decodeState <- evaluate . force $
               E.buildDecodeState gatherState sbvState
             decodeResult' <- evaluate . force $
               E.decodeResult decodeState (wrapModel solution) sm
-            return (decodeState, decodeResult')
+            return (decodeState, decodeResult',sbvState)
         case decodeResult' of
           Left s -> do
             putStrLn $ "Resulting solution was : "
