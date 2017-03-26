@@ -248,14 +248,14 @@ medTestLibrary = EDGLibrary{
       , ("mcu",1,mcu)
       ]
   , links   = [
-        ("pwerLink",8,powerLink 8)
-      , ("swLink",8,swLink)
-      , ("gpioLink",8,gpioLink)
+        ("pwerLink",4,powerLink 8)
+      , ("swLink",4,swLink)
+      , ("gpioLink",4,gpioLink)
       ]
   }
 
 medRun :: EDGSettings -> IO ()
-medRun = makeSynthFunc bigTestLibrary [("Seed",seed)]
+medRun = makeSynthFunc medTestLibrary [("Seed",seed)]
 
 bigTestLibrary :: EDGLibrary
 bigTestLibrary = EDGLibrary{
