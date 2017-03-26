@@ -961,7 +961,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
           ms = concat . map makeDups $ modules
       trace "adding links" $ mapM_ (uncurry E.addLink) ls
       trace "adding modules" $ mapM_ (uncurry E.addModule) ms
-      seedRefs <- trace "adding seeds" $
+      seedRefs <- trace "adding seeds " $
         flip mapM seeds $ \(seedName,seedModule) -> do
           seed <- E.addModule seedName seedModule
           E.assertModuleUsed seed
