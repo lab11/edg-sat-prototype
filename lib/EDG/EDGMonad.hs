@@ -90,6 +90,10 @@ data GatherState = GatherState {
   , gsRecInfo  :: (Map (Ref Record) RecInfo)
   -- And reverse lookups for record equlity classes.
   , gsReverseRecEq :: (Map RecEqClass (Set (Ref Record)))
+  -- Reverse lookup to find record kinds that contain other records
+  -- I.E Key := some RecEqClass
+  --     Val := all the RecEqClasses that point to Key
+  , gsReverseRecKind :: (Map RecEqClass (Set RecEqClass))
   -- For each equality class over a record stores the kind for each field.
   , gsRecordKinds :: (Map RecEqClass RecKind)
   -- Storage for each major class of port, raw ones that don't come from a
@@ -132,6 +136,7 @@ initialGatherState = GatherState {
   , gsReverseValEq   = Map.empty
   , gsRecInfo        = Map.empty
   , gsReverseRecEq   = Map.empty
+  , gsReverseRecKind = Map.empty
   , gsRecordKinds    = Map.empty
   , gsBarePortInfo   = Map.empty
   , gsLinkPortInfo   = Map.empty
@@ -250,6 +255,8 @@ newRecEqClass = do
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
 errContext s e = do
   n <- monadName
+  -- NOTE :: This is big hammer of traces. This will print out every
+  --         context string the system will ever write. It's kinda gigantic.
   -- T.trace (n ++ ": " ++ s) $ return ()
   catch e (appendContext n)
   where
