@@ -216,7 +216,7 @@ genGraphOld db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..}
 
 genGraphVerbose :: DecodeBlock -> (DotGraph String,GraphvizCommand)
 genGraphVerbose db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..}
-  = genGraph () mkModule mkLink header db Fdp
+  = genGraph () mkModule mkLink header db Neato
   where
 
     header = graphAttrs [
@@ -419,7 +419,6 @@ genGraphSimple db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..}
                 deResourceConstraints]
             ]
           }
-genGraphDefault = genGraphSimple
 
 getExt :: FilePath -> GraphvizOutput
 getExt s
