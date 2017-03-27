@@ -4,6 +4,8 @@ import EDG
 import NewEncoding.CommonPorts
 import NewEncoding.CommonModules
 
+import Control.Monad
+
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
     modules = [
@@ -13,8 +15,8 @@ testLibrary = EDGLibrary{
       ]
   , links = [
         ("seedLink", 4, seedLink)
-      , ("electricalLink", 2, powerLink 2)
-      , ("digitalLink", 2, digitalLink)
+      , ("electricalLink", 2, powerLink 4)
+      , ("digitalLink", 4, digitalLink)
       ]
   }
 
@@ -23,7 +25,7 @@ seed = do
   setIdent "Control Logic"
   setSignature "controlLogic"
 
-  led1 <- addPort "led1" $ do
+  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
     seedPort
     setType [
         "control" <:= Record [
@@ -37,9 +39,9 @@ seed = do
       ]
     return ()
 
-  constrain $ port led1 connected
+  forM leds (\ led -> constrain $ port led connected)
 
-  button1 <- addPort "button1" $ do
+  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
     seedPort
     setType [
         "control" <:= Record [
@@ -53,7 +55,7 @@ seed = do
       ]
     return ()
 
-  constrain $ port button1 connected
+  forM buttons (\ button -> constrain $ port button connected)
 
   return ()
 
