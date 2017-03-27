@@ -27,7 +27,8 @@ main :: IO ()
 main = do
   (exampleName, settings) <- execParser opts
   case map toLower exampleName of
-    "simon" -> Examples.Simon.run settings
+    "simon"     -> Examples.Simon.run    settings
+    "med-simon" -> Examples.Simon.medRun settings
     "big-simon" -> Examples.Simon.bigRun settings
-    "newsimon" -> NewEncoding.Simon.run settings
+    "new-simon"  -> NewEncoding.Simon.run settings
     _ -> putStrLn "No example chosen. See app/Main.hs for a list."

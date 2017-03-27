@@ -88,6 +88,12 @@ data GatherState = GatherState {
   -- TODO :: Yeah, I should find a better way to do this, and generally
   --         minimize the meccesary amount of updating.
   , gsRecInfo  :: (Map (Ref Record) RecInfo)
+  -- And reverse lookups for record equlity classes.
+  , gsReverseRecEq :: (Map RecEqClass (Set (Ref Record)))
+  -- Reverse lookup to find record kinds that contain other records
+  -- I.E Key := some RecEqClass
+  --     Val := all the RecEqClasses that point to Key
+  , gsReverseRecKind :: (Map RecEqClass (Set RecEqClass))
   -- For each equality class over a record stores the kind for each field.
   , gsRecordKinds :: (Map RecEqClass RecKind)
   -- Storage for each major class of port, raw ones that don't come from a
@@ -129,6 +135,8 @@ initialGatherState = GatherState {
   , gsValInfo        = Map.empty
   , gsReverseValEq   = Map.empty
   , gsRecInfo        = Map.empty
+  , gsReverseRecEq   = Map.empty
+  , gsReverseRecKind = Map.empty
   , gsRecordKinds    = Map.empty
   , gsBarePortInfo   = Map.empty
   , gsLinkPortInfo   = Map.empty
@@ -247,7 +255,9 @@ newRecEqClass = do
 errContext :: (NamedMonad m, MonadExcept String m) => String -> m a -> m a
 errContext s e = do
   n <- monadName
-  {- T.trace (n ++ ": " ++ s) $ return () -}
+  -- NOTE :: This is big hammer of traces. This will print out every
+  --         context string the system will ever write. It's kinda gigantic.
+  -- T.trace (n ++ ": " ++ s) $ return ()
   catch e (appendContext n)
   where
     appendContext n = throw . unlines
@@ -643,44 +653,44 @@ class (SBVAble t, SBVAble Bool) => EDGLogic t where
 -- | Same as `notE` but chooses its own name, usually just something
 --   pretty obvious.
 notE'    :: EDGLogic t => RefType t -> EDGMonad (RefType t)
-notE' a = notE a ("notE (" ++ getName a ++ ")")
+notE' a = notE a ("Not $" ++ getName a ++ "")
 {-# INLINE notE' #-}
 
 -- | Same as `andE` but chooses its own name, usually just something
 --   pretty obvious.
 (.&&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.&&) a b = andE a b ("andE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.&&) a b = andE a b ("(" ++ getName a ++ "):&&(" ++ getName b ++ ")")
 {-# INLINE (.&&) #-}
 
 -- | Same as `orE` but chooses its own name, usually just something
 --   pretty obvious.
 (.||)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.||) a b = orE a b ("orE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.||) a b = orE a b ("(" ++ getName a ++ "):||(" ++ getName b ++ ")")
 {-# INLINE (.||) #-}
 
 -- | Same as `impliesE` but chooses its own name, usually just something
 --   pretty obvious.
 (.=>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.=>) a b = impliesE a b ("impliesE (" ++ getName a ++ ") ("
+(.=>) a b = impliesE a b ("(" ++ getName a ++ "):=>("
             ++ getName b ++ ")")
 {-# INLINE (.=>) #-}
 
 -- | Same as `nandE` but chooses its own name, usually just something
 --   pretty obvious.
 (.~&)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.~&) a b = nandE a b ("nandE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.~&) a b = nandE a b ("(" ++ getName a ++ "):~&(" ++ getName b ++ ")")
 {-# INLINE (.~&) #-}
 
 -- | Same as `norE` but chooses its own name, usually just something
 --   pretty obvious.
 (.~|)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.~|) a b = norE a b ("norE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.~|) a b = norE a b ("(" ++ getName a ++ "):~|(" ++ getName b ++ ")")
 {-# INLINE (.~|) #-}
 
 -- | Same as `xorE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<+>)    :: EDGLogic t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.<+>) a b = xorE a b ("xorE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.<+>) a b = xorE a b ("(" ++ getName a ++ "):<+>(" ++ getName b ++ ")")
 {-# INLINE (.<+>) #-}
 
 class (SBVAble t) => EDGNum t where
@@ -709,18 +719,18 @@ class (SBVAble t) => EDGNum t where
   multE = mkBinOp (*) "multE"
 
 negateE' :: EDGNum t => RefType t -> EDGMonad (RefType t)
-negateE' a = negateE a ("negateE (" ++ getName a ++ ")")
+negateE' a = negateE a ("Negate $" ++ getName a ++ ")")
 
 (.+) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.+) a b = plusE a b ("plusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.+) a b = plusE a b ("(" ++ getName a ++ "):+(" ++ getName b ++ ")")
 {-# INLINE (.+) #-}
 
 (.-) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.-) a b = minusE a b ("minusE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.-) a b = minusE a b ("(" ++ getName a ++ "):-(" ++ getName b ++ ")")
 {-# INLINE (.-) #-}
 
 (.*) :: EDGNum t => RefType t -> RefType t -> EDGMonad (RefType t)
-(.*) a b = multE a b ("multE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.*) a b = multE a b ("(" ++ getName a ++ "):*(" ++ getName b ++ ")")
 {-# INLINE (.*) #-}
 
 -- | And some constraints for ordered values
@@ -753,25 +763,25 @@ class (SBVAble t, SBVAble Bool) => EDGOrd t where
 -- | Same as `ltE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.<) a b = ltE a b ("ltE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.<) a b = ltE a b ("(" ++ getName a ++ "):<(" ++ getName b ++ ")")
 {-# INLINE (.<) #-}
 
 -- | Same as `lteE` but chooses its own name, usually just something
 --   pretty obvious.
 (.<=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.<=) a b = lteE a b ("lteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.<=) a b = lteE a b ("(" ++ getName a ++ "):<=(" ++ getName b ++ ")")
 {-# INLINE (.<=) #-}
 
 -- | Same as `gtE` but chooses its own name, usually just something
 --   pretty obvious.
 (.>)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.>) a b = gtE a b ("gtE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.>) a b = gtE a b ("(" ++ getName a ++ "):>(" ++ getName b ++ ")")
 {-# INLINE (.>) #-}
 
 -- | Same as `gteE` but chooses its own name, usually just something
 --   pretty obvious.
 (.>=)    :: EDGOrd t => RefType t -> RefType t -> EDGMonad (RefType Bool)
-(.>=) a b = gteE a b ("gteE (" ++ getName a ++ ") (" ++ getName b ++ ")")
+(.>=) a b = gteE a b ("(" ++ getName a ++ "):>=(" ++ getName b ++ ")")
 {-# INLINE (.>=) #-}
 
 -- | And some constraints for ordered values

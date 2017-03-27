@@ -153,6 +153,7 @@ import Control.Newtype
 import Text.Printf
 import Control.Exception
 import System.CPUTime
+import System.Exit
 import Control.Monad
 import Control.Exception (evaluate)
 import Control.DeepSeq
@@ -161,6 +162,14 @@ import GHC.Generics
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Debug.Trace
+
+import Data.Time
+import Control.Newtype.Util
+
+import qualified Data.SBV as SBV
+import Data.Char (toLower)
+-- import qualified Data.SBV.Dynamic as SBV hiding (satWith)
+-- import qualified Data.SBV.Internals as SBV hiding (satWith)
 
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -326,7 +335,9 @@ import qualified EDG.Library.Types as E (
   , (<~=)
   )
 import qualified EDG.Graphviz as E (
-    genGraph
+    genGraphOld
+  , genGraphVerbose
+  , genGraphSimple
   , writeGraph
   )
 -- * Values and Constraints
@@ -512,7 +523,6 @@ pattern Negate a = E.Negate a
 pattern If c t f = E.If c t f
 -- | TODO
 pattern Count a = E.Count a
-
 
 -- * Elements of a Design
 
@@ -797,17 +807,20 @@ data EDGSettings = EDGSettings {
     verboseSBV :: Bool
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
-  , graphvizFile :: Maybe FilePath
-  -- , smtlibFile :: Maybe FilePath
+  , graphvizFiles :: [(String,FilePath)]
+  , smtLibFile :: Maybe FilePath
+  , supressSMT :: Bool
   }
 
 -- | TODO
 defaultSettings :: EDGSettings
 defaultSettings = EDGSettings{
     verboseSBV = False
-  , printOutput = True
+  , printOutput = False
   , outputFile = Nothing
-  , graphvizFile = Just "test.png"
+  , graphvizFiles = []
+  , smtLibFile = Nothing
+  , supressSMT = False
   }
 
 parseSettings :: Parser EDGSettings
@@ -818,26 +831,59 @@ parseSettings = EDGSettings
           <> help "Print the full input problem sent to the SMT solver"
           <> showDefault
       )
-  <*> (flag True False
-        $  long "supress"
-        <> short 's'
-        <> help "Don't print the output to STDOUT"
+  <*> (switch
+        $  long "stdout"
+        <> short 't'
+        <> help "Print the output to STDOUT"
         <> showDefault
       )
   <*> (optional . strOption
         $  long "output"
         <> short 'o'
-        <> metavar "FILE"
+        <> metavar "<FILE>"
         <> help "Write the output to FILE"
       )
-  <*> (optional . strOption
+  <*> (many . fmap parseGraphvizOption . strOption
         $  long "graph-output"
         <> short 'g'
-        <> metavar "FILE"
-        <> value "test.png" -- NOTE :: Remove this in a bit? Once the
-                            --         the X11/GTK output is working?
-        <> help "Write the graph to FILE"
+        <> metavar "<FILE or TYPE=FILE>"
+        <> help ("Write the graph to FILE. Many supported filetypes "
+          ++ "incl. 'png','svg','dot','pdf','gif','bmp',etc.."
+          ++ "\nThis option can be used multiple times to create multiple "
+          ++ "files."
+          ++ "\n\nIf you use the TYPE=FILE syntax, as in `-g verbose=foo.png`"
+          ++ " you can choose the rendering style of the output graph."
+          ++ "\nOptions for TYPE are"
+          ++ "\n 1) SIMPLE, the default mode that elides link and port"
+          ++ " information."
+          ++ "\n 2) VERBOSE, the layout mode that keeps all the link and port "
+          ++ "information intact, but produces much larger graphs."
+          ++ "\n 3) OLD, the old clustered output mode, which shows ports in"
+          ++ " both the link and module."
+          ++ "\n 4) DEFAULT, Option chosen if no type is specified, currently"
+          ++ " 'simple'.")
       )
+  <*> (optional . strOption
+        $  long "smt-lib-output"
+        <> short 's'
+        <> metavar "<FILE>"
+        <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
+          ++ "debugging and seeing how large things are.")
+      )
+  <*> (switch
+        $  long "skip-smt"
+        <> help ("Skip the SMT solving phase of the process, useful for "
+          ++ "profiling.")
+      )
+
+parseGraphvizOption :: String -> (String,FilePath)
+parseGraphvizOption s
+  | (x:y:[]) <- splitString = (x,y)
+  | not $ elem '=' s = ("default",s)
+  | otherwise = error $ "Cannot use filenames with an '=' symbol."
+    ++ show splitString
+  where
+    splitString = split '=' s
 
 -- | TODO
 data EDGLibrary = EDGLibrary {
@@ -859,6 +905,33 @@ makeSynthFunc l m s = synthesizeWithSettings s l m
 deriving instance Generic SBV.SatResult
 deriving instance NFData SBV.SatResult
 
+-- | Wrapper type for a model that should keep us from having to
+--   constantly recalculate the dictionary
+data ModelableWrapper a = MW{
+    model :: a
+  , dict :: Map String SBV.CW
+  , modVal :: forall b. SBV.SymWord b => String -> Maybe b
+  }
+
+instance SBV.Modelable a => SBV.Modelable (ModelableWrapper a) where
+  modelExists = SBV.modelExists . model
+  getModel = SBV.getModel . model
+  getModelDictionary = dict
+  getModelValue s a = modVal a s
+  getModelUninterpretedValue s = SBV.getModelUninterpretedValue s . model
+  extractModel = SBV.extractModel . model
+
+-- | Wrap a modelable to cache the dictionary
+wrapModel :: SBV.Modelable a => a -> ModelableWrapper a
+wrapModel a = MW{
+    model = a
+  , dict = dc
+  , modVal = (\ s -> SBV.fromCW <$> Map.lookup s dc)
+  }
+  where
+    dc = SBV.getModelDictionary a
+
+
 -- | TODO
 synthesizeWithSettings :: EDGSettings
                        -> EDGLibrary -> [(String,Module ())] -> IO ()
@@ -868,17 +941,18 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     -- Solve the initial sat problem
     (symbM,gatherState,sm) <- time "Precomputation" $
       evaluate . (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
-    solution <- time "Sat Solving" $ (fmap force) $
-      SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
+    when supressSMT exitSuccess
+    solution :: SBV.SatResult <- time "Sat Solving" $ (evaluate . force) =<<
+      (SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM)
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
-        sbvState <- IO.readIORef ss
-        (decodeState,decodeResult') <- time "Decoding SAT Output" $ do
+        (decodeState,decodeResult',sbvState) <- time "Decoding SAT Output" $ do
+            sbvState <- IO.readIORef ss
             decodeState <- evaluate . force $
               E.buildDecodeState gatherState sbvState
             decodeResult' <- evaluate . force $
-              E.decodeResult decodeState solution sm
-            return (decodeState, decodeResult')
+              E.decodeResult decodeState (wrapModel solution) sm
+            return (decodeState, decodeResult',sbvState)
         case decodeResult' of
           Left s -> do
             putStrLn $ "Resulting solution was : "
@@ -886,17 +960,31 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             putStrLn $ "\n\n"
             putStrLn $ "Decode of solution failed with : " ++ s
             return ()
-          Right decodeResult -> do
+          Right decodeResult -> time "Building Output Files" $ do
             -- Print output
             when printOutput $ E.pPrint decodeResult
+            -- Generate and print smtlib file
+            sequence_ $ time "generating/writing smt-lib file"
+              <$> (flip fmap smtLibFile $ \ f -> do
+                s <- SBV.compileToSMTLib SBV.SMTLib2 True symbM
+                writeFile f s)
             -- TODO :: Write output to file
-            sequence_ $
+            time "writing output data file" $ sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
-            outputGraph <- time "generating graph" $
-              evaluate $ E.genGraph decodeResult
-            sequence_ $ time "Writing Graph" <$>
-              E.writeGraph outputGraph <$> graphvizFile
-            return ()
+            time "Writing Graph" $ do
+              let outputGraphSimple  = E.genGraphSimple decodeResult
+                  outputGraphOld     = E.genGraphOld decodeResult
+                  outputGraphVerbose = E.genGraphVerbose decodeResult
+                  outputGraphDefault = outputGraphSimple
+              flip mapM_ graphvizFiles $ \ (graphType, filename) -> do
+                case map toLower graphType of
+                  "simple" -> E.writeGraph outputGraphSimple filename
+                  "old" -> E.writeGraph outputGraphOld filename
+                  "verbose" -> E.writeGraph outputGraphVerbose filename
+                  "default" -> E.writeGraph outputGraphDefault filename
+                  _ -> error $ "Invalid TYPE, options are : OLD,"
+                    ++ " VERBOSE, and SIMPLE."
+              return ()
       _ -> do
         E.pPrint solution
         return ()
@@ -907,7 +995,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
           ms = concat . map makeDups $ modules
       trace "adding links" $ mapM_ (uncurry E.addLink) ls
       trace "adding modules" $ mapM_ (uncurry E.addModule) ms
-      seedRefs <- trace "adding seeds" $
+      seedRefs <- trace "adding seeds " $
         flip mapM seeds $ \(seedName,seedModule) -> do
           seed <- E.addModule seedName seedModule
           E.assertModuleUsed seed
@@ -926,12 +1014,18 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
     time :: String -> IO t -> IO t
     time s a = do
         putStrLn $ "Starting : " ++ s
-        start <- getCPUTime
+        cStart <- getCPUTime
+        wStart <- getCurrentTime
         v <- a
-        end   <- getCPUTime
+        cEnd   <- getCPUTime
+        wEnd <- getCurrentTime
         putStrLn $ "Finished : " ++ s
-        let diff = (fromIntegral (end - start)) / (10^12)
-        printf "Computation time (%s): %0.3f sec\n" (s :: String)(diff :: Double)
+        let cDiff = (fromIntegral (cEnd - cStart)) / (10^12)
+            wDiff = (fromRational . toRational $ diffUTCTime wEnd wStart)-- / (10^12)
+        printf ("Computation time (%s):\n"
+          ++ "  cpu  : %0.3f sec\n"
+          ++ "  wall : %0.3f sec\n" :: String)
+          (s :: String)(cDiff :: Double)(wDiff :: Double)
         return v
 -- * Utility Functions
 
