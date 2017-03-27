@@ -164,8 +164,10 @@ import Data.Semigroup ((<>))
 import Debug.Trace
 
 import Data.Time
+import Control.Newtype.Util
 
 import qualified Data.SBV as SBV
+import Data.Char (toLower)
 -- import qualified Data.SBV.Dynamic as SBV hiding (satWith)
 -- import qualified Data.SBV.Internals as SBV hiding (satWith)
 
@@ -333,7 +335,9 @@ import qualified EDG.Library.Types as E (
   , (<~=)
   )
 import qualified EDG.Graphviz as E (
-    genGraph
+    genGraphOld
+  , genGraphVerbose
+  , genGraphSimple
   , writeGraph
   )
 -- * Values and Constraints
@@ -803,7 +807,7 @@ data EDGSettings = EDGSettings {
     verboseSBV :: Bool
   , printOutput :: Bool
   , outputFile :: Maybe FilePath
-  , graphvizFile :: [FilePath]
+  , graphvizFiles :: [(String,FilePath)]
   , smtLibFile :: Maybe FilePath
   , supressSMT :: Bool
   }
@@ -814,7 +818,7 @@ defaultSettings = EDGSettings{
     verboseSBV = False
   , printOutput = False
   , outputFile = Nothing
-  , graphvizFile = []
+  , graphvizFiles = []
   , smtLibFile = Nothing
   , supressSMT = False
   }
@@ -836,22 +840,33 @@ parseSettings = EDGSettings
   <*> (optional . strOption
         $  long "output"
         <> short 'o'
-        <> metavar "FILE"
+        <> metavar "<FILE>"
         <> help "Write the output to FILE"
       )
-  <*> (many . strOption
+  <*> (many . fmap parseGraphvizOption . strOption
         $  long "graph-output"
         <> short 'g'
-        <> metavar "FILE"
+        <> metavar "<FILE or TYPE=FILE>"
         <> help ("Write the graph to FILE. Many supported filetypes "
           ++ "incl. 'png','svg','dot','pdf','gif','bmp',etc.."
-          ++ "\n This option can be used multiple times to create multiple "
-          ++ "files.")
+          ++ "\nThis option can be used multiple times to create multiple "
+          ++ "files."
+          ++ "\n\nIf you use the TYPE=FILE syntax, as in `-g verbose=foo.png`"
+          ++ " you can choose the rendering style of the output graph."
+          ++ "\nOptions for TYPE are"
+          ++ "\n 1) SIMPLE, the default mode that elides link and port"
+          ++ " information."
+          ++ "\n 2) VERBOSE, the layout mode that keeps all the link and port "
+          ++ "information intact, but produces much larger graphs."
+          ++ "\n 3) OLD, the old clustered output mode, which shows ports in"
+          ++ " both the link and module."
+          ++ "\n 4) DEFAULT, Option chosen if no type is specified, currently"
+          ++ " 'simple'.")
       )
   <*> (optional . strOption
         $  long "smt-lib-output"
         <> short 's'
-        <> metavar "FILE"
+        <> metavar "<FILE>"
         <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
           ++ "debugging and seeing how large things are.")
       )
@@ -860,6 +875,15 @@ parseSettings = EDGSettings
         <> help ("Skip the SMT solving phase of the process, useful for "
           ++ "profiling.")
       )
+
+parseGraphvizOption :: String -> (String,FilePath)
+parseGraphvizOption s
+  | (x:y:[]) <- splitString = (x,y)
+  | not $ elem '=' s = ("default",s)
+  | otherwise = error $ "Cannot use filenames with an '=' symbol."
+    ++ show splitString
+  where
+    splitString = split '=' s
 
 -- | TODO
 data EDGLibrary = EDGLibrary {
@@ -948,9 +972,19 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             time "writing output data file" $ sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
             time "Writing Graph" $ do
-              outputGraph <- evaluate $ E.genGraph decodeResult
-              sequence_ $ E.writeGraph outputGraph <$> graphvizFile
-            return ()
+              let outputGraphSimple  = E.genGraphSimple decodeResult
+                  outputGraphOld     = E.genGraphOld decodeResult
+                  outputGraphVerbose = E.genGraphVerbose decodeResult
+                  outputGraphDefault = outputGraphSimple
+              flip mapM_ graphvizFiles $ \ (graphType, filename) -> do
+                case map toLower graphType of
+                  "simple" -> E.writeGraph outputGraphSimple filename
+                  "old" -> E.writeGraph outputGraphOld filename
+                  "verbose" -> E.writeGraph outputGraphVerbose filename
+                  "default" -> E.writeGraph outputGraphDefault filename
+                  _ -> error $ "Invalid TYPE, options are : OLD,"
+                    ++ " VERBOSE, and SIMPLE."
+              return ()
       _ -> do
         E.pPrint solution
         return ()
