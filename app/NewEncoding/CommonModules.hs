@@ -13,18 +13,18 @@ button = do
   setType []
   vin <- addPort "vin" $ do
     electricalPort
+    noControl
     setType [
         "current" <:= FloatV 0.001  -- for when button closes and resistor shorts to ground
       , "dir" <:= StringV "sink"
-      , "control" <:= noControl
       ]
     return ()
   out <- addPort "out" $ do
     digitalPort
+    onOffControl "consumer"
     setType [
         "current" <:= FloatV 0  -- this resistor-switch topology doesn't allow current draw
       , "dir" <:= StringV "source"
-      , "control" <:= onOffControl
       ]
     return ()
   constrain $ port out (typeVal "control.dir") :== Lit (StringV "consumer")
@@ -59,10 +59,10 @@ led = do
   setType []
   source <- addPort "source" $ do
     digitalPort
+    onOffControl "consumer"
     setType [
         "current" <:= FloatV 0.01
       , "dir" <:= StringV "sink"
-      , "control" <:= onOffControl
       ]
     return ()
   constrain $ port source (typeVal "control.dir") :== Lit (StringV "consumer")
@@ -97,6 +97,7 @@ mcu = do
     ]
   usbIn <- addPort "UsbIn" $ do
     dummyElectricalPort
+    noControl
     setType [
         "voltage" <:= FloatV 5.0
       , "current" <:= FloatC $ 0.25 +/- 0.25
@@ -108,6 +109,7 @@ mcu = do
 
   p5vOut <- addPort "5vOut" $ do
     electricalPort
+    noControl
     setType [
         "dir" <:= StringV "source"
       ]
@@ -118,18 +120,19 @@ mcu = do
 
   p3v3Out <- addPort "3v3Out" $ do
     electricalPort
+    noControl
     setType [
         "voltage" <:= FloatV 3.3
       , "dir" <:= StringV "source"
       ]
     return ()
 
-  gpios <- forM [1..4] $ \ gpioId ->
+  gpios <- forM [1..8] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalPort
+      onOffControl "producer"
       setType [
           "voltage" <:= FloatV 3.3
-        , "control" <:= onOffControl
         ]
       return ()
 

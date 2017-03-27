@@ -4,42 +4,67 @@ import EDG
 import Control.Monad
 
 -- Control Schemes
-baseControl :: () => AmbigVal
-baseControl = Record [
-    "api" <:= StringC unknown
-  , "name" <:= StringC unknown
-  , "dir" <:= StringC $ oneOf ["none", "producer", "consumer"]
-  , "data" <:= Record unknown
-  ]
-
-noControl :: () => AmbigVal
-noControl = Record [
+noControlRec :: () => AmbigVal
+noControlRec = Record [
     "api" <:= StringV "None"
   , "name" <:= StringV "none"
   , "dir" <:= StringV "none"
   , "data" <:= Record []
   ]
 
-onOffControl :: () => AmbigVal
-onOffControl = Record [
-    "api" <:= StringV "OnOff"
-  , "name" <:= StringC unknown
-  , "dir" <:= StringC $ oneOf ["producer", "consumer"]
-  , "data" <:= Record [
-        "bandwidth" <:= FloatC unknown
-      ]
-  ]
+baseControl :: (IsPort p) => String -> p ()
+baseControl dir = do
+  setType [
+      "control" <:= Record [
+          "api" <:= StringC unknown
+        , "name" <:= StringC unknown
+        , "dir" <:= StringV dir
+        , "data" <:= Record unknown
+        ]
+    ]
+  return ()
 
-pwmControl :: () => AmbigVal
-pwmControl = Record [
-    "api" <:= StringV "pwm"
-  , "name" <:= StringC unknown
-  , "dir" <:= StringC $ oneOf ["producer", "consumer"]
-  , "data" <:= Record [
-        "period" <:= FloatC unknown
-      , "bandwidth" <:= FloatC unknown
-      ]
-  ]
+noControl :: (IsPort p) => p ()
+noControl = do
+  setType [
+      "control" <:= Record [
+          "api" <:= StringV "None"
+        , "name" <:= StringV "none"
+        , "dir" <:= StringV "none"
+        , "data" <:= Record []
+        ]
+    ]
+  return ()
+
+
+onOffControl :: (IsPort p) => String -> p ()
+onOffControl dir = do
+  setType [
+      "control" <:= Record [
+          "api" <:= StringV "OnOff"
+        , "name" <:= StringC unknown
+        , "dir" <:= StringV dir
+        , "data" <:= Record [
+              "bandwidth" <:= FloatC unknown
+            ]
+        ]
+    ]
+  return ()
+
+pwmControl :: (IsPort p) => String -> p ()
+pwmControl dir = do
+  setType [
+      "control" <:= Record [
+          "api" <:= StringV "pwm"
+        , "name" <:= StringC unknown
+        , "dir" <:= StringV dir
+        , "data" <:= Record [
+              "period" <:= FloatC unknown
+            , "bandwidth" <:= FloatC unknown
+            ]
+        ]
+    ]
+  return ()
 
 -- Electrical Ports
 
@@ -99,8 +124,8 @@ powerLink numSinks = do
 
   forM sinks $ \ sink -> do
     constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
-    constrain $ port sink (typeVal "control") :== Lit (noControl)
-  constrain $ port source (typeVal "control") :== Lit (noControl)
+    constrain $ port sink (typeVal "control") :== Lit (noControlRec)
+  constrain $ port source (typeVal "control") :== Lit (noControlRec)
 
   return ()
 
@@ -134,8 +159,8 @@ digitalLink = do
         (port source (typeVal "control.dir") :== Lit (StringV "consumer"))
         :&& (port sink (typeVal "control.dir") :== Lit (StringV "producer"))
       ) :|| (
-        (port source (typeVal "control") :== Lit (noControl))
-        :&& (port sink (typeVal "control") :== Lit (noControl))
+        (port source (typeVal "control.dir") :== Lit (StringV "none"))
+        :&& (port sink (typeVal "control.dir") :== Lit (StringV "none"))
       ))
 
   return ()
@@ -144,10 +169,7 @@ seedPort :: (IsPort p) => p ()
 seedPort = do
   setKind "SeedPort"
   setIdent "SeedPort"
-  setType [
-      "control" <:= Record unknown  -- optional control scheme
-      -- TODO: add device-specific records
-    ]
+  -- TODO: define control here???
   return ()
 
 -- Seed Links
@@ -158,26 +180,12 @@ seedLink = do
 
   producer <- addPort "producer" $ do
     seedPort
-    setType [
-        "control" <:= Record [
-            "api" <:= StringC unknown
-          , "name" <:= StringC unknown
-          , "dir" <:= StringV "producer"
-          , "data" <:= Record unknown
-          ]
-      ]
+    baseControl "producer"
     return()
 
   consumer <- addPort "consumer" $ do
     seedPort
-    setType [
-        "control" <:= Record [
-            "api" <:= StringC unknown
-          , "name" <:= StringC unknown
-          , "dir" <:= StringV "consumer"
-          , "data" <:= Record unknown
-          ]
-      ]
+    baseControl "consumer"
     return()
 
   constrain $ port producer connected
