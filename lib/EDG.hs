@@ -840,33 +840,33 @@ parseSettings = EDGSettings
   <*> (optional . strOption
         $  long "output"
         <> short 'o'
-        <> metavar "FILE"
+        <> metavar "<FILE>"
         <> help "Write the output to FILE"
       )
   <*> (many . fmap parseGraphvizOption . strOption
         $  long "graph-output"
         <> short 'g'
-        <> metavar "FILE or TYPE=FILE"
+        <> metavar "<FILE or TYPE=FILE>"
         <> help ("Write the graph to FILE. Many supported filetypes "
           ++ "incl. 'png','svg','dot','pdf','gif','bmp',etc.."
           ++ "\nThis option can be used multiple times to create multiple "
           ++ "files."
           ++ "\n\nIf you use the TYPE=FILE syntax, as in `-g verbose=foo.png`"
-          ++ "you can choose the rendering style of the output graph."
-          ++ "\nOptions for TYPE are:"
-          ++ "\n  - SIMPLE : the default mode that elides link and port"
+          ++ " you can choose the rendering style of the output graph."
+          ++ "\nOptions for TYPE are"
+          ++ "\n 1) SIMPLE, the default mode that elides link and port"
           ++ " information."
-          ++ "\n  - VERBOSE : layout mode that keeps all the link and port "
+          ++ "\n 2) VERBOSE, the layout mode that keeps all the link and port "
           ++ "information intact, but produces much larger graphs."
-          ++ "\n  - OLD : the old clustered output mode, which shows ports in"
+          ++ "\n 3) OLD, the old clustered output mode, which shows ports in"
           ++ " both the link and module."
-          ++ "\n  - default : Option chosen if no type is specified, currently"
+          ++ "\n 4) DEFAULT, Option chosen if no type is specified, currently"
           ++ " 'simple'.")
       )
   <*> (optional . strOption
         $  long "smt-lib-output"
         <> short 's'
-        <> metavar "FILE"
+        <> metavar "<FILE>"
         <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
           ++ "debugging and seeing how large things are.")
       )
