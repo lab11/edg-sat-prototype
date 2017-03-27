@@ -333,7 +333,7 @@ import qualified EDG.Library.Types as E (
   , (<~=)
   )
 import qualified EDG.Graphviz as E (
-    genGraph
+    genGraphDefault
   , writeGraph
   )
 -- * Values and Constraints
@@ -948,7 +948,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             time "writing output data file" $ sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
             time "Writing Graph" $ do
-              outputGraph <- evaluate $ E.genGraph decodeResult
+              outputGraph <- evaluate $ E.genGraphDefault decodeResult
               sequence_ $ E.writeGraph outputGraph <$> graphvizFile
             return ()
       _ -> do

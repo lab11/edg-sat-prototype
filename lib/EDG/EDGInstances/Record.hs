@@ -805,10 +805,10 @@ valDataName :: String -> String
 valDataName = id -- (++ ".data")
 
 valKindName :: String -> String
-valKindName = (++ ".kind")
+valKindName = (++ ".knd")
 
 recUsedName :: String -> String -> String
-recUsedName r f = r ++ "." ++ f ++ ".used"
+recUsedName r f = r ++ "." ++ f ++ ".usd"
 
 recValueName :: String -> String -> String
 recValueName r f = r ++ "." ++ f ++ ".val"
