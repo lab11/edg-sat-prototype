@@ -320,29 +320,106 @@ genGraphVerbose db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..}
             ]
           }
 
-    -- mkPort :: BlockName -> PortName -> PortOut n -> DotM String String
-    -- mkPort bn pn po@PortOut{..} = do
-    --   node name [
-    --       GV.Shape GV.PlainText
-    --     , GV.Label label
-    --     ]
-    --   return name
-    --   where
-    --     name = toPortName bn pn
-    --     label = GV.HtmlLabel . H.Table $ H.HTable{
-    --         H.tableFontAttrs = Nothing
-    --       , H.tableAttrs = []
-    --       , H.tableRows = [
-    --           H.Cells [headerCell poPName]
-    --         , H.Cells [dataCell theme "PortName" pn]
-    --         , H.Cells [dataCell theme "Kind" poPClass]
-    --         , H.Cells [uidCell theme "UID" poPUID]
-    --         , H.Cells [boolCell theme "Connected" poPConnected]
-    --         , H.Cells [typeCell theme "Type" poPType]
-    --         ]
-    --       }
+genGraphSimple :: DecodeBlock -> (DotGraph String,GraphvizCommand)
+genGraphSimple db@DecodeBlock{dbGraph=dg@DecodeGraph{..},..}
+  = genGraph () mkModule mkLink header db Neato
+  where
 
-genGraphDefault = genGraphVerbose
+    header = graphAttrs [
+        GV.Overlap GV.ScaleXYOverlaps
+      , GV.Splines GV.SplineEdges
+      ]
+
+    theme = defaultTheme
+
+    mkModule :: () -> DecodeBlock -> Ref Module -> DotM String String
+    mkModule _ _ rm = do
+      mkBlockData rm decodeElem elemOut []
+      where
+        decodeElem = case Map.lookup rm dgModules of
+          Nothing -> error $ "No decodeElem for module `" ++ show rm ++ "`"
+          Just de -> de
+
+        elemOut = case Map.lookup rm dbModules of
+          Nothing -> error $ "No elemOut for module `" ++ show rm ++ "`"
+          Just eo -> eo
+
+    mkLink :: () -> DecodeBlock -> Ref Link -> DotM String ()
+    mkLink _ _ rl = do
+      node (unpack rl) $ [
+          GV.Shape GV.PointShape
+        -- , GV.Label midLabel
+        ]
+
+      -- Go through each port and attach them to their counterparts
+      forM_ (Map.assocs $ eoEPorts elemOut)  $ \ (pn,(_,po)) ->
+        case Map.lookup pn $ dePorts decodeElem of
+          -- There should be something here
+          Nothing -> error $ "Port `" ++ pn ++ "` not found in decodeGraph"
+            ++ " for link `" ++ show rl ++ "`"
+          -- but there might not be a connection
+          Just (Nothing) -> return ()
+          -- If there is we should connect things up properly.
+          Just (Just (id,pn')) -> mkPortConn (unpack rl,pn) (id,pn') po
+      where
+        decodeElem = case Map.lookup rl dgLinks of
+          Nothing -> error $ "No decodeElem for link `" ++ show rl ++ "`"
+          Just de -> de
+
+        elemOut = case Map.lookup rl dbLinks of
+          Nothing -> error $ "No elemOut for link `" ++ show rl ++ "`"
+          Just eo -> eo
+
+    mkPortConn :: (BlockName,PortName) -- Link
+               -> (BlockName,PortName) -- Module
+               -> PortOut n
+               -> DotM String ()
+    mkPortConn (lname,lport) (mname,mport) po@PortOut{..} = do
+      edge mname lname [
+          GV.TailLabel $ endLabel mport
+        --, GV.TailLabel $ endLabel lport
+        ]
+      where
+        portName = lname ++ ":" ++ lport ++ "::" ++ mname ++ ":" ++ mport
+
+        endLabel s = GV.HtmlLabel . H.Table $ H.HTable{
+            H.tableFontAttrs = Nothing
+          , H.tableAttrs = []
+          , H.tableRows = [
+              H.Cells [nameCell theme s]
+            ]
+          }
+        midLabel = GV.HtmlLabel . H.Table $ H.HTable{
+            H.tableFontAttrs = Nothing
+          , H.tableAttrs = []
+          , H.tableRows = [
+              H.Cells [dataCell theme "Kind" poPClass]
+            , H.Cells [typeCell theme "Type" poPType]
+            ]
+          }
+
+    mkBlockData :: Ref a -> DecodeElem a -> ElemOut a b -> [Attribute]
+                -> DotM String String
+    mkBlockData (unpack -> name) de@Elem{..} eo@ElemOut{..} a = do
+      node name $ [
+          GV.Shape GV.PlainText
+        , GV.Label label
+        ] ++ a
+      return name
+      where
+        label = GV.HtmlLabel . H.Table $ H.HTable{
+            H.tableFontAttrs = Nothing
+          , H.tableAttrs = []
+          , H.tableRows = [
+              H.Cells [headerCell deName]
+            , H.Cells [dataCell theme "Signature" deSignature]
+            , H.Cells [dataCell theme "Ident" deIdent]
+            , H.Cells [typeCell theme "Type" eoEType]
+            , H.Cells [resConsCell theme "Resource Constraints"
+                deResourceConstraints]
+            ]
+          }
+genGraphDefault = genGraphSimple
 
 getExt :: FilePath -> GraphvizOutput
 getExt s
