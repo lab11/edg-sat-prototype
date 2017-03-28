@@ -651,29 +651,38 @@ replaceKind' d eqo eqn = errContext context $ do
     =<< uses @GS reverseRecEq (Map.lookup eqo)
   -- add all the elements from that set to the new Eq class.
   reverseRecEq @GS %= Map.adjust (Set.union so) eqn
-  -- delete the old EqClass
-  reverseRecEq @GS %= Map.delete eqo
   -- Replace instances of eqo in recInfo
   mapM_ (\ r -> recInfo @GS %= Map.adjust updateRecEq r) so
-  -- Replaces instances of eqo in recordKinds
-  -- TODO :: This should be replaced with another reverse lookup
-  --         table.
-  -- recordKinds @GS %= Map.map (Map.map repValKind)
+  -- Get all record kinds in class for eqo, replace those in the
+  -- reverse lookup table.
   sr <- maybeThrow ("Could not find recEqClass `" ++ show eqo ++ "` in"
     ++ " revRecKind") =<< uses @GS reverseRecKind (Map.lookup eqo)
   reverseRecKind @GS %= Map.adjust (Set.union sr) eqn
+  -- update the reverse rec kind map, so that everything which has the
+  -- old eqc as point to it now has the new eqc as pointing to it.
+  rk <- getRecKind eqo
+  let rls = getRecordChildren rk
+  flip mapM_ rls (\ r ->
+    reverseRecKind @GS %= Map.adjust (Set.insert eqn . Set.delete eqo) r)
+  -- make sure each record that contains a reference to the old equality
+  -- class is updated with information on the new one.
   mapM_ (\ eq -> recordKinds @GS %= Map.adjust (Map.map repValKind) eq) sr
-  -- Delete the old Eq cass from the lookup table
-  reverseRecKind @GS %= Map.delete eqo
-  -- Delete the old kind
-  errContext ("Deleting Kind # " ++ show eqo) $
-    recordKinds @GS %= Map.delete eqo
   -- Ensure all the fields have the correct values created.
   mapM_ (createFields' d) so
-  --ris <- use @GS recInfo
-  -- errContext ("replaceKind ris: " ++ show ris) $
-  --   Map.traverseWithKey (condCreateFields d) ris
-  -- return ()
+  -- TODO :: Find a way to re-insert this cleanup code without creating
+  --         a problem where there's something on the stack which
+  --         has an old reference after it's deleted.
+  --
+  --         For the moment, there should be no issue *using* on old
+  --         reference, but this is still bad practice :/
+  --
+  -- errContext ("Deleting Kind # " ++ show eqo) $ do
+  --   -- Delete the old Eq cass from the lookup table
+  --   reverseRecKind @GS %= Map.delete eqo
+  --   -- delete the old EqClass
+  --   reverseRecEq @GS %= Map.delete eqo
+  --   -- Delete the old kind
+  --   recordKinds @GS %= Map.delete eqo
   where
 
     context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
@@ -682,8 +691,10 @@ replaceKind' d eqo eqn = errContext context $ do
     updateRecEq :: RecInfo -> RecInfo
     updateRecEq ri@RecInfo{..}
       | riEqClass == eqo = ri{riEqClass=eqn}
-      | otherwise = error $ "Trying to update a recEqClass that has the "
-        ++ "wrong class set."
+      -- TODO :: Return this to the error it should be. This is an annoying
+      --         hack to get around the fact that we might be trying to
+      --         update the
+      | otherwise = ri
 
     -- Replace the thing inside a valkind
     repValKind :: ValKind -> ValKind
@@ -749,6 +760,10 @@ createFields' d r = errContext context $ do
           recInfo @GS %= Map.adjust (fields %~ Map.insert fn (u,v)) r
           return (u,v)
         Just t -> return t
+      -- NOTE :: following if probably a nop
+      rfk <- maybeThrow ("wat, field `" ++ show fn ++ "` does not exist"
+        ++ " in ref `" ++ show r ++ "`") =<<
+        Map.lookup fn <$> getRecKindFromRef r
       -- Assert that the values have the correct type.
       assertValKind' d vr rfk
       where

@@ -257,7 +257,7 @@ errContext s e = do
   n <- monadName
   -- NOTE :: This is big hammer of traces. This will print out every
   --         context string the system will ever write. It's kinda gigantic.
-  -- T.trace (n ++ ": " ++ s) $ return ()
+  T.trace (n ++ ": " ++ s) $ return ()
   catch e (appendContext n)
   where
     appendContext n = throw . unlines
@@ -504,11 +504,6 @@ instance (ExpContext EDG, NFData (ExpValue EDG)
       , rnf dsLinkInfo
       , rnf dsModuleInfo
       ]
-
-
-
-
-
 
 makeLensesWith abbreviatedFields ''DecodeState
 -- | Use the final GatherState and SBVState to generate a DecodeState that we
