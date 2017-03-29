@@ -109,7 +109,7 @@ mcu = do
       ]
     return ()
 
-  gpios <- forM @[] [1..4] $ \ gpioId ->
+  gpios <- forM @[] [1..8] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
@@ -122,6 +122,9 @@ mcu = do
     (port p5vOut $ typeVal "current") :
     (port p3v3Out $ typeVal "current") :
     (map (\ gpio -> port gpio (typeVal "current")) gpios))
+
+  forM @[] gpios $ \ gpio ->
+    constrain $ port gpio (typeVal "controlUid") :== uid
 
   endDef
 

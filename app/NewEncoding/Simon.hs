@@ -9,15 +9,15 @@ import Control.Monad
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
   modules = [
-    ("button", 2, button),
-    ("led", 2, led),
+    ("button", 4, button),
+    ("led", 4, led),
     ("mcu", 1, mcu)
     ],
   links = [
-    ("apiLink", 4, apiLink),
+    ("apiLink", 8, apiLink),
     ("powerLink", 2, powerLink 4),
-    ("digitalBidirLink", 4, digitalBidirLink),
-    ("digitalLink", 4, digitalLink)
+    ("digitalBidirLink", 8, digitalBidirLink),
+    ("digitalLink", 0, digitalLink)
     ]
   }
 
@@ -26,7 +26,11 @@ seed = do
   setIdent "Control Logic"
   setSignature "controlLogic"
 
-  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
+  setType [
+    "controlUid" <:= UID
+    ]
+
+  leds <- forM @[] [1..4] $ \ id -> addPort ("led" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("led" ++ (show id)),
@@ -37,9 +41,7 @@ seed = do
       ]
     return ()
 
-  forM leds (\ led -> constrain $ port led connected)
-
-  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- forM @[] [1..4] $ \ id -> addPort ("button" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("button" ++ (show id)),
@@ -50,7 +52,9 @@ seed = do
       ]
     return ()
 
-  forM buttons (\ button -> constrain $ port button connected)
+  let allPorts = (buttons ++ leds)
+  forM allPorts (\ portId -> constrain $ port portId connected)
+  forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 
   return ()
 

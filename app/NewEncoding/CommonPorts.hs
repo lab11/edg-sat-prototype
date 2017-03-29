@@ -34,7 +34,7 @@ powerSource = do
 controllable :: (IsPort p) => p ()
 controllable = do
   setType [
-    "controlUid" <:= StringC unknown,
+    "controlUid" <:= UID,
     "controlName" <:= StringC unknown
     ]
   return ()
