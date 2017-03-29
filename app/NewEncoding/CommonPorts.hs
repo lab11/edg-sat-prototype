@@ -3,120 +3,30 @@ module NewEncoding.CommonPorts where
 import EDG
 import Control.Monad
 
--- Control Schemes
-noControlRec :: () => AmbigVal
-noControlRec = Record [
-    "api" <:= StringV "None"
-  , "name" <:= StringV "none"
-  , "dir" <:= StringV "none"
-  , "data" <:= Record []
-  ]
-
-baseControl :: (IsPort p) => String -> p ()
-baseControl dir = do
+powerBase :: (IsPort p) => p ()
+powerBase = do
   setType [
-      "control" <:= Record [
-          "api" <:= StringC unknown
-        , "name" <:= StringC unknown
-        , "dir" <:= StringV dir
-        , "data" <:= Record unknown
-        ]
-    ]
-  return ()
-
-noControl :: (IsPort p) => p ()
-noControl = do
-  setType [
-      "control" <:= Record [
-          "api" <:= StringV "None"
-        , "name" <:= StringV "none"
-        , "dir" <:= StringV "none"
-        , "data" <:= Record []
-        ]
-    ]
-  return ()
-
-
-onOffControl :: (IsPort p) => String -> p ()
-onOffControl dir = do
-  setType [
-      "control" <:= Record [
-          "api" <:= StringV "OnOff"
-        , "name" <:= StringC unknown
-        , "dir" <:= StringV dir
-        , "data" <:= Record [
-              "bandwidth" <:= FloatC unknown
-            ]
-        ]
-    ]
-  return ()
-
-pwmControl :: (IsPort p) => String -> p ()
-pwmControl dir = do
-  setType [
-      "control" <:= Record [
-          "api" <:= StringV "pwm"
-        , "name" <:= StringC unknown
-        , "dir" <:= StringV dir
-        , "data" <:= Record [
-              "period" <:= FloatC unknown
-            , "bandwidth" <:= FloatC unknown
-            ]
-        ]
-    ]
-  return ()
-
--- Electrical Ports
-
-dummyElectricalPort :: (IsPort p) => p ()
-dummyElectricalPort = do
-  setKind "ElectricalPort"
-  setIdent "ElectricalPort"
-  setType [
-      "voltage" <:= FloatC unknown
-    , "current" <:= FloatC unknown
-    , "dir" <:= StringC $ oneOf ["source", "sink", "bi"]  -- current flow direction
-    , "control" <:= Record unknown  -- optional control scheme
-    ]
-  return ()
-
-electricalPort :: (IsPort p) => p ()
-electricalPort = do
-  dummyElectricalPort
-  constrain $ Not connected :=> ((typeVal "current") :== Lit (FloatV 0))
-  return ()
-
-digitalPort :: (IsPort p) => p ()
-digitalPort = do
-  electricalPort
-  setKind "DigitalPort"
-  setIdent "DigitalPort"
-  setType [
-      -- Note: re-use electricalPort's dir for signal direction,
-      -- since logical signal flow matches electrical flow
-      -- But for now, digital signals must be unidirectional
-      "dir" <:= StringC $ oneOf ["source", "sink"]
-
-      -- TODO: Signal threhsold levels
+    "voltage" <:= FloatC unknown,
+    "current" <:= FloatC unknown
     ]
   return ()
 
 powerSink :: (IsPort p) => p ()
 powerSink = do
+  powerBase
   setKind "PowerSink"
   setIdent "PowerSink"
   setType [
-    "current" <:= FloatC unknown,
     "limitVoltage" <:= FloatC unknown
     ]
   return ()
 
 powerSource :: (IsPort p) => p ()
 powerSource = do
+  powerBase
   setKind "PowerSource"
   setIdent "PowerSource"
   setType [
-    "voltage" <:= FloatC unknown,
     "limitCurrent" <:= FloatC unknown
     ]
   return ()
@@ -131,7 +41,6 @@ controllable = do
 
 digitalControlBase :: (IsPort p) => p ()
 digitalControlBase = do
-  powerSink
   controllable
   setType [
     "apiDir" <:= StringC $ oneOf ["producer", "consumer"],
@@ -141,6 +50,7 @@ digitalControlBase = do
 
 digitalSink :: (IsPort p) => p ()
 digitalSink = do
+  powerSink
   digitalControlBase
   setKind "DigitalSink"
   setIdent "DigitalSink"
@@ -152,6 +62,7 @@ digitalSink = do
 
 digitalSource :: (IsPort p) => p ()
 digitalSource = do
+  powerSource
   digitalControlBase
   setKind "DigitalSource"
   setIdent "DigitalSource"
@@ -161,6 +72,43 @@ digitalSource = do
     ]
   return ()
 
+digitalBidir :: (IsPort p) => p ()
+digitalBidir = do
+  powerSource
+  powerSink
+  digitalControlBase
+  setKind "DigitalBidir"
+  setIdent "DigitalBidir"
+  setType [
+    "digitalDir" <:= StringC $ oneOf ["source", "sink"]
+    -- "highVoltage" <:= FloatC unknown,
+    -- "lowVoltage" <:= FloatC unknown,
+    ]
+  return ()
+
+apiBase :: (IsPort p) => p ()
+apiBase = do
+  controllable
+  setType [
+    "apiType" <:= StringC unknown,
+    "apiData" <:= Record unknown
+    ]
+  return ()
+
+apiProducer :: (IsPort p) => p ()
+apiProducer = do
+  apiBase
+  setKind "ApiProducer"
+  setIdent "ApiProducer"
+  return ()
+
+apiConsumer :: (IsPort p) => p ()
+apiConsumer = do
+  apiBase
+  setKind "ApiConsumer"
+  setIdent "ApiConsumer"
+  return ()
+
 -- Electrical Links
 powerLink :: Int -> Link ()
 powerLink numSinks = do
@@ -168,24 +116,23 @@ powerLink numSinks = do
   setSignature "PowerLink"
 
   source <- addPort "source" $ do
-    electricalPort
-    setType ["dir" <:= StringV "source"]
+    powerSource
     return()
 
   sinks <- forM @[] [1..numSinks] $ \ sinkId ->
     addPort ("sink" ++ (show sinkId)) $ do
-      electricalPort
-      setType ["dir" <:= StringV "sink"]
+      powerSink
       return()
 
   constrain $ port source connected
   constrain $ Any (map (\ sink -> port sink connected) sinks)
+
   constrain $ port source (typeVal "current") :== Sum (map (\ sink -> port sink (typeVal "current")) sinks)
+  constrain $ port source (typeVal "current") :<= port source (typeVal "limitCurrent")
 
   forM sinks $ \ sink -> do
     constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
-    constrain $ port sink (typeVal "control") :== Lit (noControlRec)
-  constrain $ port source (typeVal "control") :== Lit (noControlRec)
+    constrain $ port sink (typeVal "voltage") :== port sink (typeVal "limitVoltage")
 
   return ()
 
@@ -195,63 +142,102 @@ digitalLink = do
   setSignature "DigitalLink"
 
   source <- addPort "source" $ do
-    digitalPort
-    setType ["dir" <:= StringV "source"]
+    digitalSource
     return()
 
   sink <- addPort "sink" $ do
-    digitalPort
-    setType ["dir" <:= StringV "sink"]
+    digitalSink
     return()
 
   constrain $ port source connected
   constrain $ port sink connected
+
   constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
   constrain $ port source (typeVal "current") :== port sink (typeVal "current")
 
-  constrain $ port source (typeVal "control.api") :== port sink (typeVal "control.api")
-  constrain $ port source (typeVal "control.name") :== port sink (typeVal "control.name")
-  --constrain $ port source (typeVal "control.data") :== port sink (typeVal "control.data")
+  constrain $ port sink (typeVal "voltage") :<= port sink (typeVal "limitVoltage")
+  constrain $ port source (typeVal "current") :<= port source (typeVal "limitCurrent")
+
+  constrain $ port source (typeVal "controlUid") :== port sink (typeVal "controlUid")
+  constrain $ port source (typeVal "controlName") :== port sink (typeVal "controlName")
+  constrain $ port source (typeVal "apiType") :== port sink (typeVal "apiType")
   constrain $ (
-      ((port source (typeVal "control.dir") :== Lit (StringV "producer"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "consumer"))
+      ((port source (typeVal "apiDir") :== Lit (StringV "producer"))
+        :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
       ) :|| (
-        (port source (typeVal "control.dir") :== Lit (StringV "consumer"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "producer"))
-      ) :|| (
-        (port source (typeVal "control.dir") :== Lit (StringV "none"))
-        :&& (port sink (typeVal "control.dir") :== Lit (StringV "none"))
+        (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
+        :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
       ))
 
   return ()
 
-seedPort :: (IsPort p) => p ()
-seedPort = do
-  setKind "SeedPort"
-  setIdent "SeedPort"
-  -- TODO: define control here???
+digitalBidirLink :: Link ()
+digitalBidirLink = do
+  setIdent "DigitalLink"
+  setSignature "DigitalLink"
+
+  bidir <- addPort "bidir" $ do
+    digitalBidir
+    return()
+
+  source <- addPort "source" $ do
+    digitalSource
+    return()
+  sink <- addPort "sink" $ do
+    digitalSink
+    return()
+
+  constrain $ port bidir connected
+  constrain $ (port bidir (typeVal "digitalDir") :== Lit (StringV "source")) :=> port sink connected
+  constrain $ (port bidir (typeVal "digitalDir") :== Lit (StringV "sink")) :=> port source connected
+
+  constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
+  constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
+  constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
+  constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
+
+  constrain $ port sink (typeVal "voltage") :<= port sink (typeVal "limitVoltage")
+  constrain $ port source (typeVal "current") :<= port source (typeVal "limitCurrent")
+  constrain $ port bidir (typeVal "voltage") :<= port bidir (typeVal "limitVoltage")
+  constrain $ port bidir (typeVal "current") :<= port bidir (typeVal "limitCurrent")
+
+  constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
+  constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
+  constrain $ port bidir (typeVal "controlName") :== port source (typeVal "controlName")
+  constrain $ port bidir (typeVal "controlName") :== port sink (typeVal "controlName")
+  constrain $ port bidir (typeVal "apiType") :== port source (typeVal "apiType")
+  constrain $ port bidir (typeVal "apiType") :== port sink (typeVal "apiType")
+  constrain $ (
+      ((port bidir (typeVal "apiDir") :== Lit (StringV "producer"))
+        :&& (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
+        :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
+      ) :|| (
+        (port bidir (typeVal "apiDir") :== Lit (StringV "consumer"))
+        :&& (port source (typeVal "apiDir") :== Lit (StringV "producer"))
+        :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
+      ))
+
   return ()
 
 -- Seed Links
-seedLink :: Link ()
-seedLink = do
-  setIdent "SeedLink"
-  setSignature "SeedLink"
+apiLink :: Link ()
+apiLink = do
+  setIdent "ApiLink"
+  setSignature "ApiLink"
 
   producer <- addPort "producer" $ do
-    seedPort
-    baseControl "producer"
+    apiProducer
     return()
 
   consumer <- addPort "consumer" $ do
-    seedPort
-    baseControl "consumer"
+    apiConsumer
     return()
 
   constrain $ port producer connected
   constrain $ port consumer connected
 
-  constrain $ port producer (typeVal "control.api") :== port consumer (typeVal "control.api")
-  constrain $ port producer (typeVal "control.name") :== port consumer (typeVal "control.name")
-  --constrain $ port producer (typeVal "control.data") :== port consumer (typeVal "control.data")
+  constrain $ port producer (typeVal "apiType") :== port consumer (typeVal "apiType")
+  constrain $ port producer (typeVal "apiData") :== port consumer (typeVal "apiData")
+  constrain $ port producer (typeVal "controlUid") :== port consumer (typeVal "controlUid")
+  constrain $ port producer (typeVal "controlName") :== port consumer (typeVal "controlName")
   return ()
