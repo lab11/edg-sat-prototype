@@ -11,42 +11,35 @@ button = do
   setIdent "button"
   setSignature "button"
   setType []
-  vin <- addPort "vin" $ do
-    electricalPort
-    noControl
+
+  api <- addPort "api" $ do
+    apiProducer
     setType [
-        "current" <:= FloatV 0.001  -- for when button closes and resistor shorts to ground
-      , "dir" <:= StringV "sink"
+      "apiType" <:= StringV "button"
+      ]
+    return ()
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "current" <:= FloatV 0.001  -- for when button closes and resistor shorts to ground
       ]
     return ()
   out <- addPort "out" $ do
-    digitalPort
-    onOffControl "consumer"
+    digitalSource
     setType [
-        "current" <:= FloatV 0  -- this resistor-switch topology doesn't allow current draw
-      , "dir" <:= StringV "source"
-      ]
-    return ()
-  constrain $ port out (typeVal "control.dir") :== Lit (StringV "consumer")
-
-  seed <- addPort "seed" $ do
-    seedPort
-    setType [
-        "control" <:= Record [
-            "api" <:= StringV "button"
-          , "name" <:= StringC unknown
-          , "dir" <:= StringV "producer"
-          , "data" <:= Record [
-              "bandwidth" <:= FloatC unknown
-            ]
-          ]
+      "current" <:= FloatV 0,  -- this resistor-switch topology doesn't allow current draw
+      "apiType" <:= StringV "onOff",
+      "apiDir" <:= StringV "consumer"
       ]
     return ()
 
+  constrain $ port api connected
   constrain $ port vin connected
   constrain $ port out connected
-  constrain $ port out (typeVal "control.name") :== port seed (typeVal "control.name")
-  constrain $ port out (typeVal "control.data") :== port seed (typeVal "control.data")
+
+  constrain $ port out (typeVal "controlUid") :== port api (typeVal "controlUid")
+  constrain $ port out (typeVal "controlName") :== port api (typeVal "controlName")
 
   constrain $ port vin (typeVal "voltage") :== port out (typeVal "voltage")
   -- TODO digital signal threhsolds
@@ -57,34 +50,29 @@ led = do
   setIdent "led"
   setSignature "led"
   setType []
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "led"
+      ]
+    return ()
+
   source <- addPort "source" $ do
-    digitalPort
-    onOffControl "consumer"
+    digitalSource
     setType [
-        "current" <:= FloatV 0.01
-      , "dir" <:= StringV "sink"
-      ]
-    return ()
-  constrain $ port source (typeVal "control.dir") :== Lit (StringV "consumer")
-
-  seed <- addPort "seed" $ do
-    seedPort
-    setType [
-        "control" <:= Record [
-            "api" <:= StringV "led"
-          , "name" <:= StringC unknown
-          , "dir" <:= StringV "producer"
-          , "data" <:= Record [
-              "bandwidth" <:= FloatC unknown
-            ]
-          ]
+      "current" <:= FloatV 0.01,
+      "apiType" <:= StringV "onOff",  -- TODO: allow PWM
+      "apiDir" <:= StringV "consumer"
       ]
     return ()
 
+  constrain $ port api connected
   constrain $ port source connected
-  constrain $ port source (typeVal "control.name") :== port seed (typeVal "control.name")
-  constrain $ port source (typeVal "control.data") :== port seed (typeVal "control.data")
-  constrain $ port source (typeVal "voltage") :>= Lit (FloatV 3.0)  -- LED voltage drop
+
+  constrain $ port source (typeVal "controlUid") :== port api (typeVal "controlUid")
+  constrain $ port source (typeVal "controlName") :== port api (typeVal "controlName")
+  --constrain $ port source (typeVal "voltage") :>= Lit (FloatV 3.0)  -- LED voltage drop
 
   -- TODO digital signal threhsolds
 
@@ -93,46 +81,40 @@ mcu = do
   setIdent "Microcontroller"
   setSignature "Microcontroller"
   setType [
-      "MHz" <:= FloatV 8.0  -- TODO: is this useful?
+    "MHz" <:= FloatV 8.0  -- TODO: is this useful?
     ]
+
   usbIn <- addPort "UsbIn" $ do
-    dummyElectricalPort
-    noControl
+    powerSink
     setType [
-        "voltage" <:= FloatV 5.0
-      , "current" <:= FloatC $ 0.25 +/- 0.25
-      , "dir" <:= StringV "sink"
+      "voltage" <:= FloatV 5.0,
+      "limitVoltage" <:= FloatV 5.5,
+      "current" <:= FloatC (lessThan 0.5)
       ]
     return ()
-
   constrain $ Not (port usbIn connected)  -- dummy port only
 
   p5vOut <- addPort "5vOut" $ do
-    electricalPort
-    noControl
+    powerSource
     setType [
-        "dir" <:= StringV "source"
       ]
     return ()
-
   constrain $ port p5vOut (typeVal "voltage") :== port usbIn (typeVal "voltage")
 
 
   p3v3Out <- addPort "3v3Out" $ do
-    electricalPort
-    noControl
+    powerSource
     setType [
-        "voltage" <:= FloatV 3.3
-      , "dir" <:= StringV "source"
+      "voltage" <:= FloatV 3.3
       ]
     return ()
 
-  gpios <- forM [1..8] $ \ gpioId ->
+  gpios <- forM @[] [1..4] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
-      digitalPort
-      onOffControl "producer"
+      digitalBidir
       setType [
-          "voltage" <:= FloatV 3.3
+        "voltage" <:= FloatV 3.3,
+        "limitCurrent" <:= FloatV 0.04
         ]
       return ()
 

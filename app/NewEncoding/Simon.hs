@@ -8,16 +8,17 @@ import Control.Monad
 
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
-    modules = [
-        ("button",2,button)
-      , ("led",2,led)
-      , ("mcu",1,mcu)
-      ]
-  , links = [
-        ("seedLink", 4, seedLink)
-      , ("electricalLink", 2, powerLink 4)
-      , ("digitalLink", 4, digitalLink)
-      ]
+  modules = [
+    ("button", 2, button),
+    ("led", 2, led),
+    ("mcu", 1, mcu)
+    ],
+  links = [
+    ("apiLink", 4, apiLink),
+    ("powerLink", 2, powerLink 4),
+    ("digitalBidirLink", 4, digitalBidirLink),
+    ("digitalLink", 4, digitalLink)
+    ]
   }
 
 seed :: Module ()
@@ -26,32 +27,26 @@ seed = do
   setSignature "controlLogic"
 
   leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
-    seedPort
+    apiConsumer
     setType [
-        "control" <:= Record [
-            "api" <:= StringV "led"
-          , "name" <:= StringV "led1"
-          , "dir" <:= StringV "consumer"
-          , "data" <:= Record [
-              "bandwidth" <:= FloatV 500
-            ]
-          ]
+      "controlName" <:= StringV ("led" ++ (show id)),
+      "apiType" <:= StringV "led",
+      "apiData" <:= Record [
+        "bandwidth" <:= FloatV 500
+        ]
       ]
     return ()
 
   forM leds (\ led -> constrain $ port led connected)
 
   buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
-    seedPort
+    apiConsumer
     setType [
-        "control" <:= Record [
-            "api" <:= StringV "button"
-          , "name" <:= StringV "button1"
-          , "dir" <:= StringV "consumer"
-          , "data" <:= Record [
-              "bandwidth" <:= FloatV 100
-            ]
-          ]
+      "controlName" <:= StringV ("button" ++ (show id)),
+      "apiType" <:= StringV "button",
+      "apiData" <:= Record [
+        "bandwidth" <:= FloatV 500
+        ]
       ]
     return ()
 
