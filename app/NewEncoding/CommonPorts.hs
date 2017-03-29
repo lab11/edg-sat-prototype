@@ -101,6 +101,66 @@ digitalPort = do
     ]
   return ()
 
+powerSink :: (IsPort p) => p ()
+powerSink = do
+  setKind "PowerSink"
+  setIdent "PowerSink"
+  setType [
+    "current" <:= FloatC unknown,
+    "limitVoltage" <:= FloatC unknown
+    ]
+  return ()
+
+powerSource :: (IsPort p) => p ()
+powerSource = do
+  setKind "PowerSource"
+  setIdent "PowerSource"
+  setType [
+    "voltage" <:= FloatC unknown,
+    "limitCurrent" <:= FloatC unknown
+    ]
+  return ()
+
+controllable :: (IsPort p) => p ()
+controllable = do
+  setType [
+    "controlUid" <:= StringC unknown,
+    "controlName" <:= StringC unknown
+    ]
+  return ()
+
+digitalControlBase :: (IsPort p) => p ()
+digitalControlBase = do
+  powerSink
+  controllable
+  setType [
+    "apiDir" <:= StringC $ oneOf ["producer", "consumer"],
+    "apiType" <:= StringC $ oneOf ["onOff", "pwm"]
+    ]
+  return ()
+
+digitalSink :: (IsPort p) => p ()
+digitalSink = do
+  digitalControlBase
+  setKind "DigitalSink"
+  setIdent "DigitalSink"
+  setType [
+    -- "limitHighVoltage" <:= FloatC unknown,
+    -- "limitLowVoltage" <:= FloatC unknown,
+    ]
+  return ()
+
+digitalSource :: (IsPort p) => p ()
+digitalSource = do
+  digitalControlBase
+  setKind "DigitalSource"
+  setIdent "DigitalSource"
+  setType [
+    -- "highVoltage" <:= FloatC unknown,
+    -- "lowVoltage" <:= FloatC unknown,
+    ]
+  return ()
+
 -- Electrical Links
 powerLink :: Int -> Link ()
 powerLink numSinks = do
