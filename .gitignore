@@ -47,6 +47,8 @@ boxes/*
 
 .tmp
 *.tmp.*
+*.png
+*.svg
 
 ########
 # IDEs #
