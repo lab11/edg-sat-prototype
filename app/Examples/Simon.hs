@@ -90,7 +90,8 @@ mcu = do
   -- We can make sure that each GPIO pin is capable of using any of the pins.
   --
   -- NOTE :: flip f a b = f b a
-  -- NOTE :: mapM_ takes an '(a -> m b)'  and a '[a]' and gives you
+  -- NOTE :: mapM_ takes an '(a -> m b)'  and a :e ./
+  -- '[a]' and gives you
   -- a 'm [b]' by applying your input fuction to each value in order
   -- and collecting the results together.
   flip mapM_ gpios (\ gpio -> do
