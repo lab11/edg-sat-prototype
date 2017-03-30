@@ -85,11 +85,11 @@ data GatherState = GatherState {
   , gsValInfo  :: (Map (Ref Value) ValInfo)
   -- And the reverse lookup tables for values without a set class.
   , gsReverseValEq :: (Map ValEqClass (Set (Ref Value)))
-  -- TODO :: Yeah, I should find a better way to do this, and generally
-  --         minimize the meccesary amount of updating.
+  -- The table of information about each record.
   , gsRecInfo  :: (Map (Ref Record) RecInfo)
   -- And reverse lookups for record equlity classes.
   , gsReverseRecEq :: (Map RecEqClass (Set (Ref Record)))
+  , gsRecEqUpdates :: (Map RecEqClass RecEqClass)
   -- Reverse lookup to find record kinds that contain other records
   -- I.E Key := some RecEqClass
   --     Val := all the RecEqClasses that point to Key
@@ -136,6 +136,7 @@ initialGatherState = GatherState {
   , gsReverseValEq   = Map.empty
   , gsRecInfo        = Map.empty
   , gsReverseRecEq   = Map.empty
+  , gsRecEqUpdates   = Map.empty
   , gsReverseRecKind = Map.empty
   , gsRecordKinds    = Map.empty
   , gsBarePortInfo   = Map.empty
@@ -504,11 +505,6 @@ instance (ExpContext EDG, NFData (ExpValue EDG)
       , rnf dsLinkInfo
       , rnf dsModuleInfo
       ]
-
-
-
-
-
 
 makeLensesWith abbreviatedFields ''DecodeState
 -- | Use the final GatherState and SBVState to generate a DecodeState that we

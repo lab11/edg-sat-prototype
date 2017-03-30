@@ -7,7 +7,7 @@ import Data.Char (toLower)
 import EDG (EDGSettings(..), parseSettings)
 
 import qualified Examples.Simon
--- import qualified Examples.Logger
+import qualified NewEncoding.Simon
 
 optParser :: Parser (String, EDGSettings)
 optParser = (,)
@@ -30,5 +30,5 @@ main = do
     "simon"     -> Examples.Simon.run    settings
     "med-simon" -> Examples.Simon.medRun settings
     "big-simon" -> Examples.Simon.bigRun settings
-    _ -> putStrLn $ "No example chosen. Available examples are 'simon',"
-      ++ "'med-simon','big-simon'."
+    "new-simon"  -> NewEncoding.Simon.run settings
+    _ -> putStrLn "No example chosen. See app/Main.hs for a list."
