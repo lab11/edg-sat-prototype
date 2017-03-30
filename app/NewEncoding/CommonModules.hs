@@ -47,7 +47,6 @@ button = do
 
   constrain $ port out (typeVal "voltage.max") :== port vin (typeVal "voltage.max")
   constrain $ port out (typeVal "highVoltage") :== port vin (typeVal "voltage.min")
-  -- TODO digital signal threhsolds
 
 -- A LED Module
 led :: Module ()
@@ -80,9 +79,6 @@ led = do
 
   constrain $ port source (typeVal "controlUid") :== port api (typeVal "controlUid")
   constrain $ port source (typeVal "controlName") :== port api (typeVal "controlName")
-  --constrain $ port source (typeVal "voltage") :>= Lit (FloatV 3.0)  -- LED voltage drop
-
-  -- TODO digital signal threhsolds
 
 mcu :: Module ()
 mcu = do
@@ -114,7 +110,7 @@ mcu = do
   p3v3Out <- addPort "3v3Out" $ do
     powerSource
     setType [
-      "voltage" <:= (range (FloatV 3.234) (FloatV 3.366)),  -- TODO internal regulator tolerance
+      "voltage" <:= (range (FloatV 3.234) (FloatV 3.366)),
       "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
       ]
     return ()
