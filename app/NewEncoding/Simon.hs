@@ -16,7 +16,9 @@ testLibrary = EDGLibrary{
   links = [
     ("apiLink", 8, apiLink),
     ("powerLink", 2, powerLink 4),
-    ("digitalBidirLink", 8, digitalBidirLink),
+    ("digitalBidirLink", 0, digitalBidirLink),
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
     ("digitalLink", 0, digitalLink)
     ]
   }
@@ -52,7 +54,7 @@ seed = do
       ]
     return ()
 
-  let allPorts = (leds)
+  let allPorts = (buttons ++ leds)
   forM allPorts (\ portId -> constrain $ port portId connected)
   forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 

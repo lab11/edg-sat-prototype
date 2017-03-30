@@ -147,8 +147,8 @@ instance (
       vl = Map.isSubmapOfBy (leq) rcMap rcMap'
 
 instance (Eq t, Constrainable t, JoinSemiLattice (Ambiguous t)) => JoinSemiLattice (RecordCons t) where
-  (\/) a _ | unSAT a = error ("value is unSat")
-  (\/) _ a | unSAT a = error ("value is unSat")
+  (\/) a _ | unSAT a = RCTop -- error ("value is unSat")
+  (\/) _ a | unSAT a = RCTop -- error ("value is unSat")
   (\/) RCBottom a = a
   (\/) a RCBottom = a
   -- We're good if keys match, and the joins of each element are also not top.
@@ -158,8 +158,8 @@ instance (Eq t, Constrainable t, JoinSemiLattice (Ambiguous t)) => JoinSemiLatti
     | otherwise = RCTop
     where
       joinRC = RCAmbig $ Map.unionWith (\/) aMap bMap
-  (\/) _ _ = error $ "These states should be caught by calls to unSAT, this "
-    ++ "should be unreachable."
+  (\/) _ _ = RCTop -- error $ "These states should be caught by calls to unSAT, this "
+    -- ++ "should be unreachable."
 
 instance (Eq t,Constrainable t, MeetSemiLattice (Ambiguous t)) => MeetSemiLattice (RecordCons t) where
   (/\) RCBottom _ = RCBottom
