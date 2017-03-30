@@ -247,6 +247,86 @@ digitalBidirLink = do
 
   return ()
 
+digitalBidirSinkLink :: Link ()
+digitalBidirSinkLink = do
+  setIdent "DigitalLink"
+  setSignature "DigitalLink"
+
+  bidir <- addPort "bidir" $ do
+    digitalBidir
+    setType [
+      "apiDir" <:= StringV "producer",
+      "digitalDir" <:= StringV "source"
+      ]
+    return()
+
+  sink <- addPort "sink" $ do
+    digitalSink
+    setType [
+      "apiDir" <:= StringV "consumer"
+      ]
+    return()
+
+  constrain $ port bidir connected
+  constrain $ port sink connected
+
+  constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
+  constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
+
+  constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
+  constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
+
+  constrain $ port bidir (typeVal "lowVoltage") :== port sink (typeVal "lowVoltage")
+  constrain $ port bidir (typeVal "highVoltage") :== port sink (typeVal "highVoltage")
+
+  constrain $ port sink (typeVal "lowVoltage") :<= port sink (typeVal "limitLowVoltage")
+  constrain $ port sink (typeVal "highVoltage") :>= port sink (typeVal "limitHighVoltage")
+
+  constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
+  constrain $ port bidir (typeVal "controlName") :== port sink (typeVal "controlName")
+  constrain $ port bidir (typeVal "apiType") :== port sink (typeVal "apiType")
+
+  return ()
+
+digitalBidirSourceLink :: Link ()
+digitalBidirSourceLink = do
+  setIdent "DigitalLink"
+  setSignature "DigitalLink"
+
+  bidir <- addPort "bidir" $ do
+    digitalBidir
+    setType [
+      "apiDir" <:= StringV "producer",
+      "digitalDir" <:= StringV "sink"
+      ]
+    return()
+
+  source <- addPort "source" $ do
+    digitalSource
+    setType [
+      "apiDir" <:= StringV "consumer"
+      ]
+    return()
+
+  constrain $ port bidir connected
+  constrain $ port source connected
+
+  constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
+  constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
+
+  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
+  constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
+
+  constrain $ port bidir (typeVal "lowVoltage") :== port source (typeVal "lowVoltage")
+  constrain $ port bidir (typeVal "highVoltage") :== port source (typeVal "highVoltage")
+
+  constrain $ port bidir (typeVal "lowVoltage") :<= port bidir (typeVal "limitLowVoltage")
+  constrain $ port bidir (typeVal "highVoltage") :>= port bidir (typeVal "limitHighVoltage")
+
+  constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
+  constrain $ port bidir (typeVal "controlName") :== port source (typeVal "controlName")
+  constrain $ port bidir (typeVal "apiType") :== port source (typeVal "apiType")
+
 -- Seed Links
 apiLink :: Link ()
 apiLink = do
