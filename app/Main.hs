@@ -30,5 +30,5 @@ main = do
     "simon"     -> Examples.Simon.run    settings
     "med-simon" -> Examples.Simon.medRun settings
     "big-simon" -> Examples.Simon.bigRun settings
-    "new-simon"  -> NewEncoding.Simon.run settings
+    "new-simon" -> NewEncoding.Simon.run settings
     _ -> putStrLn "No example chosen. See app/Main.hs for a list."
