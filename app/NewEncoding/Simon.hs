@@ -4,18 +4,23 @@ import EDG
 import NewEncoding.CommonPorts
 import NewEncoding.CommonModules
 
+import Control.Monad
+
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
-    modules = [
-        ("button",2,button)
-      , ("led",2,led)
-      , ("mcu",1,mcu)
-      ]
-  , links = [
-        ("seedLink", 4, seedLink)
-      , ("electricalLink", 2, powerLink 2)
-      , ("digitalLink", 2, digitalLink)
-      ]
+  modules = [
+    ("button", 4, button),
+    ("led", 4, led),
+    ("mcu", 1, mcu)
+    ],
+  links = [
+    ("apiLink", 8, apiLink),
+    ("powerLink", 2, powerLink 4),
+    ("digitalBidirLink", 0, digitalBidirLink),
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
+    ("digitalLink", 0, digitalLink)
+    ]
   }
 
 seed :: Module ()
@@ -23,37 +28,35 @@ seed = do
   setIdent "Control Logic"
   setSignature "controlLogic"
 
-  led1 <- addPort "led1" $ do
-    seedPort
+  setType [
+    "controlUid" <:= UID
+    ]
+
+  leds <- forM @[] [1..4] $ \ id -> addPort ("led" ++ (show id)) $ do
+    apiConsumer
     setType [
-        "control" <:= Record [
-            "api" <:= StringV "led"
-          , "name" <:= StringV "led1"
-          , "dir" <:= StringV "consumer"
-          , "data" <:= Record [
-              "bandwidth" <:= FloatV 500
-            ]
-          ]
+      "controlName" <:= StringV ("led" ++ (show id)),
+      "apiType" <:= StringV "led",
+      "apiData" <:= Record [
+        "bandwidth" <:= FloatV 500
+        ]
       ]
     return ()
 
-  constrain $ port led1 connected
-
-  button1 <- addPort "button1" $ do
-    seedPort
+  buttons <- forM @[] [1..4] $ \ id -> addPort ("button" ++ (show id)) $ do
+    apiConsumer
     setType [
-        "control" <:= Record [
-            "api" <:= StringV "button"
-          , "name" <:= StringV "button1"
-          , "dir" <:= StringV "consumer"
-          , "data" <:= Record [
-              "bandwidth" <:= FloatV 100
-            ]
-          ]
+      "controlName" <:= StringV ("button" ++ (show id)),
+      "apiType" <:= StringV "button",
+      "apiData" <:= Record [
+        "bandwidth" <:= FloatV 500
+        ]
       ]
     return ()
 
-  constrain $ port button1 connected
+  let allPorts = (buttons ++ leds)
+  forM allPorts (\ portId -> constrain $ port portId connected)
+  forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 
   return ()
 
