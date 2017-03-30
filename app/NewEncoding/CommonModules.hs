@@ -22,13 +22,16 @@ button = do
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "current" <:= FloatV 0.001  -- for when button closes and resistor shorts to ground
+      "current" <:= (range (FloatV 0.001) (FloatV 0.002)),  -- for when button closes and resistor shorts to ground
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
       ]
     return ()
   out <- addPort "out" $ do
     digitalSource
     setType [
-      "current" <:= FloatV 0,  -- this resistor-switch topology doesn't allow current draw
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "current" <:= (range (FloatV 0) (FloatV 0)),  -- this resistor-switch topology doesn't allow current draw
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 0)),  -- this resistor-switch topology doesn't allow current draw
       "apiType" <:= StringV "onOff",
       "apiDir" <:= StringV "consumer"
       ]
@@ -41,7 +44,7 @@ button = do
   constrain $ port out (typeVal "controlUid") :== port api (typeVal "controlUid")
   constrain $ port out (typeVal "controlName") :== port api (typeVal "controlName")
 
-  constrain $ port vin (typeVal "voltage") :== port out (typeVal "voltage")
+  constrain $ port vin (typeVal "voltage.max") :== port out (typeVal "voltage.max")
   -- TODO digital signal threhsolds
 
 -- A LED Module
@@ -59,9 +62,10 @@ led = do
     return ()
 
   source <- addPort "source" $ do
-    digitalSource
+    digitalSink
     setType [
-      "current" <:= FloatV 0.01,
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36)),
+      "current" <:= (range (FloatV 0.01) (FloatV 0.02)),
       "apiType" <:= StringV "onOff",  -- TODO: allow PWM
       "apiDir" <:= StringV "consumer"
       ]
@@ -87,9 +91,9 @@ mcu = do
   usbIn <- addPort "UsbIn" $ do
     powerSink
     setType [
-      "voltage" <:= FloatV 5.0,
-      "limitVoltage" <:= FloatV 5.5,
-      "current" <:= FloatC (lessThan 0.5)
+      "voltage" <:= (range (FloatV 4.5) (FloatV 5.5)),
+      "limitVoltage" <:= (range (FloatV 4.5) (FloatV 5.5)),  -- constrain things for efficiency
+      "current" <:= (range (FloatC [greaterThan 0]) (FloatC [lessThan 0.5]))
       ]
     return ()
   constrain $ Not (port usbIn connected)  -- dummy port only
@@ -97,15 +101,17 @@ mcu = do
   p5vOut <- addPort "5vOut" $ do
     powerSource
     setType [
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
       ]
     return ()
   constrain $ port p5vOut (typeVal "voltage") :== port usbIn (typeVal "voltage")
 
-
+  -- MIC5219 regulator
   p3v3Out <- addPort "3v3Out" $ do
     powerSource
     setType [
-      "voltage" <:= FloatV 3.3
+      "voltage" <:= (range (FloatV 3.234) (FloatV 3.366)),  -- TODO internal regulator tolerance
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
       ]
     return ()
 
@@ -113,18 +119,24 @@ mcu = do
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
-        "voltage" <:= FloatV 3.3,
-        "limitCurrent" <:= FloatV 0.04
+        "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
+        "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown))
         ]
       return ()
 
-  constrain $ port usbIn (typeVal "current") :== Sum (
-    (port p5vOut $ typeVal "current") :
-    (port p3v3Out $ typeVal "current") :
-    (map (\ gpio -> port gpio (typeVal "current")) gpios))
+  constrain $ port usbIn (typeVal "current.min") :== Sum (
+    (port p5vOut $ typeVal "current.min") :
+    (port p3v3Out $ typeVal "current.min") :
+    (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
+  constrain $ port usbIn (typeVal "current.max") :== Sum (
+    (port p5vOut $ typeVal "current.max") :
+    (port p3v3Out $ typeVal "current.max") :
+    (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
-  forM @[] gpios $ \ gpio ->
+  forM @[] gpios $ \ gpio -> do
     constrain $ port gpio (typeVal "controlUid") :== uid
+    constrain $ (port gpio (typeVal "digitalDir") :== Lit (StringV "source")) :=> port gpio (typeVal "voltage") :== port p3v3Out (typeVal "voltage")
+    constrain $ port gpio (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
   endDef
 

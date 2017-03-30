@@ -6,8 +6,8 @@ import Control.Monad
 powerBase :: (IsPort p) => p ()
 powerBase = do
   setType [
-    "voltage" <:= FloatC unknown,
-    "current" <:= FloatC unknown
+    "voltage" <:= (range (FloatC unknown) (FloatC unknown)),
+    "current" <:= (range (FloatC unknown) (FloatC unknown))
     ]
   return ()
 
@@ -17,7 +17,7 @@ powerSink = do
   setKind "PowerSink"
   setIdent "PowerSink"
   setType [
-    "limitVoltage" <:= FloatC unknown
+    "limitVoltage" <:= (range (FloatC unknown) (FloatC unknown))
     ]
   return ()
 
@@ -27,7 +27,7 @@ powerSource = do
   setKind "PowerSource"
   setIdent "PowerSource"
   setType [
-    "limitCurrent" <:= FloatC unknown
+    "limitCurrent" <:= (range (FloatC unknown) (FloatC unknown))
     ]
   return ()
 
@@ -127,12 +127,13 @@ powerLink numSinks = do
   constrain $ port source connected
   constrain $ Any (map (\ sink -> port sink connected) sinks)
 
-  constrain $ port source (typeVal "current") :== Sum (map (\ sink -> port sink (typeVal "current")) sinks)
-  constrain $ port source (typeVal "current") :<= port source (typeVal "limitCurrent")
+  constrain $ port source (typeVal "current.min") :== Sum (map (\ sink -> port sink (typeVal "current.min")) sinks)
+  constrain $ port source (typeVal "current.max") :== Sum (map (\ sink -> port sink (typeVal "current.max")) sinks)
+  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
 
   forM sinks $ \ sink -> do
     constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
-    constrain $ port sink (typeVal "voltage") :== port sink (typeVal "limitVoltage")
+    constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
 
   return ()
 
@@ -155,8 +156,8 @@ digitalLink = do
   constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
   constrain $ port source (typeVal "current") :== port sink (typeVal "current")
 
-  constrain $ port sink (typeVal "voltage") :<= port sink (typeVal "limitVoltage")
-  constrain $ port source (typeVal "current") :<= port source (typeVal "limitCurrent")
+  constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
+  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
 
   constrain $ port source (typeVal "controlUid") :== port sink (typeVal "controlUid")
   constrain $ port source (typeVal "controlName") :== port sink (typeVal "controlName")
@@ -178,13 +179,22 @@ digitalBidirLink = do
 
   bidir <- addPort "bidir" $ do
     digitalBidir
+    setType [
+      "apiDir" <:= StringV "producer"
+      ]
     return()
 
   source <- addPort "source" $ do
     digitalSource
+    setType [
+      "apiDir" <:= StringV "consumer"
+      ]
     return()
   sink <- addPort "sink" $ do
     digitalSink
+    setType [
+      "apiDir" <:= StringV "consumer"
+      ]
     return()
 
   constrain $ port bidir connected
@@ -196,10 +206,10 @@ digitalBidirLink = do
   constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
   constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
 
-  constrain $ port sink (typeVal "voltage") :<= port sink (typeVal "limitVoltage")
-  constrain $ port source (typeVal "current") :<= port source (typeVal "limitCurrent")
-  constrain $ port bidir (typeVal "voltage") :<= port bidir (typeVal "limitVoltage")
-  constrain $ port bidir (typeVal "current") :<= port bidir (typeVal "limitCurrent")
+  constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
+  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
+  constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
+  constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
 
   constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
   constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
@@ -207,15 +217,16 @@ digitalBidirLink = do
   constrain $ port bidir (typeVal "controlName") :== port sink (typeVal "controlName")
   constrain $ port bidir (typeVal "apiType") :== port source (typeVal "apiType")
   constrain $ port bidir (typeVal "apiType") :== port sink (typeVal "apiType")
-  constrain $ (
-      ((port bidir (typeVal "apiDir") :== Lit (StringV "producer"))
-        :&& (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
-        :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
-      ) :|| (
-        (port bidir (typeVal "apiDir") :== Lit (StringV "consumer"))
-        :&& (port source (typeVal "apiDir") :== Lit (StringV "producer"))
-        :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
-      ))
+--  hard constrained since only GPIOs are bidir (for now)
+--  constrain $ (
+--      ((port bidir (typeVal "apiDir") :== Lit (StringV "producer"))
+--        :&& (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
+--        :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
+--      ) :|| (
+--        (port bidir (typeVal "apiDir") :== Lit (StringV "consumer"))
+--        :&& (port source (typeVal "apiDir") :== Lit (StringV "producer"))
+--        :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
+--      ))
 
   return ()
 
