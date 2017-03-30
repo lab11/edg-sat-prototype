@@ -50,6 +50,8 @@ data Exp m where
   -- | Other Utility Ops
   -- Returns the number of bool vmlues thmt mre true
   Count :: [Exp m] -> Exp m
+  -- Gets a particular field from a record.
+  GetField :: String -> Exp m -> Exp m
 
 -- | Basic instances for the elements
 --
@@ -120,6 +122,7 @@ instance (ExpContext e, NFData (ExpValue e), NFData (ExpLiteral e))
     | Mult l    <- e = rnf l
     | Count l   <- e = rnf l
     | If c t f  <- e = rnf @[_] [rnf c, rnf t, rnf f]
+    | GetField s r <- e = rnf @[_] [rnf s, rnf r]
 
 class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
   -- The intermidate type of an expression that use used as this
@@ -201,10 +204,14 @@ class (Monad m, ExpContext a) => Expressible a m | a -> m, m -> a where
   expressIf :: ExpRuntime a -> ExpRuntime a -> ExpRuntime a
             -> m (ExpRuntime a)
 
+  -- Neccesary
+  expressGetField :: String -> ExpRuntime a
+            -> m (ExpRuntime a)
+
   {-# MINIMAL intToLit, boolToLit, expressLit, expressVal, expressEq,
               expressAnd, expressOr, expressNot, expressLT, expressLTE,
               expressGT, expressGTE, expressPlus, expressMinus,
-              expressNegate, expressIf, expressTimes #-}
+              expressNegate, expressIf, expressTimes, expressGetField #-}
 
 -- | Shorthand for intToLit that wraps things up in an expression
 i2e :: forall m a. Expressible a m => Integer -> m (ExpRuntime a)
@@ -312,6 +319,9 @@ express (If     c t f) = do
   t' <- express t
   f' <- express f
   expressIf c' t' f'
+express (GetField s r) = do
+  r' <- express r
+  expressGetField s r'
 
 -- | Given that you can transform the leaf nodes, this will transform
 --   the entire expression from the bottom up.
@@ -348,6 +358,8 @@ convertExpression lconv vconv e
   | Count l   <- e = Count  $ map conv l
   | If c t f  <- e
     = If (conv c) (conv t) (conv f)
+  | GetField s r  <- e
+    = GetField s (conv r)
   where
     conv = convertExpression lconv vconv
 
@@ -385,5 +397,7 @@ convertExpressionM lconv vconv e
   | Count l   <- e = Count  <$> mapM conv l
   | If c t f  <- e
     = If <$> conv c <*> conv t <*> conv f
+  | GetField s r  <- e
+    = GetField s <$> conv r
   where
     conv = convertExpressionM lconv vconv

@@ -126,6 +126,9 @@ instance Expressible EDG EDGMonad where
       context = "expressIf `" ++ show c ++ "` then `" ++ show t
         ++ "` else `" ++ show f ++ "`"
 
+  expressGetField :: String -> Ref Value -> EDGMonad (Ref Value)
+  expressGetField s r = getValS r s
+
 -- -- | Datatype for a description of a port, what is used as input to
 -- --   the problem description
 -- data PortDesc a = PortDesc {

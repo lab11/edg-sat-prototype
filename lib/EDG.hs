@@ -84,6 +84,11 @@ module EDG (
   , makeSynthFunc
   , synthesizeWithSettings
   , endDef
+  , range           -- NOTE :: Range syntax sugar.
+  , validRange
+  , initRange
+  , rSubset
+  , rSuperset
 ) where
 
 
@@ -270,6 +275,7 @@ import qualified EDG.Library.Types as E (
   , Constrained'
   , UID'
   , Record
+  , RecordCons(..)
   , IntCons
   , BoolCons
   , FloatCons
@@ -333,6 +339,49 @@ pattern NewUID = A.Abstract(E.Constrained (E.UID (E.UCNew)))
 pattern Record :: E.RecCons -> AmbigVal
 pattern Record a = A.Abstract(E.Constrained (E.Record a))
 
+-- | Creates a range. Arguments are min then max.
+--
+-- >>> range (FloatC [greaterThan 4]) (FloatV 12)
+range :: AmbigVal -> AmbigVal -> AmbigVal
+range min max = Record ["min" <:= min, "max" <:= max]
+
+-- | TODO
+validRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m
+validRange v = (GetField v "max") :>= (GetField v "min")
+
+-- | Initialize a range, adding neccesary constraints.
+initRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> m ()
+initRange = constrain . validRange
+
+-- | TODO
+rSubset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m -> Exp m
+rSubset a b
+  =   (aMin :<= aMax)
+  :&& (bMin :<= aMin) :&& (aMin :<= bMax)
+  :&& (bMin :<= aMax) :&& (aMax :<= bMax)
+  where
+    aMin = GetField a "min"
+    aMax = GetField a "max"
+    bMin = GetField b "min"
+    bMax = GetField b "max"
+
+-- | TODO
+rSuperset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m -> Exp m
+rSuperset = flip rSubset
+
+-- ranges
+--   - subset
+--   - superset
+--   - for constrants and pairs of ranges
+--      - add
+--      - subtract
+--      - multiply
+--   - bootstrap range etc.
+
 -- | TODO
 unknown :: A.BoundedJoinSemiLattice a => a
 unknown = A.bottom
@@ -375,14 +424,6 @@ between :: forall a. (E.LTConstraint a, E.GTConstraint a
 between a b = [greaterThanEq (min a b),lessThanEq (max a b)]
 
 
--- ranges
---   - subset
---   - superset
---   - for constrants and pairs of ranges
---      - add
---      - subtract
---      - multiply
---   - bootstrap range etc.
 
 -- | TODO :: The type of a portion of a record.
 type AmbigRec = E.RecCons
@@ -480,6 +521,8 @@ pattern Negate a = E.Negate a
 pattern If c t f = E.If c t f
 -- | TODO
 pattern Count a = E.Count a
+-- | TODO
+pattern GetField r s = E.GetField s r
 
 -- * Elements of a Design
 
