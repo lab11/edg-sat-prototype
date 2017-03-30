@@ -32,6 +32,7 @@ button = do
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
       "current" <:= (range (FloatV 0) (FloatV 0)),  -- this resistor-switch topology doesn't allow current draw
       "limitCurrent" <:= (range (FloatV 0) (FloatV 0)),  -- this resistor-switch topology doesn't allow current draw
+      "lowVoltage" <:= FloatV 0,
       "apiType" <:= StringV "onOff",
       "apiDir" <:= StringV "consumer"
       ]
@@ -44,7 +45,8 @@ button = do
   constrain $ port out (typeVal "controlUid") :== port api (typeVal "controlUid")
   constrain $ port out (typeVal "controlName") :== port api (typeVal "controlName")
 
-  constrain $ port vin (typeVal "voltage.max") :== port out (typeVal "voltage.max")
+  constrain $ port out (typeVal "voltage.max") :== port vin (typeVal "voltage.max")
+  constrain $ port out (typeVal "highVoltage") :== port vin (typeVal "voltage.min")
   -- TODO digital signal threhsolds
 
 -- A LED Module
@@ -65,6 +67,8 @@ led = do
     digitalSink
     setType [
       "limitVoltage" <:= (range (FloatV 0) (FloatV 36)),
+      "limitLowVoltage" <:= FloatV 1.0,
+      "limitHighVoltage" <:= FloatV 1.2,  -- TODO: voltage drops by LED color
       "current" <:= (range (FloatV 0.01) (FloatV 0.02)),
       "apiType" <:= StringV "onOff",  -- TODO: allow PWM
       "apiDir" <:= StringV "consumer"
@@ -82,8 +86,8 @@ led = do
 
 mcu :: Module ()
 mcu = do
-  setIdent "Microcontroller"
-  setSignature "Microcontroller"
+  setIdent "Arduino Pro Micro 3v3"
+  setSignature "Arduino Pro Micro 3v3"
   setType [
     "MHz" <:= FloatV 8.0  -- TODO: is this useful?
     ]
@@ -134,26 +138,15 @@ mcu = do
     (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
   forM @[] gpios $ \ gpio -> do
+    let isSource = port gpio (typeVal "digitalDir") :== Lit (StringV "source")
+
     constrain $ port gpio (typeVal "controlUid") :== uid
-    constrain $ (port gpio (typeVal "digitalDir") :== Lit (StringV "source")) :=> port gpio (typeVal "voltage") :== port p3v3Out (typeVal "voltage")
+    constrain $ isSource :=> port gpio (typeVal "voltage") :== port p3v3Out (typeVal "voltage")
     constrain $ port gpio (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
+    constrain $ isSource :=> (port gpio (typeVal "lowVoltage") :== Lit (FloatV 0.5))
+    constrain $ isSource :=> (port gpio (typeVal "highVoltage") :== Lit (FloatV 2.3))
+    constrain $ port gpio (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+    constrain $ port gpio (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+
   endDef
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

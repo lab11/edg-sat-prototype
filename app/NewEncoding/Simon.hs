@@ -52,7 +52,7 @@ seed = do
       ]
     return ()
 
-  let allPorts = (buttons ++ leds)
+  let allPorts = (leds)
   forM allPorts (\ portId -> constrain $ port portId connected)
   forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 

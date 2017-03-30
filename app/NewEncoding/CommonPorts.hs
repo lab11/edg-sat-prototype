@@ -55,8 +55,8 @@ digitalSink = do
   setKind "DigitalSink"
   setIdent "DigitalSink"
   setType [
-    -- "limitHighVoltage" <:= FloatC unknown,
-    -- "limitLowVoltage" <:= FloatC unknown,
+    "limitHighVoltage" <:= FloatC unknown,
+    "limitLowVoltage" <:= FloatC unknown
     ]
   return ()
 
@@ -67,8 +67,8 @@ digitalSource = do
   setKind "DigitalSource"
   setIdent "DigitalSource"
   setType [
-    -- "highVoltage" <:= FloatC unknown,
-    -- "lowVoltage" <:= FloatC unknown,
+    "highVoltage" <:= FloatC unknown,
+    "lowVoltage" <:= FloatC unknown
     ]
   return ()
 
@@ -80,9 +80,11 @@ digitalBidir = do
   setKind "DigitalBidir"
   setIdent "DigitalBidir"
   setType [
-    "digitalDir" <:= StringC $ oneOf ["source", "sink"]
-    -- "highVoltage" <:= FloatC unknown,
-    -- "lowVoltage" <:= FloatC unknown,
+    "digitalDir" <:= StringC $ oneOf ["source", "sink"],
+    "highVoltage" <:= FloatC unknown,
+    "lowVoltage" <:= FloatC unknown,
+    "limitHighVoltage" <:= FloatC unknown,
+    "limitLowVoltage" <:= FloatC unknown
     ]
   return ()
 
@@ -159,6 +161,11 @@ digitalLink = do
   constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
   constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
 
+  constrain $ port source (typeVal "lowVoltage") :== port sink (typeVal "lowVoltage")
+  constrain $ port source (typeVal "highVoltage") :== port sink (typeVal "highVoltage")
+  constrain $ port sink (typeVal "lowVoltage") :<= port sink (typeVal "limitLowVoltage")
+  constrain $ port sink (typeVal "highVoltage") :>= port sink (typeVal "limitHighVoltage")
+
   constrain $ port source (typeVal "controlUid") :== port sink (typeVal "controlUid")
   constrain $ port source (typeVal "controlName") :== port sink (typeVal "controlName")
   constrain $ port source (typeVal "apiType") :== port sink (typeVal "apiType")
@@ -210,6 +217,16 @@ digitalBidirLink = do
   constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
   constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
   constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
+
+  constrain $ port bidir (typeVal "lowVoltage") :== port source (typeVal "lowVoltage")
+  constrain $ port bidir (typeVal "lowVoltage") :== port sink (typeVal "lowVoltage")
+  constrain $ port bidir (typeVal "highVoltage") :== port source (typeVal "highVoltage")
+  constrain $ port bidir (typeVal "highVoltage") :== port sink (typeVal "highVoltage")
+
+  constrain $ port sink (typeVal "lowVoltage") :<= port sink (typeVal "limitLowVoltage")
+  constrain $ port bidir (typeVal "lowVoltage") :<= port bidir (typeVal "limitLowVoltage")
+  constrain $ port sink (typeVal "highVoltage") :>= port sink (typeVal "limitHighVoltage")
+  constrain $ port bidir (typeVal "highVoltage") :>= port bidir (typeVal "limitHighVoltage")
 
   constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
   constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
