@@ -541,9 +541,13 @@ getRecKind :: RecEqClass -> EDGMonad RecKind
 getRecKind eq = errContext context $ do
   mk <- uses @GS recordKinds (Map.lookup eq)
   case mk of
-    Nothing -> throw $ "could not find kind for Equality class `"
-      ++ show eq ++ "`.\nThis might be indicative of a cyclic type?"
-      ++ "\n If so you're implying that a type should contain itself."
+    Nothing -> do
+      eq' <- updatedRecEq eq
+      if eq == eq'
+      then (throw $ "could not find kind for Equality class `"
+        ++ show eq ++ "`.\nThis might be indicative of a cyclic type?"
+        ++ "\n If so you're implying that a type should contain itself.")
+      else getRecKind eq'
     Just k -> return k
   where
     context = "getRecKind `" ++ show eq ++ "`"
@@ -641,64 +645,104 @@ intersectKinds' d vka vkb
 replaceKind :: RecEqClass -> RecEqClass -> EDGMonad ()
 replaceKind = replaceKind' 0
 
+-- | Check to see if we can't get an updated equality class for whatever our
+--   input class is. If so, switch to using that.
+--
+--   It also makes sure that, if the chain is every more than one entry long
+--   the table gets updated to point to the correct end element in one jump.
+--
+--   You know, using this sort of structure from the get go, for basically
+--   every third managemnt issue, would probably have been a good idea :V
+--
+--   NOTE :: This assumes that we're actually correctly updating the table
+--           when we run "replaceKind'".
+updatedRecEq :: RecEqClass -> EDGMonad RecEqClass
+updatedRecEq eq = recEqUpdates @GS <&= updateMap eq
+
+  where
+    context = "updateRecEq `" ++ show eq ++ "`"
+
+    updateMap :: RecEqClass
+              -> Map RecEqClass RecEqClass
+              -> (RecEqClass, Map RecEqClass RecEqClass)
+    updateMap eq m = let o@(eqn,_) = updateMap' eq eqn m in o
+
+    -- Update all entires in one pass
+    updateMap' :: RecEqClass -> RecEqClass
+               -> Map RecEqClass RecEqClass
+               -> (RecEqClass, Map RecEqClass RecEqClass)
+    updateMap' eqo eqn m
+      | Just eql <- meq = updateMap' eql eqn $ Map.insert eqo eqn m
+      | Nothing  <- meq = (eqo,m)
+      where
+        meq = Map.lookup eqo m
+
+
 -- | Goes through all records, and if a record has the old kind, replaces
 --   it with the new kind, and run checks to make sure all values are
 --   initialized correctly.
 replaceKind' :: Int -> RecEqClass -> RecEqClass -> EDGMonad ()
-replaceKind' d eqo eqn = errContext context $ do
+replaceKind' d eqo' eqn = errContext context $ do
+  -- If we need to, get the updated equality class
+  eqo <- updatedRecEq eqo'
   -- Get the set for the old eq class
   so <- maybeThrow ("Could not find recEqClass `" ++ show eqo ++ "`")
     =<< uses @GS reverseRecEq (Map.lookup eqo)
   -- add all the elements from that set to the new Eq class.
   reverseRecEq @GS %= Map.adjust (Set.union so) eqn
-  -- delete the old EqClass
-  reverseRecEq @GS %= Map.delete eqo
   -- Replace instances of eqo in recInfo
-  mapM_ (\ r -> recInfo @GS %= Map.adjust updateRecEq r) so
-  -- Replaces instances of eqo in recordKinds
-  -- TODO :: This should be replaced with another reverse lookup
-  --         table.
-  -- recordKinds @GS %= Map.map (Map.map repValKind)
+  mapM_ (\ r -> recInfo @GS %= Map.adjust (updateRecEq eqo) r) so
+  -- Get all record kinds in class for eqo, replace those in the
+  -- reverse lookup table.
   sr <- maybeThrow ("Could not find recEqClass `" ++ show eqo ++ "` in"
     ++ " revRecKind") =<< uses @GS reverseRecKind (Map.lookup eqo)
   reverseRecKind @GS %= Map.adjust (Set.union sr) eqn
-  mapM_ (\ eq -> recordKinds @GS %= Map.adjust (Map.map repValKind) eq) sr
-  -- Delete the old Eq cass from the lookup table
-  reverseRecKind @GS %= Map.delete eqo
-  -- Delete the old kind
-  errContext ("Deleting Kind # " ++ show eqo) $
-    recordKinds @GS %= Map.delete eqo
+  -- update the reverse rec kind map, so that everything which has the
+  -- old eqc as point to it now has the new eqc as pointing to it.
+  rk <- getRecKind eqo
+  let rls = getRecordChildren rk
+  flip mapM_ rls (\ r ->
+    reverseRecKind @GS %= Map.adjust (Set.insert eqn . Set.delete eqo) r)
+  -- make sure each record that contains a reference to the old equality
+  -- class is updated with information on the new one.
+  mapM_ (\ eq->recordKinds @GS %= Map.adjust (Map.map $ repValKind eqo) eq) sr
   -- Ensure all the fields have the correct values created.
   mapM_ (createFields' d) so
-  --ris <- use @GS recInfo
-  -- errContext ("replaceKind ris: " ++ show ris) $
-  --   Map.traverseWithKey (condCreateFields d) ris
-  -- return ()
+  -- TODO :: Find a way to re-insert this cleanup code without creating
+  --         a problem where there's something on the stack which
+  --         has an old reference after it's deleted.
+  --
+  --         For the moment, there should be no issue *using* on old
+  --         reference, but this is still bad practice :/
+  --
+  errContext ("Deleting Kind # " ++ show eqo ++ " , " ++ show eqo') $ do
+    -- Add the new update to the table
+    recEqUpdates @GS %= Map.insert eqo eqn
+    -- Delete the old Eq cass from the lookup table
+    reverseRecKind @GS %= Map.delete eqo
+    -- delete the old EqClass
+    reverseRecEq @GS %= Map.delete eqo
+    -- Delete the old kind
+    recordKinds @GS %= Map.delete eqo
   where
 
-    context = "replaceKind `" ++ show d ++ "` `" ++ show eqo ++ "` `"
+    context = "replaceKind `" ++ show d ++ "` `" ++ show eqo' ++ "` `"
       ++ show eqn ++ "`"
 
-    updateRecEq :: RecInfo -> RecInfo
-    updateRecEq ri@RecInfo{..}
+    updateRecEq :: RecEqClass -> RecInfo -> RecInfo
+    updateRecEq eqo ri@RecInfo{..}
       | riEqClass == eqo = ri{riEqClass=eqn}
-      | otherwise = error $ "Trying to update a recEqClass that has the "
-        ++ "wrong class set."
+      -- TODO :: Return this to the error it should be. This is an annoying
+      --         hack to get around the fact that we might be trying to
+      --         update the
+      | otherwise = ri
 
     -- Replace the thing inside a valkind
-    repValKind :: ValKind -> ValKind
-    repValKind r
+    repValKind :: RecEqClass -> ValKind -> ValKind
+    repValKind eqo r
       | Record eq <- r, eq == eqo = Record eqn
       | otherwise = r
 
-    -- -- | if the record has the new eqClass then make create the fields
-    -- --   if needed.
-    -- condCreateFields :: Int -> Ref Record -> RecInfo -> EDGMonad ()
-    -- condCreateFields d r ri@RecInfo{..}
-    --   | riEqClass == eqn = errContext context $ createFields' d r
-    --   | otherwise = errContext (context ++ " !! nop") $ return ()
-    --   where
-    --     context = "condCreateFields `" ++ show d ++ "` `" ++ show r ++ "`"
 
 -- | makes sure all the variables are correctly initialise for a given
 --   record. Recursively verifies that the kinds of things are correct.
@@ -749,6 +793,10 @@ createFields' d r = errContext context $ do
           recInfo @GS %= Map.adjust (fields %~ Map.insert fn (u,v)) r
           return (u,v)
         Just t -> return t
+      -- NOTE :: following if probably a nop
+      rfk <- maybeThrow ("wat, field `" ++ show fn ++ "` does not exist"
+        ++ " in ref `" ++ show r ++ "`") =<<
+        Map.lookup fn <$> getRecKindFromRef r
       -- Assert that the values have the correct type.
       assertValKind' d vr rfk
       where

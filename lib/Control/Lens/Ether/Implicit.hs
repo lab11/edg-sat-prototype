@@ -5,12 +5,12 @@ module Control.Lens.Ether.Implicit (
     module Control.Lens
   , uses, use
   , assign, (.=), (%=)
-  , (<+=)
+  , (<+=), (<&=)
 ) where
 
 import Control.Lens           hiding (
     uses, use
-  , assign, (.=), (%=), (%%=)
+  , assign, (.=), (%=), (%%=) , (<%=)
   , (<+=)
   , noneOf
   )
@@ -52,6 +52,12 @@ assign l v = modify $ (set l v)
 (%=) :: (MonadState s m) => ASetter s s a b -> (a -> b) -> m ()
 (%=) l f = modify $ over l f
 {-# INLINE (%=) #-}
+
+-- Given a function to both return an output and change a value, lift it into
+-- the state of the current monad.
+(<&=) :: (MonadState s m) =>  LensLike ((,) b) s s a a -> (a -> (b,a)) -> m b
+(<&=) l f = state $ l f
+{-# INLINE (<&=) #-}
 
 -- * MonadState + Math/Num
 
