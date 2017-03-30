@@ -11,67 +11,12 @@
   All the various portions of the device generation toolkit that are needed for
   library authors and testers have been imported, renamed, and organized into a
   simpler end-user interface.
-
-  Consider the following toy example:
-
-  @
-    -- This is our seed module,
-    testModule :: Module ()
-    testModule = do
-      setIdent "test"
-      setSignature "seedMod"
-      setType [
-          "field1" <:= IntV 12
-        , "field2" <:= IntC $ lessThan 15
-        ]
-
-      addPort "port1" $ do
-        setIdent "testPort"
-        setKind "a"
-        setType [
-            "b" <:= StringV "Foo"
-          ]
-
-        return ()
-
-      constrain $ typeVal "field1" :< typeVal "field2"
-      constrain $ port "port1" connected
-
-      return ()
-
-    testLink :: Link ()
-    testLink = do
-      setIdent "link"
-      setSignature "linktest"
-      setType []
-
-      addPort "porta" $ do
-        setIdent "portfoo"
-        setKind "a"
-        setType []
-
-        return ()
-
-      return ()
-
-
-    testLibrary :: EDGLibrary
-    testLibrary = EDGLibrary{
-        modules = []
-      , links   = [
-            ("testLink",2,testLink)
-          ]
-      }
-
-    main :: IO ()
-    main = synthesize testLibrary "Seed" testModule
-  @
 -}
 
 module EDG (
-    pattern IntV
-  , pattern IntC
-  , pattern BoolV
+    pattern IntV    -- NOTE :: This section covers the major datatypes we end
+  , pattern IntC    --         up using insode the system. An overview like
+  , pattern BoolV   --         the one from yesterday is probably a good idea.
   , pattern BoolC
   , pattern FloatV
   , pattern FloatC
@@ -80,23 +25,23 @@ module EDG (
   , pattern UID
   , pattern NewUID
   , pattern Record
-  , unknown
-  , oneOf
-  , noneOf
-  , greaterThan
+  , unknown         -- NOTE :: Constraints, you can probably mentions these
+  , oneOf           --         only insofar as to note that we're simplifying
+  , noneOf          --         the space of possible predicates so that we can
+  , greaterThan     --         reason over them effectively ourselves.
   , greaterThanEq
   , lessThan
   , lessThanEq
   , (+/-)
   , between
-  , AmbigRec
-  , AmbigVal
+  , AmbigRec        -- NOTE :: Haskell types important to the implementation
+  , AmbigVal        --         but irrelevant to the explanation.
   , (<:=)
-  , pattern Lit
-  , pattern (:==)
-  , pattern (:/=)
-  , pattern (:&&)
-  , pattern (:||)
+  , pattern Lit     -- NOTE :: This is all just a wrapper around the notion of
+  , pattern (:==)   --         expressions. There's no real point to working
+  , pattern (:/=)   --         with this directly. When writing the
+  , pattern (:&&)   --         explanations, just use a more obvious syntax
+  , pattern (:||)   --         even if you have to make it up.
   , pattern (:~&)
   , pattern (:~|)
   , pattern (:<+>)
@@ -117,17 +62,17 @@ module EDG (
   , pattern Negate
   , pattern If
   , pattern Count
-  , Module
-  , Link
+  , Module          -- NOTE :: More haskell types relevant to the
+  , Link            --         implementation but not the explanation.
   , ModulePort
   , LinkPort
   , PortName
-  , ResourceUse
-  , pattern (:|=)
-  , Constrainable (..)
-  , IsElem (..)
-  , IsPort (..)
-  , appendIdent
+  , ResourceUse     -- NOTE :: Resource constraints, worth mentioning to show
+  , pattern (:|=)   --         how these can solve common EE tasks, and how
+  , Constrainable (..) --      they transform down into basic constraints.
+  , IsElem (..)     -- NOTE :: None of the rest of this is particularly
+  , IsPort (..)     --         relevant, mostly stuff for settings, alternate
+  , appendIdent     --         names for functions, and whatnot.
   , updateType
   , IsBlock (..)
   , replaceSignature
@@ -139,7 +84,14 @@ module EDG (
   , makeSynthFunc
   , synthesizeWithSettings
   , endDef
+  , range           -- NOTE :: Range syntax sugar.
+  , validRange
+  , initRange
+  , rSubset
+  , rSuperset
 ) where
+
+
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -323,6 +275,7 @@ import qualified EDG.Library.Types as E (
   , Constrained'
   , UID'
   , Record
+  , RecordCons(..)
   , IntCons
   , BoolCons
   , FloatCons
@@ -386,6 +339,49 @@ pattern NewUID = A.Abstract(E.Constrained (E.UID (E.UCNew)))
 pattern Record :: E.RecCons -> AmbigVal
 pattern Record a = A.Abstract(E.Constrained (E.Record a))
 
+-- | Creates a range. Arguments are min then max.
+--
+-- >>> range (FloatC [greaterThan 4]) (FloatV 12)
+range :: AmbigVal -> AmbigVal -> AmbigVal
+range min max = Record ["min" <:= min, "max" <:= max]
+
+-- | TODO
+validRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m
+validRange v = (GetField v "max") :>= (GetField v "min")
+
+-- | Initialize a range, adding neccesary constraints.
+initRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> m ()
+initRange = constrain . validRange
+
+-- | TODO
+rSubset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m -> Exp m
+rSubset a b
+  =   (aMin :<= aMax)
+  :&& (bMin :<= aMin) :&& (aMin :<= bMax)
+  :&& (bMin :<= aMax) :&& (aMax :<= bMax)
+  where
+    aMin = GetField a "min"
+    aMax = GetField a "max"
+    bMin = GetField b "min"
+    bMax = GetField b "max"
+
+-- | TODO
+rSuperset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m -> Exp m
+rSuperset = flip rSubset
+
+-- ranges
+--   - subset
+--   - superset
+--   - for constrants and pairs of ranges
+--      - add
+--      - subtract
+--      - multiply
+--   - bootstrap range etc.
+
 -- | TODO
 unknown :: A.BoundedJoinSemiLattice a => a
 unknown = A.bottom
@@ -426,6 +422,8 @@ between :: forall a. (E.LTConstraint a, E.GTConstraint a
           ,GHC.Exts.IsList a, GHC.Exts.Item a ~ a)
           => A.PredDom a -> A.PredDom a -> a
 between a b = [greaterThanEq (min a b),lessThanEq (max a b)]
+
+
 
 -- | TODO :: The type of a portion of a record.
 type AmbigRec = E.RecCons
@@ -523,6 +521,8 @@ pattern Negate a = E.Negate a
 pattern If c t f = E.If c t f
 -- | TODO
 pattern Count a = E.Count a
+-- | TODO
+pattern GetField r s = E.GetField s r
 
 -- * Elements of a Design
 
