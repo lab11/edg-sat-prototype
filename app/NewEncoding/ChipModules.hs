@@ -39,6 +39,7 @@ tmp102 = do
       "limitCurrent" <:= (range (FloatV 0) (FloatV 1e-6)),
       "limitVoltage" <:= (range (FloatV (- 0.5)) (FloatV 3.6)),
       "lowVoltage" <:= FloatV 0.4,
+      "frequency" <:= range (FloatV 1e3) (FloatV 3.4e6),
       "id" <:= IntC $ oneOf[72, 73, 74, 75]
       ]
     return ()

@@ -150,7 +150,8 @@ mcu = do
     i2cMaster
     setType [
       "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
-      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown))
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "frequency" <:= range (FloatV 0) (FloatV 400e3)
       ]
     return ()
 

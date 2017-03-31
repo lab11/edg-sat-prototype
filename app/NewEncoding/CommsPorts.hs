@@ -65,7 +65,7 @@ i2cBase = do
     "limitLowVoltage" <:= FloatC unknown
     ]
   setType [
-    "frequency" <:= FloatC unknown
+    "frequency" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -185,6 +185,8 @@ i2cLink numSlaves = do
     constrain $ port slave (typeVal "lowVoltage") :<= port master (typeVal "limitLowVoltage")
     constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
     constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
+
+    constrain $ rNotDisjoint (port slave (typeVal "frequency")) (port slave (typeVal "frequency"))
 
     constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
 
