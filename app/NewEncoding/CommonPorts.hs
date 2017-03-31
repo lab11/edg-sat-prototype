@@ -74,19 +74,98 @@ digitalSource = do
     ]
   return ()
 
-digitalBidir :: (IsPort p) => p ()
-digitalBidir = do
+digitalBidirBase :: (IsPort p) => p ()
+digitalBidirBase = do
   powerSource
   powerSink
-  digitalControlBase
-  setKind "DigitalBidir"
-  setIdent "DigitalBidir"
   setType [
-    "digitalDir" <:= StringC $ oneOf ["source", "sink"],
     "highVoltage" <:= FloatC unknown,
     "lowVoltage" <:= FloatC unknown,
     "limitHighVoltage" <:= FloatC unknown,
     "limitLowVoltage" <:= FloatC unknown
+    ]
+  return ()
+
+digitalBidir :: (IsPort p) => p ()
+digitalBidir = do
+  digitalBidirBase
+  digitalControlBase
+  setKind "DigitalBidir"
+  setIdent "DigitalBidir"
+  setType [
+    "digitalDir" <:= StringC $ oneOf ["source", "sink"]
+    ]
+  return ()
+
+spiBase :: (IsPort p) => p ()
+spiBase = do
+  digitalBidirBase
+  setType [
+    "frequency" <:= FloatC unknown
+    ]
+  return ()
+
+spiMaster :: (IsPort p) => p ()
+spiMaster = do
+  spiBase
+  setKind "SpiMaster"
+  setIdent "SpiMaster"
+  return ()
+
+spiSlave :: (IsPort p) => p ()
+spiSlave = do
+  spiBase
+  setKind "SpiSlave"
+  setIdent "SpiSlave"
+  setType [
+    "mode" <:= IntC $ oneOf [0, 1, 2, 3]
+    ]
+  return ()
+
+uartBase :: (IsPort p) => p ()
+uartBase = do
+  digitalBidirBase
+  setType [
+    "uart" <:= FloatC unknown
+    ]
+  return ()
+
+uartMaster :: (IsPort p) => p ()
+uartMaster = do
+  uartBase
+  setKind "UartMaster"
+  setIdent "UartMaster"
+  return ()
+
+uartSlave :: (IsPort p) => p ()
+uartSlave = do
+  i2cBase
+  setKind "UartSlave"
+  setIdent "UartSlave"
+  return ()
+
+i2cBase :: (IsPort p) => p ()
+i2cBase = do
+  digitalBidirBase
+  setType [
+    "frequency" <:= FloatC unknown
+    ]
+  return ()
+
+i2cMaster :: (IsPort p) => p ()
+i2cMaster = do
+  i2cBase
+  setKind "I2cMaster"
+  setIdent "I2cMaster"
+  return ()
+
+i2cSlave :: (IsPort p) => p ()
+i2cSlave = do
+  i2cBase
+  setKind "I2cSlave"
+  setIdent "I2cSlave"
+  setType [
+    "id" <:= IntC unknown
     ]
   return ()
 
