@@ -30,7 +30,9 @@ executable edg-prototype
     Examples.Simon
     Examples.Logger
     NewEncoding.CommonPorts
+    NewEncoding.CommsPorts
     NewEncoding.CommonModules
+    NewEncoding.ChipModules
     NewEncoding.Simon
 
   -- LANGUAGE extensions used by modules in this package.
@@ -239,8 +241,8 @@ library
     -- complete normal form, that should be
     -- significantly faster
     deepseq,
-    -- Keep track of time 
-    time, 
+    -- Keep track of time
+    time,
     -- -- Convinient ordered list functions
     -- data-ordlist >= 0.4.7.0,
     -- -- Used to interleave monadic actions in weird ways

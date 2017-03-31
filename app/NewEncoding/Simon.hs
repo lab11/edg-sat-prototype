@@ -3,6 +3,8 @@ module NewEncoding.Simon where
 import EDG
 import NewEncoding.CommonPorts
 import NewEncoding.CommonModules
+import NewEncoding.CommsPorts
+import NewEncoding.ChipModules
 
 import Control.Monad
 
@@ -17,8 +19,9 @@ testLibrary = EDGLibrary{
     ("apiLink", 8, apiLink),
     ("powerLink", 2, powerLink 4),
     ("digitalBidirLink", 0, digitalBidirLink),
-    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
+    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
+    ("i2cLink", 1, i2cLink 2),
     ("digitalLink", 0, digitalLink)
     ]
   }
