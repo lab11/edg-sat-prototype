@@ -8,6 +8,7 @@ import qualified Data.Set as Set
 
 import Algebra.Lattice
 import Algebra.Constrainable
+import Algebra.AsPredicate
 
 import Control.Newtype
 
@@ -361,7 +362,8 @@ createOptionalConnection rl rm = errContext context $ do
   mpi <- case mmpi of
     Nothing -> throw $ "Could not find modulePort with name `" ++ show rl ++ "`"
     Just mpi -> return mpi
-  if (mpi ^. pDesc . pClass :: String) == (lpi ^. pDesc . pClass :: String)
+  if (((mpi ^. pDesc . pClass :: String) == (lpi ^. pDesc . pClass :: String))
+      && (isSAT $ mpi ^. pDesc . pType \/ lpi ^. pDesc . pType))
     then Just <$> areElemPortsConnected rl rm
     else errContext ("port `" ++ show rl ++ "` and `" ++ show rm ++ "` "
         ++ "don't have the same class.") $ return Nothing
