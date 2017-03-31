@@ -35,7 +35,7 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
+  leds <- forM @[] [1..0] $ \ id -> addPort ("led" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("led" ++ (show id)),
@@ -46,7 +46,7 @@ seed = do
       ]
     return ()
 
-  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- forM @[] [1..0] $ \ id -> addPort ("button" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("button" ++ (show id)),
@@ -57,7 +57,16 @@ seed = do
       ]
     return ()
 
-  let allPorts = (buttons ++ leds)
+  tsense <- addPort "tsense" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "tsense",
+      "apiType" <:= StringV "temperatureSensor",
+      "apiData" <:= Record unknown
+      ]
+    return ()
+
+  let allPorts = (buttons ++ leds ++ [tsense])
   forM allPorts (\ portId -> constrain $ port portId connected)
   forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 

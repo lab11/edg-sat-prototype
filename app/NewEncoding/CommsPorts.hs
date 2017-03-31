@@ -4,8 +4,6 @@ import Control.Monad
 
 import EDG
 import NewEncoding.CommonPorts
-import NewEncoding.CommonModules
-
 
 spiBase :: (IsPort p) => p ()
 spiBase = do

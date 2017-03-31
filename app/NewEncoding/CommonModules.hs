@@ -4,6 +4,7 @@ import Control.Monad
 
 import EDG
 import NewEncoding.CommonPorts
+import NewEncoding.CommsPorts
 
 -- A button module
 button :: Module ()
@@ -107,7 +108,7 @@ mcu = do
       ]
     return ()
 
-  gpios <- forM @[] [1..10] $ \ gpioId ->
+  gpios <- forM @[] [1..4] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
@@ -144,5 +145,22 @@ mcu = do
     constrain $ port gpio (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
 
     constrainResources gpio (port gpio $ connected) [gpio :|= (digitalPins ++ analogPins)]
+
+  i2c <- addPort "i2c" $ do
+    i2cMaster
+    setType [
+      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown))
+      ]
+    return ()
+
+  constrain $ port i2c (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+
+  constrain $ port i2c (typeVal "lowVoltage") :== Lit (FloatV 0.5)
+
+  constrain $ port i2c (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+  constrain $ port i2c (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+
+  constrain $ port i2c (typeVal "controlUid") :== uid
 
   endDef
