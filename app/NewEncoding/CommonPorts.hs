@@ -123,7 +123,7 @@ apiConsumer = do
 -- Electrical Links
 powerLink :: Int -> Link ()
 powerLink numSinks = do
-  setIdent "PowerLink"
+  setIdent ("PowerLink" ++ (show numSinks))
   setSignature "PowerLink"
 
   source <- addPort "source" $ do

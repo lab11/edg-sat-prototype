@@ -38,7 +38,8 @@ tmp102 = do
     setType [
       "limitCurrent" <:= (range (FloatV 0) (FloatV 1e-6)),
       "limitVoltage" <:= (range (FloatV (- 0.5)) (FloatV 3.6)),
-      "lowVoltage" <:= FloatV 0.4
+      "lowVoltage" <:= FloatV 0.4,
+      "id" <:= IntC $ oneOf[72, 73, 74, 75]
       ]
     return ()
 

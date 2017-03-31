@@ -1,5 +1,6 @@
 module NewEncoding.CommsPorts where
 
+import Data.List (tails)
 import Control.Monad
 
 import EDG
@@ -125,9 +126,16 @@ i2cPower = do  -- aka the two pull up resistors
 
   return ()
 
+-- shamelessly lifted from https://wiki.haskell.org/99_questions/Solutions/26
+combinations :: Int -> [a] -> [[a]]
+combinations 0 _  = return []
+combinations n xs = do y:xs' <- tails xs
+                       ys <- combinations (n-1) xs'
+                       return (y:ys)
+
 i2cLink :: Int -> Link ()
 i2cLink numSlaves = do
-  setIdent "I2cLink"
+  setIdent ("I2cLink" ++ (show numSlaves))
   setSignature "I2cLink"
 
   power <- addPort "power" $ do
@@ -180,7 +188,9 @@ i2cLink numSlaves = do
 
     constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
 
-    -- TODO unique i2c id
+  forM (combinations 2 slaves) $ \ combSlaves -> do
+    constrain $ port (combSlaves !! 0) (typeVal "id") :/= port (combSlaves !! 1) (typeVal "id")
+
     -- TODO frequency
 
   return ()
