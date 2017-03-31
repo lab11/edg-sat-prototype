@@ -29,8 +29,10 @@ executable edg-prototype
     Examples.CommonModules
     Examples.Simon
     Examples.Logger
+    NewEncoding.Util
     NewEncoding.CommonPorts
     NewEncoding.CommsPorts
+    NewEncoding.CommonLinks
     NewEncoding.CommonModules
     NewEncoding.ChipModules
     NewEncoding.Simon

@@ -2,6 +2,7 @@ module NewEncoding.Simon where
 
 import EDG
 import NewEncoding.CommonPorts
+import NewEncoding.CommonLinks
 import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
 import NewEncoding.ChipModules
