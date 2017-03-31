@@ -138,8 +138,9 @@ i2cLink numSlaves = do
     constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
     constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
 
-    constrain $ port master (typeVal "frequency") :== port slave (typeVal "controlUid")
-
     constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+
+    -- TODO unique i2c id
+    -- TODO frequency
 
   return ()
