@@ -28,7 +28,7 @@ tmp102 = do
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "current" <:= (range (FloatV 0.5e-6) (FloatV 85e-6)),  -- for when button closes and resistor shorts to ground
+      "current" <:= (range (FloatV 0.5e-6) (FloatV 85e-6)),
       "limitVoltage" <:= (range (FloatV 2.0) (FloatV 3.6))  -- TODO technically down to 1.4 for digital thresholds characterized for V+>2.0
       ]
     return ()
@@ -36,8 +36,9 @@ tmp102 = do
   i2c <- addPort "i2c" $ do
     i2cSlave
     setType [
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 1e-6)),
       "limitVoltage" <:= (range (FloatV (- 0.5)) (FloatV 3.6)),
-      "lowVoltage" <:= FloatV 2.0
+      "lowVoltage" <:= FloatV 0.4
       ]
     return ()
 

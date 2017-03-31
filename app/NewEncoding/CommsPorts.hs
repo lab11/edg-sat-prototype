@@ -56,6 +56,7 @@ i2cBase :: (IsPort p) => p ()
 i2cBase = do
   powerSource
   powerSink
+  controllable
   setType [
     "highVoltage" <:= FloatC unknown,
     "lowVoltage" <:= FloatC unknown,
@@ -86,15 +87,54 @@ i2cSlave = do
 
 -- Links
 
+i2cPowerSink :: (IsPort p) => p ()
+i2cPowerSink = do
+  powerSink
+  setKind "i2cPowerSource"
+  setIdent "i2cPowerSource"
+  return ()
+
+i2cPower :: Module ()
+i2cPower = do  -- aka the two pull up resistors
+  setIdent "i2cPower"
+  setSignature "i2cPower"
+  setType []
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0)),  -- TODO i2c signal power draw
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
+      ]
+    return ()
+
+  vout <- addPort "vout" $ do
+    i2cPowerSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0)),
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
+      ]
+    return ()
+
+  constrain $ port vin connected
+  constrain $ port vout connected
+
+  constrain $ port vin (typeVal "current") :== port vout (typeVal "current")
+  constrain $ port vin (typeVal "voltage") :== port vout (typeVal "voltage")
+  constrain $ port vin (typeVal "limitVoltage") :== port vout (typeVal "limitVoltage")
+
+  return ()
+
 i2cLink :: Int -> Link ()
 i2cLink numSlaves = do
   setIdent "I2cLink"
   setSignature "I2cLink"
 
   power <- addPort "power" $ do
-    powerSink
+    i2cPowerSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0))
+      "current" <:= (range (FloatV 0) (FloatV 0)),
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36)) -- TODO: dummy constraint
       ]
     return()
 
@@ -114,6 +154,7 @@ i2cLink numSlaves = do
         ]
       return()
 
+  constrain $ port power connected
   constrain $ port master connected
   constrain $ Any (map (\ slave -> port slave connected) slaves)
 
@@ -121,7 +162,6 @@ i2cLink numSlaves = do
   constrain $ port master (typeVal "voltage.max") :== port power (typeVal "voltage.max")
   constrain $ rSubset (port master (typeVal "voltage")) (port master (typeVal "limitVoltage"))
 
-  constrain $ port master (typeVal "current") :== port power (typeVal "current")
   constrain $ rSubset (port master (typeVal "current")) (port master (typeVal "limitCurrent"))
 
   constrain $ port master (typeVal "highVoltage") :== port power (typeVal "voltage.min")

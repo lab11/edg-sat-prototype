@@ -163,4 +163,9 @@ mcu = do
 
   constrain $ port i2c (typeVal "controlUid") :== uid
 
+  constrainResources i2c (port i2c $ connected) [
+    (i2c ++ "SDA") :|= [digitalPins !! 2],
+    (i2c ++ "SCL") :|= [digitalPins !! 3]
+    ]
+
   endDef
