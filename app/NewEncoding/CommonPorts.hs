@@ -9,6 +9,8 @@ powerBase = do
     "voltage" <:= (range (FloatC unknown) (FloatC unknown)),
     "current" <:= (range (FloatC unknown) (FloatC unknown))
     ]
+  constrain $ Not connected :=> (typeVal "current.min") :== Lit (FloatV 0)
+  constrain $ Not connected :=> (typeVal "current.max") :== Lit (FloatV 0)
   return ()
 
 powerSink :: (IsPort p) => p ()

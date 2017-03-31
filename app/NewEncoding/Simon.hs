@@ -32,7 +32,7 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  leds <- forM @[] [1..4] $ \ id -> addPort ("led" ++ (show id)) $ do
+  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("led" ++ (show id)),
@@ -43,7 +43,7 @@ seed = do
       ]
     return ()
 
-  buttons <- forM @[] [1..4] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("button" ++ (show id)),

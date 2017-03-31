@@ -88,23 +88,15 @@ mcu = do
     "MHz" <:= FloatV 8.0  -- TODO: is this useful?
     ]
 
-  usbIn <- addPort "UsbIn" $ do
-    powerSink
-    setType [
-      "voltage" <:= (range (FloatV 4.5) (FloatV 5.5)),
-      "limitVoltage" <:= (range (FloatV 4.5) (FloatV 5.5)),  -- constrain things for efficiency
-      "current" <:= (range (FloatC [greaterThan 0]) (FloatC [lessThan 0.5]))
-      ]
-    return ()
-  constrain $ Not (port usbIn connected)  -- dummy port only
+  -- TODO add USBIn port and constraint
 
   p5vOut <- addPort "5vOut" $ do
     powerSource
     setType [
+      "voltage" <:= (range (FloatV 4.5) (FloatV 5.5)),
       "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
       ]
     return ()
-  constrain $ port p5vOut (typeVal "voltage") :== port usbIn (typeVal "voltage")
 
   -- MIC5219 regulator
   p3v3Out <- addPort "3v3Out" $ do
@@ -115,7 +107,7 @@ mcu = do
       ]
     return ()
 
-  gpios <- forM @[] [1..8] $ \ gpioId ->
+  gpios <- forM @[] [1..10] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
@@ -124,14 +116,20 @@ mcu = do
         ]
       return ()
 
-  constrain $ port usbIn (typeVal "current.min") :== Sum (
-    (port p5vOut $ typeVal "current.min") :
-    (port p3v3Out $ typeVal "current.min") :
-    (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
-  constrain $ port usbIn (typeVal "current.max") :== Sum (
-    (port p5vOut $ typeVal "current.max") :
-    (port p3v3Out $ typeVal "current.max") :
-    (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
+  digitalPins <- forM @[] ([0..10] ++ [4..16]) $ \ id ->
+    newResource ("D" ++ (show id))
+  analogPins <- forM @[] [0..3] $ \ id ->
+    newResource ("A" ++ (show id))
+
+-- TODO: add current sums again
+--  constrain $ port usbIn (typeVal "current.min") :== Sum (
+--    (port p5vOut $ typeVal "current.min") :
+--    (port p3v3Out $ typeVal "current.min") :
+--    (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
+--  constrain $ port usbIn (typeVal "current.max") :== Sum (
+--    (port p5vOut $ typeVal "current.max") :
+--    (port p3v3Out $ typeVal "current.max") :
+--    (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
   forM @[] gpios $ \ gpio -> do
     let isSource = port gpio (typeVal "digitalDir") :== Lit (StringV "source")
@@ -144,5 +142,7 @@ mcu = do
     constrain $ isSource :=> (port gpio (typeVal "highVoltage") :== Lit (FloatV 2.3))
     constrain $ port gpio (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
     constrain $ port gpio (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+
+    constrainResources gpio (port gpio $ connected) [gpio :|= (digitalPins ++ analogPins)]
 
   endDef
