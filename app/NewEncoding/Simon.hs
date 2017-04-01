@@ -19,11 +19,11 @@ testLibrary = EDGLibrary{
   links = [
     ("apiLink", 8, apiLink),
     ("powerLink", 2, powerLink 4),
-    ("digitalBidirLink", 0, digitalBidirLink),
-    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
-    ("i2cLink", 1, i2cLink 2),
-    ("digitalLink", 0, digitalLink)
+    ("digitalBidirLink", 3, digitalBidirLink),
+    ("digitalBidirSinkLink", 3, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 3, digitalBidirSourceLink),
+    ("i2cLink", 3, i2cLink 2),
+    ("digitalLink", 3, digitalLink)
     ]
   }
 
@@ -36,7 +36,7 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  leds <- forM @[] [1..0] $ \ id -> addPort ("led" ++ (show id)) $ do
+  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("led" ++ (show id)),
@@ -47,7 +47,7 @@ seed = do
       ]
     return ()
 
-  buttons <- forM @[] [1..0] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("button" ++ (show id)),
@@ -58,16 +58,16 @@ seed = do
       ]
     return ()
 
-  tsense <- addPort "tsense" $ do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV "tsense",
-      "apiType" <:= StringV "temperatureSensor",
-      "apiData" <:= Record unknown
-      ]
-    return ()
+  -- tsense <- addPort "tsense" $ do
+  --   apiConsumer
+  --   setType [
+  --     "controlName" <:= StringV "tsense",
+  --     "apiType" <:= StringV "temperatureSensor",
+  --     "apiData" <:= Record unknown
+  --     ]
+  --   return ()
 
-  let allPorts = (buttons ++ leds ++ [tsense])
+  let allPorts = (buttons ++ leds {- ++ [tsense] -})
   forM allPorts (\ portId -> constrain $ port portId connected)
   forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 

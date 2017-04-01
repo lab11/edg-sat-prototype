@@ -5,6 +5,7 @@ import Control.Monad
 import EDG
 import NewEncoding.CommonPorts
 import NewEncoding.CommsPorts
+import NewEncoding.Util
 
 -- A button module
 button :: Module ()
@@ -75,11 +76,17 @@ led = do
       ]
     return ()
 
-  constrain $ port api connected
-  constrain $ port source connected
+  ensureConnected [api, source]
 
-  constrain $ port source (typeVal "controlUid") :== port api (typeVal "controlUid")
-  constrain $ port source (typeVal "controlName") :== port api (typeVal "controlName")
+  setFieldsEq True [api, source] [
+      "controlUid"
+    , "controlName"
+    ]
+  -- constrain $ port api connected
+  -- constrain $ port source connected
+
+  -- constrain $ port source (typeVal "controlUid") :== port api (typeVal "controlUid")
+  -- constrain $ port source (typeVal "controlName") :== port api (typeVal "controlName")
 
 mcu :: Module ()
 mcu = do

@@ -29,6 +29,7 @@ powerSink = do
   -- Make sure that the voltages we see at runtime are a subset of the
   -- voltages this link is capable of handling.
   constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
+
   return ()
 
 powerSource :: (IsPort p) => p ()
@@ -44,6 +45,7 @@ powerSource = do
   -- Make sure that the currents we see at runtime are a subset of the
   -- currentss this link is capable of handling.
   constrain $ rSubset (typeVal "current") (typeVal "limitCurrent")
+
   return ()
 
 controllable :: (IsPort p) => p ()

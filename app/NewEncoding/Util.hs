@@ -4,6 +4,12 @@ module NewEncoding.Util where
 
 import EDG
 import Control.Monad
+import Data.List
+import Debug.Trace
+
+-- | Get all unique paris of unequal elements.
+allPairs :: Show a => [a] -> [(a,a)]
+allPairs l = [(a,b) | (a:ls) <- tails l , b <- ls]
 
 -- | Convinience function that is meant for enforcing that fields in two things
 --   are equal modulo some operator. Written to make it easy to use in calls
@@ -17,7 +23,8 @@ constrainBoth :: (IsBlock b, IsElem e, IsElem f)
 constrainBoth op aTrans bTrans f
   = constrain $ op (aTrans $ typeVal f) (bTrans $ typeVal f)
 
--- | Set all the fields for each port equal to each other
+-- | Set all the fields for each port equal to each other, also optionally
+--   include the type of the link as well
 setFieldsEq :: (IsBlock b) => Bool -> [PortName] -> [String] -> b ()
 setFieldsEq inclBlock ports fields = do
   -- Set these fields equal for every pair of ports
@@ -26,8 +33,6 @@ setFieldsEq inclBlock ports fields = do
   -- If we're including the blocktype then set that equal too
   when inclBlock . forM_ ports $ \ p ->
     mapM_ (constrainBoth (:==) id (port p)) fields
-  where
-    allPairs l = [(a,b) | a <- l , b <- l, a /= b]
 
 -- | Ensure all of these ports are connected
 ensureConnected :: (IsBlock b) => [PortName] -> b ()
