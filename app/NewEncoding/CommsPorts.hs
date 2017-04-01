@@ -35,7 +35,7 @@ uartBase :: (IsPort p) => p ()
 uartBase = do
   digitalBidirBase
   setType [
-    "uart" <:= FloatC unknown
+    "baud" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -48,10 +48,53 @@ uartMaster = do
 
 uartSlave :: (IsPort p) => p ()
 uartSlave = do
-  i2cBase
+  uartBase
   setKind "UartSlave"
   setIdent "UartSlave"
   return ()
+
+
+uartLink :: Link ()
+uartLink = do
+  setIdent "UartLink"
+  setSignature "UartLink"
+
+  master <- addPort "master" $ do
+    uartMaster
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0))
+      ]
+    return()
+
+  slave <- addPort "slave" $ do
+    uartSlave
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0))
+      ]
+    return()
+
+  constrain $ port master connected
+  constrain $ port slave connected
+
+  constrain $ rSubset (port master (typeVal "voltage")) (port slave (typeVal "limitVoltage"))
+  constrain $ rSubset (port slave (typeVal "voltage")) (port master (typeVal "limitVoltage"))
+
+  constrain $ rSubset (port master (typeVal "current")) (port slave (typeVal "limitCurrent"))
+  constrain $ rSubset (port slave (typeVal "current")) (port master (typeVal "limitCurrent"))
+
+  constrain $ port master (typeVal "lowVoltage") :<= port slave (typeVal "limitLowVoltage")
+  constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
+  constrain $ port slave (typeVal "lowVoltage") :<= port master (typeVal "limitLowVoltage")
+  constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
+
+  constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+  constrain $ port master (typeVal "controlName") :== port slave (typeVal "controlName")
+
+  constrain $ rNotDisjoint (port master (typeVal "baud")) (port slave (typeVal "baud"))
+
+  return ()
+
+
 
 i2cBase :: (IsPort p) => p ()
 i2cBase = do
@@ -186,7 +229,7 @@ i2cLink numSlaves = do
     constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
     constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
 
-    constrain $ rNotDisjoint (port slave (typeVal "frequency")) (port slave (typeVal "frequency"))
+    constrain $ rNotDisjoint (port master (typeVal "frequency")) (port slave (typeVal "frequency"))
 
     constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
 
