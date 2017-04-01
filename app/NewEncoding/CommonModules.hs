@@ -119,7 +119,7 @@ mcu = do
         ]
       return ()
 
-  digitalPins <- forM @[] ([0..10] ++ [4..16]) $ \ id ->
+  digitalPins <- forM @[] ([0..10] ++ [14..16]) $ \ id ->
     newResource ("D" ++ (show id))
   analogPins <- forM @[] [0..3] $ \ id ->
     newResource ("A" ++ (show id))
@@ -193,6 +193,33 @@ mcu = do
   constrainResources uart (port uart $ connected) [
     (uart ++ "TX") :|= [digitalPins !! 1],
     (uart ++ "RX") :|= [digitalPins !! 0]
+    ]
+
+  spi <- addPort "spi" $ do
+    spiMaster
+    setType [
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "lowVoltage" <:= FloatV 0.5,
+      "highVoltage" <:= FloatV 2.3,
+      "frequency" <:= range (FloatV 0) (FloatV 4e6)  -- max of fOsc/2
+      ]
+    return ()
+
+  constrain $ port spi (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
+
+  constrain $ port spi (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+
+  constrain $ port spi (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+  constrain $ port spi (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+
+  constrain $ port spi (typeVal "controlUid") :== uid
+
+  constrainResources spi (port spi $ connected) [
+    (spi ++ "SCK") :|= [digitalPins !! 12],
+    (spi ++ "MISO") :|= [digitalPins !! 11],
+    (spi ++ "MOSI") :|= [digitalPins !! 13]
     ]
 
   endDef

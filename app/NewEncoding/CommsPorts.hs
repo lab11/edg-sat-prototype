@@ -9,8 +9,9 @@ import NewEncoding.CommonPorts
 spiBase :: (IsPort p) => p ()
 spiBase = do
   digitalBidirBase
+  controllable
   setType [
-    "frequency" <:= FloatC unknown
+    "frequency" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -30,6 +31,47 @@ spiSlave = do
     "mode" <:= IntC $ oneOf [0, 1, 2, 3]
     ]
   return ()
+
+
+spiLink :: Int -> Link ()
+spiLink numSlaves = do
+  setIdent ("SpiLink" ++ (show numSlaves))
+  setSignature "SpiLink"
+
+  master <- addPort "master" $ do
+    spiMaster
+    setType [
+      "controlName" <:= StringV "spi"
+      ]
+    return()
+
+  slaves <- forM @[] [1..numSlaves] $ \ slaveId ->
+    addPort ("slave" ++ (show slaveId)) $ do
+      spiSlave
+      return()
+
+  constrain $ port master connected
+  constrain $ Any (map (\ slave -> port slave connected) slaves)
+
+  forM slaves $ \ slave -> do
+    constrain $ rSubset (port master (typeVal "voltage")) (port slave (typeVal "limitVoltage"))
+    constrain $ rSubset (port slave (typeVal "voltage")) (port master (typeVal "limitVoltage"))
+
+    constrain $ rSubset (port master (typeVal "current")) (port slave (typeVal "limitCurrent"))
+    constrain $ rSubset (port slave (typeVal "current")) (port master (typeVal "limitCurrent"))
+
+    constrain $ port master (typeVal "lowVoltage") :<= port slave (typeVal "limitLowVoltage")
+    constrain $ port slave (typeVal "lowVoltage") :<= port master (typeVal "limitLowVoltage")
+    constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
+    constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
+
+    constrain $ rNotDisjoint (port master (typeVal "frequency")) (port slave (typeVal "frequency"))
+
+    constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+
+  return ()
+
+
 
 uartBase :: (IsPort p) => p ()
 uartBase = do
@@ -235,7 +277,5 @@ i2cLink numSlaves = do
 
   forM (combinations 2 slaves) $ \ combSlaves -> do
     constrain $ port (combSlaves !! 0) (typeVal "id") :/= port (combSlaves !! 1) (typeVal "id")
-
-    -- TODO frequency
 
   return ()

@@ -17,6 +17,7 @@ testLibrary = EDGLibrary{
     ("tmp102", 1, tmp102),
     ("lcd3v3", 1, serialLcd16x2_3v3),
     ("lcd5v", 1, serialLcd16x2_5v),
+    ("sdcard", 1, sdcard),
     ("mcu", 1, mcu)
     ],
   links = [
@@ -25,6 +26,7 @@ testLibrary = EDGLibrary{
     ("digitalBidirLink", 0, digitalBidirLink),
     ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
     ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
+    ("spiLink", 1, spiLink 2),
     ("uartLink", 1, uartLink),
     ("i2cLink", 1, i2cLink 2),
     ("digitalLink", 0, digitalLink)
@@ -66,8 +68,7 @@ seed = do
     apiConsumer
     setType [
       "controlName" <:= StringV ("tsense" ++ (show id)),
-      "apiType" <:= StringV "temperatureSensor",
-      "apiData" <:= Record unknown
+      "apiType" <:= StringV "temperatureSensor"
       ]
     return ()
 
@@ -75,12 +76,19 @@ seed = do
     apiConsumer
     setType [
       "controlName" <:= StringV "lcd",
-      "apiType" <:= StringV "characterLcd",
-      "apiData" <:= Record unknown
+      "apiType" <:= StringV "characterLcd"
       ]
     return ()
 
-  let allPorts = (buttons ++ leds ++ tsenses ++ [lcd])
+  storage <- addPort "storage" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "storage",
+      "apiType" <:= StringV "nvmemory"
+      ]
+    return ()
+
+  let allPorts = (buttons ++ leds ++ tsenses ++ [lcd, storage])
   forM allPorts (\ portId -> constrain $ port portId connected)
   forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 

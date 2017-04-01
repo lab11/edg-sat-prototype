@@ -137,3 +137,85 @@ serialLcd16x2_5v = do
   constrain $ port vin (typeVal "limitVoltage") :== Lit (range (FloatV 4.5) (FloatV 5.5))
 
   return ()
+
+
+sdcard :: Module ()
+sdcard = do
+  setIdent "SD Card"
+  setSignature "SD Card"
+  setType []
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "nvmemory",
+      -- TODO: more temp sensor properties, scale resolution accuracy
+      "apiData" <:= Record [
+        "size" <:= IntV 137438953472,  -- 128 GiB
+        "tech" <:= StringV "flash",
+        "form" <:= StringV "SDCard"
+        ]
+      ]
+    return ()
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 200e-6)),
+      "limitVoltage" <:= (range (FloatV 2.7) (FloatV 3.6))
+      ]
+    return ()
+
+  spi <- addPort "spi" $ do
+    spiSlave
+    setType [
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
+
+      "current" <:= (range (FloatV 0) (FloatV 0)),
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 0)),
+      -- actual logic level thresholds are unknown, not part of the simplified spec
+      "lowVoltage" <:= FloatV 0,
+      "limitHighVoltage" <:= FloatV 0,
+      "mode" <:= IntV 0,
+      "frequency" <:= (range (FloatV 0) (FloatV 25e6))  -- base spec SD cards only up to 25MHz
+      ]
+    return ()
+
+  cs <- addPort "cs" $ do
+    digitalSink
+    setType [
+      "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
+      "current" <:= (range (FloatV 0) (FloatV 0)),
+      -- actual logic level thresholds are unknown, not part of the simplified spec
+
+      "limitHighVoltage" <:= FloatV 0,
+
+      "apiType" <:= StringV "onOff",
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  constrain $ port api connected
+  constrain $ port vin connected
+  constrain $ port spi connected
+  constrain $ port cs connected
+
+  constrain $ port spi (typeVal "voltage.max") :== port vin (typeVal "voltage.max")
+
+  -- actual max voltage limits also unknown, assuming +/-0.3v
+  constrain $ port spi (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.3))
+  constrain $ port cs (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.3))
+
+  -- actual logic level thresholds are unknown, not part of the simplified spec
+  constrain $ port spi (typeVal "limitLowVoltage") :== port vin (typeVal "voltage.min")
+  constrain $ port spi (typeVal "limitLowVoltage") :== port vin (typeVal "voltage.min")
+  constrain $ port spi (typeVal "highVoltage") :== port vin (typeVal "voltage.min")
+  constrain $ port cs (typeVal "limitLowVoltage") :== port vin (typeVal "voltage.min")
+
+  constrain $ port spi (typeVal "controlUid") :== port api (typeVal "controlUid")
+  constrain $ port spi (typeVal "controlName") :== port api (typeVal "controlName")
+  constrain $ port cs (typeVal "controlUid") :== port api (typeVal "controlUid")
+  constrain $ port cs (typeVal "controlName") :== port api (typeVal "controlName")
+
+  return ()
