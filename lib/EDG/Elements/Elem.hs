@@ -365,8 +365,15 @@ createOptionalConnection rl rm = errContext context $ do
   if (((mpi ^. pDesc . pClass :: String) == (lpi ^. pDesc . pClass :: String))
       && (isSAT $ mpi ^. pDesc . pType \/ lpi ^. pDesc . pType))
     then Just <$> areElemPortsConnected rl rm
-    else errContext ("port `" ++ show rl ++ "` and `" ++ show rm ++ "` "
-        ++ "don't have the same class.") $ return Nothing
+    else do
+      (if ((mpi ^. pDesc . pClass :: String)
+        == (lpi ^. pDesc . pClass :: String))
+      then trace ("Despite identical kind the following ports are "
+        ++ "incompatible: \n   `" ++ show rl ++ "`\n   `"
+          ++ show rm ++ "`") $ return ()
+      else return ())
+      errContext ("port `" ++ show rl ++ "` and `" ++ show rm ++ "` "
+          ++ "don't have the same class.") $ return Nothing
   where
     context = "createOptionalConnection `" ++ show rl ++ "` `" ++ show rm ++ "`"
     s = "  addinc connection : " ++ unpack rl ++ " <-> " ++ unpack rm

@@ -89,6 +89,7 @@ module EDG (
   , initRange
   , rSubset
   , rSuperset
+  , rNotDisjoint
 ) where
 
 
@@ -372,6 +373,17 @@ rSubset a b
 rSuperset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
           => Exp m -> Exp m -> Exp m
 rSuperset = flip rSubset
+
+rNotDisjoint :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m -> Exp m
+rNotDisjoint a b
+  =   (aMin :<= aMax) :&& (bMin :<= bMax)
+  :&& (bMin :<= aMax) :&& (aMin :<= bMax)
+  where
+    aMin = GetField a "min"
+    aMax = GetField a "max"
+    bMin = GetField b "min"
+    bMax = GetField b "max"
 
 -- ranges
 --   - subset

@@ -169,13 +169,13 @@ instance (Constrainable t,Eq t,PartialOrd (Constraints t)) => PartialOrd (Ambigu
   leq (Impossible) (Impossible ) = True
 
 instance (Constrainable t,Eq t,JoinSemiLattice (Constraints t)) => JoinSemiLattice (Ambiguous t) where
-  (\/)   (Impossible)    _             = trace "\\/1" $ Impossible
-  (\/)   _               (Impossible ) = trace "\\/2" $ Impossible
-  (\/) a@(Concrete t)    (Concrete t') = if t == t'        then a  else trace "\\/3" $ Impossible
-  (\/) a@(Concrete t)    (Abstract c') = if validate c' t  then a  else trace "\\/4" $ Impossible
-  (\/)   (Abstract c) a'@(Concrete t') = if validate c  t' then a' else trace "\\/5" $ Impossible
+  (\/)   (Impossible)    _             = {- trace "\\/1" $ -} Impossible
+  (\/)   _               (Impossible ) = {- trace "\\/2" $ -} Impossible
+  (\/) a@(Concrete t)    (Concrete t') = if t == t'        then a  else {- trace "\\/3" $ -} Impossible
+  (\/) a@(Concrete t)    (Abstract c') = if validate c' t  then a  else {- trace "\\/4" $ -} Impossible
+  (\/)   (Abstract c) a'@(Concrete t') = if validate c  t' then a' else {- trace "\\/5" $ -} Impossible
   (\/)   (Abstract c)    (Abstract c')
-    | inconsistent c'' = trace ("\\/6 " ++ show (inconsistent c'')) $ Impossible
+    | inconsistent c'' = {- trace ("\\/6 " ++ show (inconsistent c'')) $ -} Impossible
     | otherwise        = fromMaybe (Abstract c'') (Concrete <$> collapse c'')
     where c'' = c \/ c'
 

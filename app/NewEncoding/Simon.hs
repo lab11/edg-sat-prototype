@@ -1,24 +1,37 @@
 module NewEncoding.Simon where
 
 import EDG
+import NewEncoding.Util
 import NewEncoding.CommonPorts
+import NewEncoding.CommonLinks
 import NewEncoding.CommonModules
+import NewEncoding.CommsPorts
+import NewEncoding.CommsLinks
+import NewEncoding.ChipModules
 
 import Control.Monad
 
 testLibrary :: EDGLibrary
 testLibrary = EDGLibrary{
   modules = [
-    ("button", 4, button),
-    ("led", 4, led),
+    ("i2cPower", 1, i2cPower),
+    ("button", 1, button),
+    ("led", 1, led),
+    ("tmp102", 1, tmp102),
+    ("lcd3v3", 1, serialLcd16x2_3v3),
+    ("lcd5v", 1, serialLcd16x2_5v),
+    ("sdcard", 1, sdcard),
     ("mcu", 1, mcu)
     ],
   links = [
-    ("apiLink", 8, apiLink),
-    ("powerLink", 2, powerLink 4),
+    ("apiLink", 6, apiLink),
+    ("powerLink", 4, powerLink 8),
     ("digitalBidirLink", 0, digitalBidirLink),
-    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
+    ("digitalBidirSinkLink", 2, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
+    ("spiLink", 1, spiLink 2),
+    ("uartLink", 1, uartLink),
+    ("i2cLink", 1, i2cLink 2),
     ("digitalLink", 0, digitalLink)
     ]
   }
@@ -32,10 +45,13 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
+  let makePorts i s m = forM @[] [1..i]
+        (\ id -> let name = s ++ (show id) in addPort name $ m name)
+
+  leds <- makePorts 1 "led" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV ("led" ++ (show id)),
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "led",
       "apiData" <:= Record [
         "bandwidth" <:= FloatV 500
@@ -43,10 +59,10 @@ seed = do
       ]
     return ()
 
-  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- makePorts 1 "button" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV ("button" ++ (show id)),
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "button",
       "apiData" <:= Record [
         "bandwidth" <:= FloatV 500
@@ -54,9 +70,35 @@ seed = do
       ]
     return ()
 
-  let allPorts = (buttons ++ leds)
-  forM allPorts (\ portId -> constrain $ port portId connected)
-  forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
+  tsenses <- makePorts 1 "tsense" $ \ name -> do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV name,
+      "apiType" <:= StringV "temperatureSensor"
+      ]
+    return ()
+
+  lcds <- makePorts 1 "lcd" $ \ name -> do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV name,
+      "apiType" <:= StringV "characterLcd"
+      ]
+    return ()
+
+  storages <- makePorts 1 "sdCard" $ \ name -> do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV name,
+      "apiType" <:= StringV "nvmemory"
+      ]
+    return ()
+
+  let allPorts = buttons ++ leds ++ tsenses ++ lcds ++ storages
+
+  ensureConnected allPorts
+
+  setFieldsEq True allPorts ["controlUid"]
 
   return ()
 
