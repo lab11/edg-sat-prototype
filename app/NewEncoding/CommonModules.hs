@@ -113,11 +113,13 @@ mcu = do
       digitalBidir
       setType [
         "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
-        "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown))
+        "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+        "lowVoltage" <:= FloatV 0.5,
+        "highVoltage" <:= FloatV 2.3
         ]
       return ()
 
-  digitalPins <- forM @[] ([0..10] ++ [4..16]) $ \ id ->
+  digitalPins <- forM @[] ([0..10] ++ [14..16]) $ \ id ->
     newResource ("D" ++ (show id))
   analogPins <- forM @[] [0..3] $ \ id ->
     newResource ("A" ++ (show id))
@@ -136,11 +138,10 @@ mcu = do
     let isSource = port gpio (typeVal "digitalDir") :== Lit (StringV "source")
 
     constrain $ port gpio (typeVal "controlUid") :== uid
-    constrain $ isSource :=> port gpio (typeVal "voltage") :== port p3v3Out (typeVal "voltage")
+    constrain $ isSource :=> port gpio (typeVal "voltage.min") :== Lit (FloatV 0)
+    constrain $ isSource :=> port gpio (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
     constrain $ port gpio (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
-    constrain $ isSource :=> (port gpio (typeVal "lowVoltage") :== Lit (FloatV 0.5))
-    constrain $ isSource :=> (port gpio (typeVal "highVoltage") :== Lit (FloatV 2.3))
     constrain $ port gpio (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
     constrain $ port gpio (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
 
@@ -150,17 +151,75 @@ mcu = do
     i2cMaster
     setType [
       "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
-      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown))
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "lowVoltage" <:= FloatV 0.5,
+      "frequency" <:= range (FloatV 0) (FloatV 400e3)
       ]
     return ()
 
   constrain $ port i2c (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
-  constrain $ port i2c (typeVal "lowVoltage") :== Lit (FloatV 0.5)
-
   constrain $ port i2c (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
   constrain $ port i2c (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
 
   constrain $ port i2c (typeVal "controlUid") :== uid
+
+  constrainResources i2c (port i2c $ connected) [
+    (i2c ++ "SDA") :|= [digitalPins !! 2],
+    (i2c ++ "SCL") :|= [digitalPins !! 3]
+    ]
+
+  uart <- addPort "uart" $ do
+    uartMaster
+    setType [
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "lowVoltage" <:= FloatV 0.5,
+      "highVoltage" <:= FloatV 2.3,
+      "baud" <:= range (FloatV 0) (FloatV 1e6)
+      ]
+    return ()
+
+  constrain $ port uart (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
+
+  constrain $ port uart (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+
+  constrain $ port uart (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+  constrain $ port uart (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+
+  constrain $ port uart (typeVal "controlUid") :== uid
+
+  constrainResources uart (port uart $ connected) [
+    (uart ++ "TX") :|= [digitalPins !! 1],
+    (uart ++ "RX") :|= [digitalPins !! 0]
+    ]
+
+  spi <- addPort "spi" $ do
+    spiMaster
+    setType [
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "lowVoltage" <:= FloatV 0.5,
+      "highVoltage" <:= FloatV 2.3,
+      "frequency" <:= range (FloatV 0) (FloatV 4e6)  -- max of fOsc/2
+      ]
+    return ()
+
+  constrain $ port spi (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
+
+  constrain $ port spi (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+
+  constrain $ port spi (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+  constrain $ port spi (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+
+  constrain $ port spi (typeVal "controlUid") :== uid
+
+  constrainResources spi (port spi $ connected) [
+    (spi ++ "SCK") :|= [digitalPins !! 12],
+    (spi ++ "MISO") :|= [digitalPins !! 11],
+    (spi ++ "MOSI") :|= [digitalPins !! 13]
+    ]
 
   endDef

@@ -1,5 +1,6 @@
 module NewEncoding.CommsPorts where
 
+import Data.List (tails)
 import Control.Monad
 
 import EDG
@@ -8,8 +9,9 @@ import NewEncoding.CommonPorts
 spiBase :: (IsPort p) => p ()
 spiBase = do
   digitalBidirBase
+  controllable
   setType [
-    "frequency" <:= FloatC unknown
+    "frequency" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -30,11 +32,52 @@ spiSlave = do
     ]
   return ()
 
+
+spiLink :: Int -> Link ()
+spiLink numSlaves = do
+  setIdent ("SpiLink" ++ (show numSlaves))
+  setSignature "SpiLink"
+
+  master <- addPort "master" $ do
+    spiMaster
+    setType [
+      "controlName" <:= StringV "spi"
+      ]
+    return()
+
+  slaves <- forM @[] [1..numSlaves] $ \ slaveId ->
+    addPort ("slave" ++ (show slaveId)) $ do
+      spiSlave
+      return()
+
+  constrain $ port master connected
+  constrain $ Any (map (\ slave -> port slave connected) slaves)
+
+  forM slaves $ \ slave -> do
+    constrain $ rSubset (port master (typeVal "voltage")) (port slave (typeVal "limitVoltage"))
+    constrain $ rSubset (port slave (typeVal "voltage")) (port master (typeVal "limitVoltage"))
+
+    constrain $ rSubset (port master (typeVal "current")) (port slave (typeVal "limitCurrent"))
+    constrain $ rSubset (port slave (typeVal "current")) (port master (typeVal "limitCurrent"))
+
+    constrain $ port master (typeVal "lowVoltage") :<= port slave (typeVal "limitLowVoltage")
+    constrain $ port slave (typeVal "lowVoltage") :<= port master (typeVal "limitLowVoltage")
+    constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
+    constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
+
+    constrain $ rNotDisjoint (port master (typeVal "frequency")) (port slave (typeVal "frequency"))
+
+    constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+
+  return ()
+
+
+
 uartBase :: (IsPort p) => p ()
 uartBase = do
   digitalBidirBase
   setType [
-    "uart" <:= FloatC unknown
+    "baud" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -47,15 +90,59 @@ uartMaster = do
 
 uartSlave :: (IsPort p) => p ()
 uartSlave = do
-  i2cBase
+  uartBase
   setKind "UartSlave"
   setIdent "UartSlave"
   return ()
+
+
+uartLink :: Link ()
+uartLink = do
+  setIdent "UartLink"
+  setSignature "UartLink"
+
+  master <- addPort "master" $ do
+    uartMaster
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0))
+      ]
+    return()
+
+  slave <- addPort "slave" $ do
+    uartSlave
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0))
+      ]
+    return()
+
+  constrain $ port master connected
+  constrain $ port slave connected
+
+  constrain $ rSubset (port master (typeVal "voltage")) (port slave (typeVal "limitVoltage"))
+  constrain $ rSubset (port slave (typeVal "voltage")) (port master (typeVal "limitVoltage"))
+
+  constrain $ rSubset (port master (typeVal "current")) (port slave (typeVal "limitCurrent"))
+  constrain $ rSubset (port slave (typeVal "current")) (port master (typeVal "limitCurrent"))
+
+  constrain $ port master (typeVal "lowVoltage") :<= port slave (typeVal "limitLowVoltage")
+  constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
+  constrain $ port slave (typeVal "lowVoltage") :<= port master (typeVal "limitLowVoltage")
+  constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
+
+  constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+  constrain $ port master (typeVal "controlName") :== port slave (typeVal "controlName")
+
+  constrain $ rNotDisjoint (port master (typeVal "baud")) (port slave (typeVal "baud"))
+
+  return ()
+
+
 
 i2cBase :: (IsPort p) => p ()
 i2cBase = do
   powerSource
   powerSink
+  controllable
   setType [
     "highVoltage" <:= FloatC unknown,
     "lowVoltage" <:= FloatC unknown,
@@ -63,7 +150,7 @@ i2cBase = do
     "limitLowVoltage" <:= FloatC unknown
     ]
   setType [
-    "frequency" <:= FloatC unknown
+    "frequency" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -86,15 +173,61 @@ i2cSlave = do
 
 -- Links
 
+i2cPowerSink :: (IsPort p) => p ()
+i2cPowerSink = do
+  powerSink
+  setKind "i2cPowerSource"
+  setIdent "i2cPowerSource"
+  return ()
+
+i2cPower :: Module ()
+i2cPower = do  -- aka the two pull up resistors
+  setIdent "i2cPower"
+  setSignature "i2cPower"
+  setType []
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0)),  -- TODO i2c signal power draw
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
+      ]
+    return ()
+
+  vout <- addPort "vout" $ do
+    i2cPowerSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0)),
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
+      ]
+    return ()
+
+  constrain $ port vin connected
+  constrain $ port vout connected
+
+  constrain $ port vin (typeVal "current") :== port vout (typeVal "current")
+  constrain $ port vin (typeVal "voltage") :== port vout (typeVal "voltage")
+  constrain $ port vin (typeVal "limitVoltage") :== port vout (typeVal "limitVoltage")
+
+  return ()
+
+-- shamelessly lifted from https://wiki.haskell.org/99_questions/Solutions/26
+combinations :: Int -> [a] -> [[a]]
+combinations 0 _  = return []
+combinations n xs = do y:xs' <- tails xs
+                       ys <- combinations (n-1) xs'
+                       return (y:ys)
+
 i2cLink :: Int -> Link ()
 i2cLink numSlaves = do
-  setIdent "I2cLink"
+  setIdent ("I2cLink" ++ (show numSlaves))
   setSignature "I2cLink"
 
   power <- addPort "power" $ do
-    powerSink
+    i2cPowerSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0))
+      "current" <:= (range (FloatV 0) (FloatV 0)),
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 36)) -- TODO: dummy constraint
       ]
     return()
 
@@ -114,6 +247,7 @@ i2cLink numSlaves = do
         ]
       return()
 
+  constrain $ port power connected
   constrain $ port master connected
   constrain $ Any (map (\ slave -> port slave connected) slaves)
 
@@ -121,7 +255,6 @@ i2cLink numSlaves = do
   constrain $ port master (typeVal "voltage.max") :== port power (typeVal "voltage.max")
   constrain $ rSubset (port master (typeVal "voltage")) (port master (typeVal "limitVoltage"))
 
-  constrain $ port master (typeVal "current") :== port power (typeVal "current")
   constrain $ rSubset (port master (typeVal "current")) (port master (typeVal "limitCurrent"))
 
   constrain $ port master (typeVal "highVoltage") :== port power (typeVal "voltage.min")
@@ -138,8 +271,11 @@ i2cLink numSlaves = do
     constrain $ port master (typeVal "highVoltage") :>= port slave (typeVal "limitHighVoltage")
     constrain $ port slave (typeVal "highVoltage") :>= port master (typeVal "limitHighVoltage")
 
-    constrain $ port master (typeVal "frequency") :== port slave (typeVal "controlUid")
+    constrain $ rNotDisjoint (port master (typeVal "frequency")) (port slave (typeVal "frequency"))
 
     constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+
+  forM (combinations 2 slaves) $ \ combSlaves -> do
+    constrain $ port (combSlaves !! 0) (typeVal "id") :/= port (combSlaves !! 1) (typeVal "id")
 
   return ()
