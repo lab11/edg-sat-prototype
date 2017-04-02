@@ -82,10 +82,10 @@ uartLink = do
   constrain $ rSubset (port master (typeVal "current")) (port slave (typeVal "limitCurrent"))
   constrain $ rSubset (port slave (typeVal "current")) (port master (typeVal "limitCurrent"))
 
-  constrain $ port master (typeVal "0LevelVoltage") :<= port slave (typeVal "limit0LevelVoltage")
-  constrain $ port master (typeVal "1LevelVoltage") :>= port slave (typeVal "limit1LevelVoltage")
-  constrain $ port slave (typeVal "0LevelVoltage") :<= port master (typeVal "limit0LevelVoltage")
-  constrain $ port slave (typeVal "1LevelVoltage") :>= port master (typeVal "limit1LevelVoltage")
+  constrain $ port master (typeVal "0VoltageLevel") :<= port slave (typeVal "limit0VoltageLevel")
+  constrain $ port master (typeVal "1VoltageLevel") :>= port slave (typeVal "limit1VoltageLevel")
+  constrain $ port slave (typeVal "0VoltageLevel") :<= port master (typeVal "limit0VoltageLevel")
+  constrain $ port slave (typeVal "1VoltageLevel") :>= port master (typeVal "limit1VoltageLevel")
 
   constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
   constrain $ port master (typeVal "controlName") :== port slave (typeVal "controlName")
@@ -102,10 +102,10 @@ i2cBase = do
   powerSink
   controllable
   setType [
-    "1LevelVoltage" <:= FloatC unknown,
-    "0LevelVoltage" <:= FloatC unknown,
-    "limit1LevelVoltage" <:= FloatC unknown,
-    "limit0LevelVoltage" <:= FloatC unknown
+    "1VoltageLevel" <:= FloatC unknown,
+    "0VoltageLevel" <:= FloatC unknown,
+    "limit1VoltageLevel" <:= FloatC unknown,
+    "limit0VoltageLevel" <:= FloatC unknown
     ]
   setType [
     "frequency" <:= range (FloatC unknown) (FloatC unknown)
@@ -215,7 +215,7 @@ i2cLink numSlaves = do
 
   constrain $ rSubset (port master (typeVal "current")) (port master (typeVal "limitCurrent"))
 
-  constrain $ port master (typeVal "1LevelVoltage") :== port power (typeVal "voltage.min")
+  constrain $ port master (typeVal "1VoltageLevel") :== port power (typeVal "voltage.min")
 
   forM slaves $ \ slave -> do
     constrain $ port slave (typeVal "voltage") :== port master (typeVal "voltage")
@@ -223,11 +223,11 @@ i2cLink numSlaves = do
 
     constrain $ rSubset (port slave (typeVal "current")) (port slave (typeVal "limitCurrent"))
 
-    constrain $ port slave (typeVal "1LevelVoltage") :== port power (typeVal "voltage.min")
-    constrain $ port master (typeVal "0LevelVoltage") :<= port slave (typeVal "limit0LevelVoltage")
-    constrain $ port slave (typeVal "0LevelVoltage") :<= port master (typeVal "limit0LevelVoltage")
-    constrain $ port master (typeVal "1LevelVoltage") :>= port slave (typeVal "limit1LevelVoltage")
-    constrain $ port slave (typeVal "1LevelVoltage") :>= port master (typeVal "limit1LevelVoltage")
+    constrain $ port slave (typeVal "1VoltageLevel") :== port power (typeVal "voltage.min")
+    constrain $ port master (typeVal "0VoltageLevel") :<= port slave (typeVal "limit0VoltageLevel")
+    constrain $ port slave (typeVal "0VoltageLevel") :<= port master (typeVal "limit0VoltageLevel")
+    constrain $ port master (typeVal "1VoltageLevel") :>= port slave (typeVal "limit1VoltageLevel")
+    constrain $ port slave (typeVal "1VoltageLevel") :>= port master (typeVal "limit1VoltageLevel")
 
     constrain $ rNotDisjoint (port master (typeVal "frequency")) (port slave (typeVal "frequency"))
 

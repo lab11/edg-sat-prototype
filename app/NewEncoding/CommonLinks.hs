@@ -63,8 +63,8 @@ digitalLink = do
   -- NOTE :: We do NOT copy the digital voltage levels of the source into the
   --         sink, the sink DOES NOT HAVE voltage levels. It has level limits,
   --         and we do the comparisons in the relevant link.
-  constrain $ port source (typeVal "0LevelVoltage") :<= port sink (typeVal "limit0LevelVoltage")
-  constrain $ port source (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
+  constrain $ port source (typeVal "0VoltageLevel") :<= port sink (typeVal "limit0VoltageLevel")
+  constrain $ port source (typeVal "1VoltageLevel") :>= port sink (typeVal "limit1VoltageLevel")
 
   -- NOTE :: Promoted into the ports themselves
   -- constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
@@ -119,7 +119,7 @@ digitalBidirLink = do
   --         SMT solver.
   constrain $ (port sink connected :<+> port source connected)
 
-  setFieldsEq False [bidir,source,sink] [
+  setFieldsEq False [bidir, source, sink] [
       "voltage"
     , "current"
     , "controlUid"
@@ -128,40 +128,11 @@ digitalBidirLink = do
     ]
 
   constrain $ port sink connected :=>
-    (   (port bidir  (typeVal "0LevelVoltage") :<= port sink  (typeVal "limit0LevelVoltage"))
-    :&& (port bidir  (typeVal "1LevelVoltage") :>= port sink  (typeVal "limit1LevelVoltage")))
+    (   (port bidir  (typeVal "0VoltageLevel") :<= port sink  (typeVal "limit0VoltageLevel"))
+    :&& (port bidir  (typeVal "1VoltageLevel") :>= port sink  (typeVal "limit1VoltageLevel")))
   constrain $ port source connected :=>
-    (   (port source (typeVal "0LevelVoltage") :<= port bidir (typeVal "limit0LevelVoltage"))
-    :&& (port source (typeVal "1LevelVoltage") :>= port bidir (typeVal "limit1LevelVoltage")))
-
-  -- constrain $ port bidir (typeVal "0LevelVoltage") :<= port bidir (typeVal "limit0LevelVoltage")
-  -- constrain $ port sink (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
-  -- constrain $ port bidir (typeVal "1LevelVoltage") :>= port bidir (typeVal "limit1LevelVoltage")
-  -- constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
-  -- constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
-  -- constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
-  -- constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
-
-  -- constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
-  -- constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
-  -- constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
-  -- constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
-
-  -- constrain $ port bidir (typeVal "0LevelVoltage") :== port source (typeVal "0LevelVoltage")
-  -- constrain $ port bidir (typeVal "0LevelVoltage") :== port sink (typeVal "0LevelVoltage")
-  -- constrain $ port bidir (typeVal "1LevelVoltage") :== port source (typeVal "1LevelVoltage")
-  -- constrain $ port bidir (typeVal "1LevelVoltage") :== port sink (typeVal "1LevelVoltage")
-  --
---  hard constrained since only GPIOs are bidir (for now)
---  constrain $ (
---      ((port bidir (typeVal "apiDir") :== Lit (StringV "producer"))
---        :&& (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
---        :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
---      ) :|| (
---        (port bidir (typeVal "apiDir") :== Lit (StringV "consumer"))
---        :&& (port source (typeVal "apiDir") :== Lit (StringV "producer"))
---        :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
---      ))
+    (   (port source (typeVal "0VoltageLevel") :<= port bidir (typeVal "limit0VoltageLevel"))
+    :&& (port source (typeVal "1VoltageLevel") :>= port bidir (typeVal "limit1VoltageLevel")))
 
   return ()
 
@@ -185,26 +156,34 @@ digitalBidirSinkLink = do
       ]
     return()
 
-  constrain $ port bidir connected
-  constrain $ port sink connected
+  ensureConnected [bidir, sink]
+  -- constrain $ port bidir connected
+  -- constrain $ port sink connected
 
-  constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
-  constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
+  setFieldsEq False [bidir, sink] [
+      "voltage"
+    , "current"
+    , "controlUid"
+    , "controlName"
+    , "apiType"
+    ]
 
-  constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
-  constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
+  -- constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
+  -- constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
+  -- constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
+  -- constrain $ port bidir (typeVal "controlName") :== port sink (typeVal "controlName")
+  -- constrain $ port bidir (typeVal "apiType") :== port sink (typeVal "apiType")
+
+  -- constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
+  -- constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
 
   -- NOTE :: Not actually true, we the levels of the GPIO and the levels for
   --         the connected device DO NOT HAVE TO BE THE SAME.
-  -- constrain $ port bidir (typeVal "0LevelVoltage") :== port sink (typeVal "0LevelVoltage")
-  -- constrain $ port bidir (typeVal "1LevelVoltage") :== port sink (typeVal "1LevelVoltage")
+  -- constrain $ port bidir (typeVal "0VoltageLevel") :== port sink (typeVal "0VoltageLevel")
+  -- constrain $ port bidir (typeVal "1VoltageLevel") :== port sink (typeVal "1VoltageLevel")
 
-  constrain $ port bidir (typeVal "0LevelVoltage") :<= port sink (typeVal "limit0LevelVoltage")
-  constrain $ port bidir (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
-
-  constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
-  constrain $ port bidir (typeVal "controlName") :== port sink (typeVal "controlName")
-  constrain $ port bidir (typeVal "apiType") :== port sink (typeVal "apiType")
+  constrain $ port bidir (typeVal "0VoltageLevel") :<= port sink (typeVal "limit0VoltageLevel")
+  constrain $ port bidir (typeVal "1VoltageLevel") :>= port sink (typeVal "limit1VoltageLevel")
 
   return ()
 
@@ -228,26 +207,38 @@ digitalBidirSourceLink = do
       ]
     return()
 
-  constrain $ port bidir connected
-  constrain $ port source connected
+  ensureConnected [bidir, source]
+  -- constrain $ port bidir connected
+  -- constrain $ port sink connected
 
-  constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
-  constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
+  setFieldsEq False [bidir, source] [
+      "voltage"
+    , "current"
+    , "controlUid"
+    , "controlName"
+    , "apiType"
+    ]
 
-  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
-  constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
+  -- constrain $ port bidir connected
+  -- constrain $ port source connected
+
+  -- constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
+  -- constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
+  -- constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
+  -- constrain $ port bidir (typeVal "controlName") :== port source (typeVal "controlName")
+  -- constrain $ port bidir (typeVal "apiType") :== port source (typeVal "apiType")
+
+  -- constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
+  -- constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
 
   -- NOTE :: Not actually true, we the levels of the GPIO and the levels for
   --         the conect device DO NOT HAVE TO BE THE SAME.
-  -- constrain $ port bidir (typeVal "0LevelVoltage") :== port source (typeVal "0LevelVoltage")
-  -- constrain $ port bidir (typeVal "1LevelVoltage") :== port source (typeVal "1LevelVoltage")
+  -- constrain $ port bidir (typeVal "0VoltageLevel") :== port source (typeVal "0VoltageLevel")
+  -- constrain $ port bidir (typeVal "1VoltageLevel") :== port source (typeVal "1VoltageLevel")
 
-  constrain $ port source (typeVal "0LevelVoltage") :<= port bidir (typeVal "limit0LevelVoltage")
-  constrain $ port source (typeVal "1LevelVoltage") :>= port bidir (typeVal "limit1LevelVoltage")
+  constrain $ port source (typeVal "0VoltageLevel") :<= port bidir (typeVal "limit0VoltageLevel")
+  constrain $ port source (typeVal "1VoltageLevel") :>= port bidir (typeVal "limit1VoltageLevel")
 
-  constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
-  constrain $ port bidir (typeVal "controlName") :== port source (typeVal "controlName")
-  constrain $ port bidir (typeVal "apiType") :== port source (typeVal "apiType")
 
 
 -- Seed Links
@@ -316,28 +307,28 @@ apiLink = do
 --
 --   -- Add the fields to the type
 --   setType [
---       "1LevelVoltage" <:= FloatC unknown
---     , "0LevelVoltage"  <:= FloatC unknown
---     , "limit1LevelVoltage" <:= FloatC unknown
---     , "limit0LevelVoltage"  <:= FloatC unknown
+--       "1VoltageLevel" <:= FloatC unknown
+--     , "0VoltageLevel"  <:= FloatC unknown
+--     , "limit1VoltageLevel" <:= FloatC unknown
+--     , "limit0VoltageLevel"  <:= FloatC unknown
 --     ]
 --
 --   -- Connect the source fields to the module type
 --   setFieldsEq True (bidirs ++ sources) [
---       "0LevelVoltage"
---     , "1LevelVoltage"
+--       "0VoltageLevel"
+--     , "1VoltageLevel"
 --     ]
 --
 --   -- Connect the sink fields to the module type
 --   setFieldsEq True (bidirs ++ sinks) [
---       "limit0LevelVoltage"
---     , "limit1LevelVoltage"
+--       "limit0VoltageLevel"
+--     , "limit1VoltageLevel"
 --     ]
 --
 --   -- Ensure that the read levels and write levels for this link are
 --   -- sensible.
---   constrain $ typeVal "0LevelVoltage"  :<= typeVal "limit0LevelVoltage"
---   constrain $ typeVal "1LevelVoltage" :>= typeVal "limit1LevelVoltage"
+--   constrain $ typeVal "0VoltageLevel"  :<= typeVal "limit0VoltageLevel"
+--   constrain $ typeVal "1VoltageLevel" :>= typeVal "limit1VoltageLevel"
 --
 --   return ()
 --

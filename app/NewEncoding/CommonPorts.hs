@@ -77,9 +77,9 @@ digitalSink = do
   setIdent "DigitalSink"
   setType [
     -- The lower limit for the high voltage threshold
-    "limit1LevelVoltage" <:= FloatC unknown,
+    "limit1VoltageLevel" <:= FloatC unknown,
     -- The upper limir for the low voltage threshold
-    "limit0LevelVoltage" <:= FloatC unknown
+    "limit0VoltageLevel" <:= FloatC unknown
     ]
   return ()
 
@@ -91,9 +91,9 @@ digitalSource = do
   setIdent "DigitalSource"
   setType [
     -- The voltage the source uses for a 1
-    "1LevelVoltage" <:= FloatC unknown,
+    "1VoltageLevel" <:= FloatC unknown,
     -- The voltage the source uses for a 0
-    "0LevelVoltage" <:= FloatC unknown
+    "0VoltageLevel" <:= FloatC unknown
     ]
   return ()
 
@@ -103,18 +103,18 @@ digitalBidirBase = do
   powerSink
   setType [
     -- The voltage the source uses for a 1
-      "1LevelVoltage" <:= FloatC unknown
+      "1VoltageLevel" <:= FloatC unknown
     -- The voltage the source uses for a 0
-    , "0LevelVoltage" <:= FloatC unknown
+    , "0VoltageLevel" <:= FloatC unknown
     -- The lower limit for the high voltage threshold
-    , "limit1LevelVoltage" <:= FloatC unknown
+    , "limit1VoltageLevel" <:= FloatC unknown
     -- The upper limir for the low voltage threshold
-    , "limit0LevelVoltage" <:= FloatC unknown
+    , "limit0VoltageLevel" <:= FloatC unknown
     ]
   -- Ensure that the read levels and write levels for this port are
   -- sensible.
-  -- constrain $ typeVal "0LevelVoltage"  :<= typeVal "limit0LevelVoltage"
-  -- constrain $ typeVal "1LevelVoltage" :>= typeVal "limit1LevelVoltage"
+  -- constrain $ typeVal "0VoltageLevel"  :<= typeVal "limit0VoltageLevel"
+  -- constrain $ typeVal "1VoltageLevel" :>= typeVal "limit1VoltageLevel"
   return ()
 
 digitalBidir :: (IsPort p) => p ()
