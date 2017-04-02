@@ -44,38 +44,41 @@ digitalLink = do
   setIdent "DigitalLink"
   setSignature "DigitalLink"
 
-  source <- addPort "source" $ do
-    digitalSource
-    return()
+  source <- addPort "source" digitalSource
 
-  sink <- addPort "sink" $ do
-    digitalSink
-    return()
+  sink <- addPort "sink" digitalSink
 
-  constrain $ port source connected
-  constrain $ port sink connected
+  ensureConnected [source, sink]
+  -- constrain $ port source connected
+  -- constrain $ port sink connected
 
-  constrain $ port source (typeVal "voltage") :== port sink (typeVal "voltage")
-  constrain $ port source (typeVal "current") :== port sink (typeVal "current")
+  setFieldsEq False [source, sink] [
+      "voltage"
+    , "current"
+    , "controlUid"
+    , "controlName"
+    , "apiType"
+    ]
 
-  constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
-  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
+  -- NOTE :: We do NOT copy the digital voltage levels of the source into the
+  --         sink, the sink DOES NOT HAVE voltage levels. It has level limits,
+  --         and we do the comparisons in the relevant link.
+  constrain $ port source (typeVal "0LevelVoltage") :<= port sink (typeVal "limit0LevelVoltage")
+  constrain $ port source (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
 
-  constrain $ port source (typeVal "0LevelVoltage") :== port sink (typeVal "0LevelVoltage")
-  constrain $ port source (typeVal "1LevelVoltage") :== port sink (typeVal "1LevelVoltage")
-  constrain $ port sink (typeVal "0LevelVoltage") :<= port sink (typeVal "limit0LevelVoltage")
-  constrain $ port sink (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
+  -- NOTE :: Promoted into the ports themselves
+  -- constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
+  -- constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
 
-  constrain $ port source (typeVal "controlUid") :== port sink (typeVal "controlUid")
-  constrain $ port source (typeVal "controlName") :== port sink (typeVal "controlName")
-  constrain $ port source (typeVal "apiType") :== port sink (typeVal "apiType")
-  constrain $ (
-      ((port source (typeVal "apiDir") :== Lit (StringV "producer"))
-        :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
-      ) :|| (
-        (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
-        :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
-      ))
+  constrain $ matchedPairs
+    (port source $ typeVal "apiDir",port sink $ typeVal "apiDir")
+    (Lit $ StringV "producer", Lit $ StringV "consumer")
+    --   ((port source (typeVal "apiDir") :== Lit (StringV "producer"))
+    --     :&& (port sink (typeVal "apiDir") :== Lit (StringV "consumer"))
+    --   ) :|| (
+    --     (port source (typeVal "apiDir") :== Lit (StringV "consumer"))
+    --     :&& (port sink (typeVal "apiDir") :== Lit (StringV "producer"))
+    --   ))
 
   return ()
 
@@ -104,36 +107,51 @@ digitalBidirLink = do
       ]
     return()
 
-  constrain $ port bidir connected
-  constrain $ (port bidir (typeVal "digitalDir") :== Lit (StringV "source")) :=> port sink connected
-  constrain $ (port bidir (typeVal "digitalDir") :== Lit (StringV "sink")) :=> port source connected
+  ensureConnected [bidir]
 
-  constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
-  constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
-  constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
-  constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
+  -- NOTE :: Using an equal sign here doesn't change the semantics, but should
+  --         allow the SMT solver to propagate information backwards from
+  --         the source and sink, to the bidir, as well as the forward dir.
+  constrain $ (port bidir (typeVal "digitalDir") :== Lit (StringV "source")) :== port sink connected
+  constrain $ (port bidir (typeVal "digitalDir") :== Lit (StringV "sink"  )) :== port source connected
 
-  constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
-  constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
-  constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
-  constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
+  -- NOTE :: This xor is technically redundant, still likely useful for the
+  --         SMT solver.
+  constrain $ (port sink connected :<+> port source connected)
 
-  constrain $ port bidir (typeVal "0LevelVoltage") :== port source (typeVal "0LevelVoltage")
-  constrain $ port bidir (typeVal "0LevelVoltage") :== port sink (typeVal "0LevelVoltage")
-  constrain $ port bidir (typeVal "1LevelVoltage") :== port source (typeVal "1LevelVoltage")
-  constrain $ port bidir (typeVal "1LevelVoltage") :== port sink (typeVal "1LevelVoltage")
+  setFieldsEq False [bidir,source,sink] [
+      "voltage"
+    , "current"
+    , "controlUid"
+    , "controlName"
+    , "apiType"
+    ]
 
-  constrain $ port sink (typeVal "0LevelVoltage") :<= port sink (typeVal "limit0LevelVoltage")
-  constrain $ port bidir (typeVal "0LevelVoltage") :<= port bidir (typeVal "limit0LevelVoltage")
-  constrain $ port sink (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
-  constrain $ port bidir (typeVal "1LevelVoltage") :>= port bidir (typeVal "limit1LevelVoltage")
+  constrain $ port sink connected :=>
+    (   (port bidir  (typeVal "0LevelVoltage") :<= port sink  (typeVal "limit0LevelVoltage"))
+    :&& (port bidir  (typeVal "1LevelVoltage") :>= port sink  (typeVal "limit1LevelVoltage")))
+  constrain $ port source connected :=>
+    (   (port source (typeVal "0LevelVoltage") :<= port bidir (typeVal "limit0LevelVoltage"))
+    :&& (port source (typeVal "1LevelVoltage") :>= port bidir (typeVal "limit1LevelVoltage")))
 
-  constrain $ port bidir (typeVal "controlUid") :== port source (typeVal "controlUid")
-  constrain $ port bidir (typeVal "controlUid") :== port sink (typeVal "controlUid")
-  constrain $ port bidir (typeVal "controlName") :== port source (typeVal "controlName")
-  constrain $ port bidir (typeVal "controlName") :== port sink (typeVal "controlName")
-  constrain $ port bidir (typeVal "apiType") :== port source (typeVal "apiType")
-  constrain $ port bidir (typeVal "apiType") :== port sink (typeVal "apiType")
+  -- constrain $ port bidir (typeVal "0LevelVoltage") :<= port bidir (typeVal "limit0LevelVoltage")
+  -- constrain $ port sink (typeVal "1LevelVoltage") :>= port sink (typeVal "limit1LevelVoltage")
+  -- constrain $ port bidir (typeVal "1LevelVoltage") :>= port bidir (typeVal "limit1LevelVoltage")
+  -- constrain $ port bidir (typeVal "voltage") :== port source (typeVal "voltage")
+  -- constrain $ port bidir (typeVal "voltage") :== port sink (typeVal "voltage")
+  -- constrain $ port bidir (typeVal "current") :== port source (typeVal "current")
+  -- constrain $ port bidir (typeVal "current") :== port sink (typeVal "current")
+
+  -- constrain $ rSubset (port sink (typeVal "voltage")) (port sink (typeVal "limitVoltage"))
+  -- constrain $ rSubset (port source (typeVal "current")) (port source (typeVal "limitCurrent"))
+  -- constrain $ rSubset (port bidir (typeVal "voltage")) (port bidir (typeVal "limitVoltage"))
+  -- constrain $ rSubset (port bidir (typeVal "current")) (port bidir (typeVal "limitCurrent"))
+
+  -- constrain $ port bidir (typeVal "0LevelVoltage") :== port source (typeVal "0LevelVoltage")
+  -- constrain $ port bidir (typeVal "0LevelVoltage") :== port sink (typeVal "0LevelVoltage")
+  -- constrain $ port bidir (typeVal "1LevelVoltage") :== port source (typeVal "1LevelVoltage")
+  -- constrain $ port bidir (typeVal "1LevelVoltage") :== port sink (typeVal "1LevelVoltage")
+  --
 --  hard constrained since only GPIOs are bidir (for now)
 --  constrain $ (
 --      ((port bidir (typeVal "apiDir") :== Lit (StringV "producer"))

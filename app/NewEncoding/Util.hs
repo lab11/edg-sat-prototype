@@ -37,3 +37,11 @@ setFieldsEq inclBlock ports fields = do
 -- | Ensure all of these ports are connected
 ensureConnected :: (IsBlock b) => [PortName] -> b ()
 ensureConnected = mapM_ (\ p -> constrain $ port p connected)
+
+-- | Make sure that the elements in the first pair are equal to the elements
+--   in the second pair, but doesn't specify how they are mapped.
+--
+--   matchedPairs (a,a') (b,b') == (a == b && a' == b') || (a == b' && a' == b)
+matchedPairs :: (Constrainable a) => (Exp a, Exp a) -> (Exp a, Exp a) -> Exp a
+matchedPairs (a,a') (b,b')
+  = ((a :== b) :&& (a' :== b')) :|| ((a :== b') :&& (a' :== b))
