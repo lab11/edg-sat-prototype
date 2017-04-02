@@ -35,7 +35,7 @@ button = do
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
       "current" <:= (range (FloatV 0) (FloatV 0)),  -- this resistor-switch topology doesn't allow current draw
       "limitCurrent" <:= (range (FloatV 0) (FloatV 0)),  -- this resistor-switch topology doesn't allow current draw
-      "lowVoltage" <:= FloatV 0,
+      "0LevelVoltage" <:= FloatV 0,
       "apiType" <:= StringV "onOff",
       "apiDir" <:= StringV "consumer"
       ]
@@ -49,7 +49,7 @@ button = do
   constrain $ port out (typeVal "controlName") :== port api (typeVal "controlName")
 
   constrain $ port out (typeVal "voltage.max") :== port vin (typeVal "voltage.max")
-  constrain $ port out (typeVal "highVoltage") :== port vin (typeVal "voltage.min")
+  constrain $ port out (typeVal "1LevelVoltage") :== port vin (typeVal "voltage.min")
 
 -- A LED Module
 led :: Module ()
@@ -69,8 +69,8 @@ led = do
     digitalSink
     setType [
       "limitVoltage" <:= (range (FloatV 0) (FloatV 36)),
-      "limitLowVoltage" <:= FloatV 1.0,
-      "limitHighVoltage" <:= FloatV 1.2,  -- TODO: voltage drops by LED color
+      "limit0LevelVoltage" <:= FloatV 1.0,
+      "limit1LevelVoltage" <:= FloatV 1.2,  -- TODO: voltage drops by LED color
       "current" <:= (range (FloatV 0.01) (FloatV 0.02)),
       "apiType" <:= StringV "onOff",  -- TODO: allow PWM
       "apiDir" <:= StringV "consumer"
@@ -122,8 +122,8 @@ mcu = do
       setType [
         "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
         "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-        "lowVoltage" <:= FloatV 0.5,
-        "highVoltage" <:= FloatV 2.3
+        "0LevelVoltage" <:= FloatV 0.5,
+        "1LevelVoltage" <:= FloatV 2.3
         ]
       return ()
 
@@ -150,8 +150,8 @@ mcu = do
     constrain $ isSource :=> port gpio (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
     constrain $ port gpio (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
-    constrain $ port gpio (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
-    constrain $ port gpio (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+    constrain $ port gpio (typeVal "limit0LevelVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+    constrain $ port gpio (typeVal "limit1LevelVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
 
     constrainResources gpio (port gpio $ connected) [gpio :|= (digitalPins ++ analogPins)]
 
@@ -160,15 +160,15 @@ mcu = do
     setType [
       "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-      "lowVoltage" <:= FloatV 0.5,
+      "0LevelVoltage" <:= FloatV 0.5,
       "frequency" <:= range (FloatV 0) (FloatV 400e3)
       ]
     return ()
 
   constrain $ port i2c (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
-  constrain $ port i2c (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
-  constrain $ port i2c (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+  constrain $ port i2c (typeVal "limit0LevelVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+  constrain $ port i2c (typeVal "limit1LevelVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
 
   constrain $ port i2c (typeVal "controlUid") :== uid
 
@@ -183,8 +183,8 @@ mcu = do
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
       "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-      "lowVoltage" <:= FloatV 0.5,
-      "highVoltage" <:= FloatV 2.3,
+      "0LevelVoltage" <:= FloatV 0.5,
+      "1LevelVoltage" <:= FloatV 2.3,
       "baud" <:= range (FloatV 0) (FloatV 1e6)
       ]
     return ()
@@ -193,8 +193,8 @@ mcu = do
 
   constrain $ port uart (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
-  constrain $ port uart (typeVal "limitLowVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
-  constrain $ port uart (typeVal "limitHighVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+  constrain $ port uart (typeVal "limit0LevelVoltage") :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
+  constrain $ port uart (typeVal "limit1LevelVoltage") :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
 
   constrain $ port uart (typeVal "controlUid") :== uid
 

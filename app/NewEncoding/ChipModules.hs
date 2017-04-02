@@ -37,7 +37,7 @@ tmp102 = do
     setType [
       "limitCurrent" <:= (range (FloatV 0) (FloatV 1e-6)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatV 3.6)),
-      "lowVoltage" <:= FloatV 0.4,
+      "0LevelVoltage" <:= FloatV 0.4,
       "frequency" <:= range (FloatV 1e3) (FloatV 3.4e6),
       "id" <:= IntC $ oneOf[72, 73, 74, 75]
       ]
@@ -47,8 +47,8 @@ tmp102 = do
   constrain $ port vin connected
   constrain $ port i2c connected
 
-  constrain $ port i2c (typeVal "limitLowVoltage") :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.3))
-  constrain $ port i2c (typeVal "limitHighVoltage") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.7))
+  constrain $ port i2c (typeVal "limit0LevelVoltage") :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.3))
+  constrain $ port i2c (typeVal "limit1LevelVoltage") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.7))
 
   constrain $ port i2c (typeVal "controlUid") :== port api (typeVal "controlUid")
   constrain $ port i2c (typeVal "controlName") :== port api (typeVal "controlName")
@@ -82,9 +82,9 @@ serialLcdBase16f88 = do
 
       "limitCurrent" <:= (range (FloatV (-25e-3)) (FloatV 25e-3)),
       "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
-      -- "lowVoltage" <:= FloatV 0.6,
+      -- "0LevelVoltage" <:= FloatV 0.6,
       -- doesn't transmit, make it compatible with everything
-      "lowVoltage" <:= FloatV 0,
+      "0LevelVoltage" <:= FloatV 0,
       "baud" <:= range (FloatV 2400) (FloatV 38400)  -- limitation of SFE Serial LCD, not PIC16F88
       ]
     return ()
@@ -95,13 +95,13 @@ serialLcdBase16f88 = do
 
   constrain $ port uart (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.3))
 
-  -- constrain $ port "uart" (typeVal "highVoltage") :== (port vin (typeVal "voltage.min") :- Lit (FloatV 0.7))
+  -- constrain $ port "uart" (typeVal "1LevelVoltage") :== (port vin (typeVal "voltage.min") :- Lit (FloatV 0.7))
   -- doesn't transmit, make it compatible with everything
-  constrain $ port uart (typeVal "highVoltage") :== port vin (typeVal "voltage.min")
+  constrain $ port uart (typeVal "1LevelVoltage") :== port vin (typeVal "voltage.min")
 
   -- datasheet isn't clear about the RX input type, assuming TTL
-  constrain $ port uart (typeVal "limitLowVoltage") :== (port vin (typeVal "voltage.min") :* Lit(FloatV 0.15))
-  constrain $ port uart (typeVal "limitHighVoltage") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.25) :+ Lit (FloatV 0.8))
+  constrain $ port uart (typeVal "limit0LevelVoltage") :== (port vin (typeVal "voltage.min") :* Lit(FloatV 0.15))
+  constrain $ port uart (typeVal "limit1LevelVoltage") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.25) :+ Lit (FloatV 0.8))
 
   constrain $ port uart (typeVal "controlUid") :== port api (typeVal "controlUid")
   constrain $ port uart (typeVal "controlName") :== port api (typeVal "controlName")

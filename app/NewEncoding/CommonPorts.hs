@@ -28,7 +28,7 @@ powerSink = do
 
   -- Make sure that the voltages we see at runtime are a subset of the
   -- voltages this link is capable of handling.
-  -- constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
+  constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
 
   return ()
 
@@ -43,7 +43,7 @@ powerSource = do
     ]
 
   -- Make sure that the currents we see at runtime are a subset of the
-  -- currentss this link is capable of handling.
+  -- currents this link is capable of handling.
   constrain $ rSubset (typeVal "current") (typeVal "limitCurrent")
 
   return ()
@@ -77,9 +77,9 @@ digitalSink = do
   setIdent "DigitalSink"
   setType [
     -- The lower limit for the high voltage threshold
-    "limitHighVoltage" <:= FloatC unknown,
+    "limit1LevelVoltage" <:= FloatC unknown,
     -- The upper limir for the low voltage threshold
-    "limitLowVoltage" <:= FloatC unknown
+    "limit0LevelVoltage" <:= FloatC unknown
     ]
   return ()
 
@@ -91,9 +91,9 @@ digitalSource = do
   setIdent "DigitalSource"
   setType [
     -- The voltage the source uses for a 1
-    "highVoltage" <:= FloatC unknown,
+    "1LevelVoltage" <:= FloatC unknown,
     -- The voltage the source uses for a 0
-    "lowVoltage" <:= FloatC unknown
+    "0LevelVoltage" <:= FloatC unknown
     ]
   return ()
 
@@ -103,18 +103,18 @@ digitalBidirBase = do
   powerSink
   setType [
     -- The voltage the source uses for a 1
-      "highVoltage" <:= FloatC unknown
+      "1LevelVoltage" <:= FloatC unknown
     -- The voltage the source uses for a 0
-    , "lowVoltage" <:= FloatC unknown
+    , "0LevelVoltage" <:= FloatC unknown
     -- The lower limit for the high voltage threshold
-    , "limitHighVoltage" <:= FloatC unknown
+    , "limit1LevelVoltage" <:= FloatC unknown
     -- The upper limir for the low voltage threshold
-    , "limitLowVoltage" <:= FloatC unknown
+    , "limit0LevelVoltage" <:= FloatC unknown
     ]
   -- Ensure that the read levels and write levels for this port are
   -- sensible.
-  constrain $ typeVal "lowVoltage"  :<= typeVal "limitLowVoltage"
-  constrain $ typeVal "highVoltage" :>= typeVal "limitHighVoltage"
+  -- constrain $ typeVal "0LevelVoltage"  :<= typeVal "limit0LevelVoltage"
+  -- constrain $ typeVal "1LevelVoltage" :>= typeVal "limit1LevelVoltage"
   return ()
 
 digitalBidir :: (IsPort p) => p ()
