@@ -45,10 +45,13 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  leds <- forM @[] [1..0] $ \ id -> addPort ("led" ++ (show id)) $ do
+  let makePorts i s m = forM @[] [1..i]
+        (\ id -> let name = s ++ (show id) in addPort name $ m name)
+
+  leds <- makePorts 1 "led" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV ("led" ++ (show id)),
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "led",
       "apiData" <:= Record [
         "bandwidth" <:= FloatV 500
@@ -56,10 +59,10 @@ seed = do
       ]
     return ()
 
-  buttons <- forM @[] [1..0] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- makePorts 1 "button" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV ("button" ++ (show id)),
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "button",
       "apiData" <:= Record [
         "bandwidth" <:= FloatV 500
@@ -67,31 +70,31 @@ seed = do
       ]
     return ()
 
-  tsenses <- forM @[] [1..0] $ \ id -> addPort ("tsense" ++ (show id)) $ do
+  tsenses <- makePorts 1 "tsense" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV ("tsense" ++ (show id)),
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "temperatureSensor"
       ]
     return ()
 
-  lcds <- forM @[] [1..0] $ \ id -> addPort ("lcds" ++ (show id)) $ do
+  lcds <- makePorts 1 "lcd" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV "lcd",
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "characterLcd"
       ]
     return ()
 
-  storages <- forM @[] [1..1] $ \ id -> addPort ("storages" ++ (show id)) $ do
+  storages <- makePorts 1 "sdCard" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV "storage",
+      "controlName" <:= StringV name,
       "apiType" <:= StringV "nvmemory"
       ]
     return ()
 
-  let allPorts = (buttons ++ leds ++ tsenses ++ lcds ++ storages)
+  let allPorts = buttons ++ leds ++ tsenses ++ lcds ++ storages
 
   ensureConnected allPorts
 
