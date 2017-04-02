@@ -5,6 +5,7 @@ import NewEncoding.CommonPorts
 import NewEncoding.CommonLinks
 import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
+import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
 
 import Control.Monad

@@ -76,9 +76,9 @@ digitalSink = do
   setKind "DigitalSink"
   setIdent "DigitalSink"
   setType [
-    -- The lower limit for the high voltage threshold
+    -- The lower limit for the 1 voltage threshold
     "limit1VoltageLevel" <:= FloatC unknown,
-    -- The upper limir for the low voltage threshold
+    -- The upper limir for the 0 voltage threshold
     "limit0VoltageLevel" <:= FloatC unknown
     ]
   return ()
@@ -106,15 +106,11 @@ digitalBidirBase = do
       "1VoltageLevel" <:= FloatC unknown
     -- The voltage the source uses for a 0
     , "0VoltageLevel" <:= FloatC unknown
-    -- The lower limit for the high voltage threshold
+    -- The lower limit for the 1 voltage threshold
     , "limit1VoltageLevel" <:= FloatC unknown
-    -- The upper limir for the low voltage threshold
+    -- The upper limir for the 0 voltage threshold
     , "limit0VoltageLevel" <:= FloatC unknown
     ]
-  -- Ensure that the read levels and write levels for this port are
-  -- sensible.
-  -- constrain $ typeVal "0VoltageLevel"  :<= typeVal "limit0VoltageLevel"
-  -- constrain $ typeVal "1VoltageLevel" :>= typeVal "limit1VoltageLevel"
   return ()
 
 digitalBidir :: (IsPort p) => p ()

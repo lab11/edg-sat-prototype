@@ -45,3 +45,10 @@ ensureConnected = mapM_ (\ p -> constrain $ port p connected)
 matchedPairs :: (Constrainable a) => (Exp a, Exp a) -> (Exp a, Exp a) -> Exp a
 matchedPairs (a,a') (b,b')
   = ((a :== b) :&& (a' :== b')) :|| ((a :== b') :&& (a' :== b))
+
+-- | Ensure that a particular pair of ports have valid sets of levels for
+--   their digital IO
+voltageLevelCheck :: (IsBlock p) => PortName -> PortName -> Exp p
+voltageLevelCheck source sink =
+      (port source (typeVal "0VoltageLevel") :<= port sink (typeVal "limit0VoltageLevel"))
+  :&& (port source (typeVal "1VoltageLevel") :>= port sink (typeVal "limit1VoltageLevel"))
