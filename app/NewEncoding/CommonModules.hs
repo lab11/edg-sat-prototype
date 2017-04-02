@@ -5,6 +5,7 @@ import Control.Monad
 import EDG
 import NewEncoding.CommonPorts
 import NewEncoding.CommsPorts
+import NewEncoding.Util
 
 -- A button module
 button :: Module ()
@@ -27,6 +28,7 @@ button = do
       "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
       ]
     return ()
+
   out <- addPort "out" $ do
     digitalSource
     setType [
@@ -75,6 +77,12 @@ led = do
       ]
     return ()
 
+  -- ensureConnected [api, source]
+
+  -- setFieldsEq True [api, source] [
+  --     "controlUid"
+  --   , "controlName"
+  --   ]
   constrain $ port api connected
   constrain $ port source connected
 

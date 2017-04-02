@@ -2,6 +2,7 @@ module NewEncoding.Simon where
 
 import EDG
 import NewEncoding.CommonPorts
+import NewEncoding.CommonLinks
 import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
 import NewEncoding.ChipModules
@@ -81,6 +82,18 @@ seed = do
     return ()
 
   let allPorts = (buttons ++ leds ++ tsenses ++ [lcd])
+-- =======
+--   -- tsense <- addPort "tsense" $ do
+--   --   apiConsumer
+--   --   setType [
+--   --     "controlName" <:= StringV "tsense",
+--   --     "apiType" <:= StringV "temperatureSensor",
+--   --     "apiData" <:= Record unknown
+--   --     ]
+--   --   return ()
+--
+--   let allPorts = (buttons ++ leds {- ++ [tsense] -})
+-- >>>>>>> feature/refactor-parts
   forM allPorts (\ portId -> constrain $ port portId connected)
   forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
 
