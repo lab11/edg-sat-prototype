@@ -123,7 +123,7 @@ mcu = do
         ]
       return ()
 
-  digitalPins <- forM @[] ([0..10] ++ [4..16]) $ \ id ->
+  digitalPins <- forM @[] ([0..10] ++ [14..16]) $ \ id ->
     newResource ("D" ++ (show id))
   analogPins <- forM @[] [0..3] $ \ id ->
     newResource ("A" ++ (show id))
@@ -188,7 +188,7 @@ mcu = do
       ]
     return ()
 
-  constrain $ port uart (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
+  setFieldsEq False [uart, p3v3Out] ["voltage.max"]
 
   constrain $ port uart (typeVal "controlUid") :== uid
 
@@ -197,6 +197,30 @@ mcu = do
   constrainResources uart (port uart $ connected) [
     (uart ++ "TX") :|= [digitalPins !! 1],
     (uart ++ "RX") :|= [digitalPins !! 0]
+    ]
+
+  spi <- addPort "spi" $ do
+    spiMaster
+    setType [
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
+      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "0VoltageLevel" <:= FloatV 0.5,
+      "1VoltageLevel" <:= FloatV 2.3,
+      "frequency" <:= range (FloatV 0) (FloatV 4e6)  -- max of fOsc/2
+      ]
+    return ()
+
+  setFieldsEq False [spi, p3v3Out] ["voltage.max"]
+
+  constrain $ port spi (typeVal "controlUid") :== uid
+
+  constrainPortVoltageLevels spi
+
+  constrainResources spi (port spi $ connected) [
+    (spi ++ "SCK" ) :|= [digitalPins !! 12],
+    (spi ++ "MISO") :|= [digitalPins !! 11],
+    (spi ++ "MOSI") :|= [digitalPins !! 13]
     ]
 
   return ()

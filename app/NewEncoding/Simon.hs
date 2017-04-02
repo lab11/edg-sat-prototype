@@ -1,6 +1,7 @@
 module NewEncoding.Simon where
 
 import EDG
+import NewEncoding.Util
 import NewEncoding.CommonPorts
 import NewEncoding.CommonLinks
 import NewEncoding.CommonModules
@@ -19,16 +20,18 @@ testLibrary = EDGLibrary{
     ("tmp102", 1, tmp102),
     ("lcd3v3", 1, serialLcd16x2_3v3),
     ("lcd5v", 1, serialLcd16x2_5v),
+    ("sdcard", 1, sdcard),
     ("mcu", 1, mcu)
     ],
   links = [
-    ("apiLink", 5, apiLink), -- 1 + 1 + 1 + 1
-    ("powerLink", 3, powerLink 8), -- 1 + 1 + 1
+    ("apiLink", 6, apiLink),
+    ("powerLink", 4, powerLink 8),
     ("digitalBidirLink", 0, digitalBidirLink),
-    ("digitalBidirSinkLink", 1, digitalBidirSinkLink), -- 1
-    ("digitalBidirSourceLink", 1, digitalBidirSourceLink), -- 1
-    ("uartLink", 1, uartLink), -- 1
-    ("i2cLink", 1, i2cLink 2), -- 1
+    ("digitalBidirSinkLink", 2, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
+    ("spiLink", 1, spiLink 2),
+    ("uartLink", 1, uartLink),
+    ("i2cLink", 1, i2cLink 2),
     ("digitalLink", 0, digitalLink)
     ]
   }
@@ -42,7 +45,7 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  leds <- forM @[] [1..1] $ \ id -> addPort ("led" ++ (show id)) $ do
+  leds <- forM @[] [1..0] $ \ id -> addPort ("led" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("led" ++ (show id)),
@@ -53,7 +56,7 @@ seed = do
       ]
     return ()
 
-  buttons <- forM @[] [1..1] $ \ id -> addPort ("button" ++ (show id)) $ do
+  buttons <- forM @[] [1..0] $ \ id -> addPort ("button" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("button" ++ (show id)),
@@ -64,27 +67,35 @@ seed = do
       ]
     return ()
 
-  tsenses <- forM @[] [1..1] $ \ id -> addPort ("tsense" ++ (show id)) $ do
+  tsenses <- forM @[] [1..0] $ \ id -> addPort ("tsense" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV ("tsense" ++ (show id)),
-      "apiType" <:= StringV "temperatureSensor",
-      "apiData" <:= Record unknown
+      "apiType" <:= StringV "temperatureSensor"
       ]
     return ()
 
-  lcds <- forM @[] [1..1] $ \ id -> addPort ("lcds" ++ (show id)) $ do
+  lcds <- forM @[] [1..0] $ \ id -> addPort ("lcds" ++ (show id)) $ do
     apiConsumer
     setType [
       "controlName" <:= StringV "lcd",
-      "apiType" <:= StringV "characterLcd",
-      "apiData" <:= Record unknown
+      "apiType" <:= StringV "characterLcd"
       ]
     return ()
 
-  let allPorts = (buttons ++ leds ++ tsenses ++ lcds)
-  forM allPorts (\ portId -> constrain $ port portId connected)
-  forM allPorts (\ portId -> constrain $ port portId (typeVal "controlUid") :== (typeVal "controlUid"))
+  storages <- forM @[] [1..1] $ \ id -> addPort ("storages" ++ (show id)) $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "storage",
+      "apiType" <:= StringV "nvmemory"
+      ]
+    return ()
+
+  let allPorts = (buttons ++ leds ++ tsenses ++ lcds ++ storages)
+
+  ensureConnected allPorts
+
+  setFieldsEq True allPorts ["controlUid"]
 
   return ()
 

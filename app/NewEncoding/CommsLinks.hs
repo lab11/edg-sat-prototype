@@ -39,6 +39,36 @@ uartLink = do
 
   return ()
 
+spiLink :: Int -> Link ()
+spiLink numSlaves = do
+  setIdent ("SpiLink" ++ (show numSlaves))
+  setSignature "SpiLink"
+
+  master <- addPort "master" $ do
+    spiMaster
+    setType [
+      "controlName" <:= StringV "spi"
+      ]
+    return()
+
+  slaves <- forM @[] [1..numSlaves] $ \ slaveId ->
+    addPort ("slave" ++ (show slaveId)) spiSlave
+
+  ensureConnected [master]
+  constrain $ Any (map (\ slave -> port slave connected) slaves)
+
+  setFieldsEq False (master : slaves) ["voltage", "controlUid"]
+
+  forM slaves $ \ slave -> do
+    constrain $ voltageLevelCheck slave  master
+    constrain $ voltageLevelCheck master slave
+
+    constrain $ rNotDisjoint (port master (typeVal "frequency")) (port slave (typeVal "frequency"))
+
+    -- constrain $ port master (typeVal "controlUid") :== port slave (typeVal "controlUid")
+
+  return ()
+
 i2cLink :: Int -> Link ()
 i2cLink numSlaves = do
   setIdent ("I2cLink" ++ (show numSlaves))

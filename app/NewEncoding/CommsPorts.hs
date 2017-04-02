@@ -10,8 +10,9 @@ import NewEncoding.CommonPorts
 spiBase :: (IsPort p) => p ()
 spiBase = do
   digitalBidirBase
+  controllable
   setType [
-    "frequency" <:= FloatC unknown
+    "frequency" <:= range (FloatC unknown) (FloatC unknown)
     ]
   return ()
 
@@ -53,9 +54,6 @@ uartSlave = do
   setKind "UartSlave"
   setIdent "UartSlave"
   return ()
-
-
-
 
 i2cBase :: (IsPort p) => p ()
 i2cBase = do
@@ -110,4 +108,3 @@ i2cPowerSink = do
 -- combinations n xs = do y:xs' <- tails xs
 --                        ys <- combinations (n-1) xs'
 --                        return (y:ys)
-

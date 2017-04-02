@@ -34,6 +34,16 @@ setFieldsEq inclBlock ports fields = do
   when inclBlock . forM_ ports $ \ p ->
     mapM_ (constrainBoth (:==) id (port p)) fields
 
+-- | ensure all the fields specified aren't equal to each other.
+setFieldsNeq :: (IsBlock b) => Bool -> [PortName] -> [String] -> b ()
+setFieldsNeq inclBlock ports fields = do
+  -- Set these fields equal for every pair of ports
+  forM_ (allPairs ports) $ \ (p,p') ->
+    mapM_ (constrainBoth (:/=) (port p) (port p')) fields
+  -- If we're including the blocktype then set that equal too
+  when inclBlock . forM_ ports $ \ p ->
+    mapM_ (constrainBoth (:/=) id (port p)) fields
+
 -- | Ensure all of these ports are connected
 ensureConnected :: (IsBlock b) => [PortName] -> b ()
 ensureConnected = mapM_ (\ p -> constrain $ port p connected)
