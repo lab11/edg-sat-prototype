@@ -1,6 +1,7 @@
 module NewEncoding.ChipModules where
 
 import EDG
+import NewEncoding.Util
 import NewEncoding.CommonPorts
 import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
@@ -43,15 +44,19 @@ tmp102 = do
       ]
     return ()
 
-  constrain $ port api connected
-  constrain $ port vin connected
-  constrain $ port i2c connected
+  ensureConnected [api, vin, i2c]
+
+  -- constrain $ port api connected
+  -- constrain $ port vin connected
+  -- constrain $ port i2c connected
 
   constrain $ port i2c (typeVal "limit0VoltageLevel") :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.3))
   constrain $ port i2c (typeVal "limit1VoltageLevel") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.7))
 
-  constrain $ port i2c (typeVal "controlUid") :== port api (typeVal "controlUid")
-  constrain $ port i2c (typeVal "controlName") :== port api (typeVal "controlName")
+  setFieldsEq False [i2c, api] ["controlUid", "controlName"]
+
+  -- constrain $ port i2c (typeVal "controlUid") :== port api (typeVal "controlUid")
+  -- constrain $ port i2c (typeVal "controlName") :== port api (typeVal "controlName")
 
   return ()
 
@@ -89,9 +94,11 @@ serialLcdBase16f88 = do
       ]
     return ()
 
-  constrain $ port api connected
-  constrain $ port vin connected
-  constrain $ port uart connected
+  ensureConnected [api, vin, uart]
+
+  -- constrain $ port api connected
+  -- constrain $ port vin connected
+  -- constrain $ port uart connected
 
   constrain $ port uart (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.3))
 
@@ -103,8 +110,10 @@ serialLcdBase16f88 = do
   constrain $ port uart (typeVal "limit0VoltageLevel") :== (port vin (typeVal "voltage.min") :* Lit(FloatV 0.15))
   constrain $ port uart (typeVal "limit1VoltageLevel") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.25) :+ Lit (FloatV 0.8))
 
-  constrain $ port uart (typeVal "controlUid") :== port api (typeVal "controlUid")
-  constrain $ port uart (typeVal "controlName") :== port api (typeVal "controlName")
+  setFieldsEq False [uart, api] ["controlUid", "controlName"]
+
+  -- constrain $ port uart (typeVal "controlUid") :== port api (typeVal "controlUid")
+  -- constrain $ port uart (typeVal "controlName") :== port api (typeVal "controlName")
 
   return (api,vin)
 
