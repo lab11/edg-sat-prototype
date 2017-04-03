@@ -22,19 +22,21 @@ testLibrary = EDGLibrary{
     ("lcd5v", 1, serialLcd16x2_5v),
     ("sdcard", 1, sdcard),
     ("pcf8575", 1, pcf8575),
-    ("mcu", 1, mcu)
+    ("digitalAmplifier", 1, digitalAmplifier),
+    ("controlledFan", 1, controlledFan),
+    ("apm3v3", 1, apm3v3)
     ],
   links = [
-    ("apiLink", 6, apiLink),
-    ("powerLink", 2, powerLink 8),
+    ("apiLink", 8, apiLink),
+    ("powerLink", 3, powerLink 6),
     ("usbLink", 1, usbLink),
     ("digitalBidirLink", 0, digitalBidirLink),
-    ("digitalBidirSinkLink", 2, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
     ("spiLink", 1, spiLink 2),
     ("uartLink", 1, uartLink),
     ("i2cLink", 1, i2cLink 2),
-    ("digitalLink", 0, digitalLink)
+    ("digitalLink", 2, digitalLink)
     ]
   }
 
@@ -55,6 +57,14 @@ seed = do
     setType[
       "voltage" <:= (range (FloatV 4.5) (FloatV 5.5)),
       "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
+      ]
+    return ()
+
+  pwr12v <- addPort "pwr12v" $ do
+    powerSource
+    setType[
+      "voltage" <:= (range (FloatV 11) (FloatV 13)),
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 1))
       ]
     return ()
 
@@ -104,7 +114,16 @@ seed = do
       ]
     return ()
 
-  let allPorts = buttons ++ leds ++ tsenses ++ lcds ++ storages
+  -- I don't know why you need a fan for Simon, but why not...
+  fans <- makePorts 1 "fan" $ \ name -> do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV name,
+      "apiType" <:= StringV "controlledFan"
+      ]
+    return ()
+
+  let allPorts = buttons ++ leds ++ tsenses ++ lcds ++ storages ++ fans
 
   ensureConnected allPorts
 
