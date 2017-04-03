@@ -21,11 +21,13 @@ testLibrary = EDGLibrary{
     ("lcd3v3", 1, serialLcd16x2_3v3),
     ("lcd5v", 1, serialLcd16x2_5v),
     ("sdcard", 1, sdcard),
+    -- ("pcf8575", 1, pcf8575),
     ("mcu", 1, mcu)
     ],
   links = [
     ("apiLink", 6, apiLink),
-    ("powerLink", 4, powerLink 8),
+    ("powerLink", 2, powerLink 8),
+    ("usbLink", 1, usbLink),
     ("digitalBidirLink", 0, digitalBidirLink),
     ("digitalBidirSinkLink", 2, digitalBidirSinkLink),
     ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
@@ -47,6 +49,14 @@ seed = do
 
   let makePorts i s m = forM @[] [1..i]
         (\ id -> let name = s ++ (show id) in addPort name $ m name)
+
+  usbHost <- addPort "usbHost" $ do
+    usbHost
+    setType[
+      "voltage" <:= (range (FloatV 4.5) (FloatV 5.5)),
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
+      ]
+    return ()
 
   leds <- makePorts 1 "led" $ \ name -> do
     apiConsumer

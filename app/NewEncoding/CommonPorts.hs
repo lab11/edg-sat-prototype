@@ -38,7 +38,7 @@ powerSource = do
   setKind "PowerSource"
   setIdent "PowerSource"
   setType [
-    -- The range of currents this source is capable of handling.
+    -- The range of currents this source is capable of providing.
     "limitCurrent" <:= (range (FloatC unknown) (FloatC unknown))
     ]
 
@@ -51,7 +51,7 @@ powerSource = do
 controllable :: (IsPort p) => p ()
 controllable = do
   setType [
-    -- The UID of the element being controlled.
+    -- The UID of the device (typically a microcontroller) controlling this link
     "controlUid" <:= UID,
     -- The used assigned name for the element being controlled.
     "controlName" <:= StringC unknown
@@ -76,9 +76,9 @@ digitalSink = do
   setKind "DigitalSink"
   setIdent "DigitalSink"
   setType [
-    -- The lower limit for the 1 voltage threshold
+    -- The voltage above which a signal will be interpretered as a 1
     "limit1VoltageLevel" <:= FloatC unknown,
-    -- The upper limir for the 0 voltage threshold
+    -- The voltage below which a signal will be interpretered as a 0
     "limit0VoltageLevel" <:= FloatC unknown
     ]
   return ()
@@ -90,9 +90,9 @@ digitalSource = do
   setKind "DigitalSource"
   setIdent "DigitalSource"
   setType [
-    -- The voltage the source uses for a 1
+    -- The minimum guaranteed output voltage of a logic 1
     "1VoltageLevel" <:= FloatC unknown,
-    -- The voltage the source uses for a 0
+    -- The minimum guaranteed output voltage of a logic 0
     "0VoltageLevel" <:= FloatC unknown
     ]
   return ()
@@ -106,9 +106,9 @@ digitalBidirBase = do
       "1VoltageLevel" <:= FloatC unknown
     -- The voltage the source uses for a 0
     , "0VoltageLevel" <:= FloatC unknown
-    -- The lower limit for the 1 voltage threshold
+    -- The voltage above which a signal will be interpretered as a 1
     , "limit1VoltageLevel" <:= FloatC unknown
-    -- The upper limir for the 0 voltage threshold
+    -- The voltage below which a signal will be interpretered as a 0
     , "limit0VoltageLevel" <:= FloatC unknown
     ]
   return ()

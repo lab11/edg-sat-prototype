@@ -93,22 +93,24 @@ mcu = do
     "MHz" <:= FloatV 8.0  -- TODO: is this useful?
     ]
 
-  -- TODO add USBIn port and constraint
+  usbIn <- addPort "usbDevice" $ do
+    usbDevice
+    setType [
+        "limitVoltage" <:= (range (FloatV 4.5) (FloatV 5.5))
+      ]
+    return ()
+
+  constrain $ port usbIn connected
 
   p5vOut <- addPort "5vOut" $ do
     powerSource
-    setType [
-      "voltage" <:= (range (FloatV 4.5) (FloatV 5.5)),
-      "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
-      ]
     return ()
 
   -- MIC5219 regulator
   p3v3Out <- addPort "3v3Out" $ do
     powerSource
     setType [
-      "voltage" <:= (range (FloatV 3.234) (FloatV 3.366)),
-      "limitCurrent" <:= (range (FloatV 0) (FloatV 0.5))
+      "voltage" <:= (range (FloatV 3.234) (FloatV 3.366))
       ]
     return ()
 
@@ -128,15 +130,14 @@ mcu = do
   analogPins <- forM @[] [0..3] $ \ id ->
     newResource ("A" ++ (show id))
 
-  -- TODO: add current sums again
-  --  constrain $ port usbIn (typeVal "current.min") :== Sum (
-  --    (port p5vOut $ typeVal "current.min") :
-  --    (port p3v3Out $ typeVal "current.min") :
-  --    (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
-  --  constrain $ port usbIn (typeVal "current.max") :== Sum (
-  --    (port p5vOut $ typeVal "current.max") :
-  --    (port p3v3Out $ typeVal "current.max") :
-  --    (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
+  constrain $ port usbIn (typeVal "current.min") :== Sum (
+    (port p5vOut $ typeVal "current.min") :
+    (port p3v3Out $ typeVal "current.min") :
+    (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
+  constrain $ port usbIn (typeVal "current.max") :== Sum (
+    (port p5vOut $ typeVal "current.max") :
+    (port p3v3Out $ typeVal "current.max") :
+    (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
   let constrainPortVoltageLevels setPort = do
           constrain $ port setPort (typeVal "limitVoltage.max"  )
