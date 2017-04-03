@@ -114,7 +114,7 @@ mcu = do
       ]
     return ()
 
-  gpios <- forM @[] [1..4] $ \ gpioId ->
+  gpios <- forM @[] [1..2] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
