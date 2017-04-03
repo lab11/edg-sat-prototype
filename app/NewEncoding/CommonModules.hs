@@ -85,8 +85,8 @@ led = do
 
   return ()
 
-mcu :: Module ()
-mcu = do
+apm3v3 :: Module ()
+apm3v3 = do
   setIdent "Arduino Pro Micro 3v3"
   setSignature "Arduino Pro Micro 3v3"
   setType [
@@ -114,7 +114,7 @@ mcu = do
       ]
     return ()
 
-  gpios <- forM @[] [1..2] $ \ gpioId ->
+  gpios <- forM @[] [1..4] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
@@ -161,7 +161,6 @@ mcu = do
   i2c <- addPort "i2c" $ do
     i2cMaster
     setType [
-      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
       "0VoltageLevel" <:= FloatV 0.5,
       "frequency" <:= range (FloatV 0) (FloatV 400e3)
@@ -181,7 +180,6 @@ mcu = do
     uartMaster
     setType [
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
-      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
       "0VoltageLevel" <:= FloatV 0.5,
       "1VoltageLevel" <:= FloatV 2.3,
@@ -204,7 +202,6 @@ mcu = do
     spiMaster
     setType [
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
-      "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
       "0VoltageLevel" <:= FloatV 0.5,
       "1VoltageLevel" <:= FloatV 2.3,
