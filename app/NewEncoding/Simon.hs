@@ -21,7 +21,7 @@ testLibrary = EDGLibrary{
     ("lcd3v3", 1, serialLcd16x2_3v3),
     ("lcd5v", 1, serialLcd16x2_5v),
     ("sdcard", 1, sdcard),
-    -- ("pcf8575", 1, pcf8575),
+    ("pcf8575", 1, pcf8575),
     ("mcu", 1, mcu)
     ],
   links = [

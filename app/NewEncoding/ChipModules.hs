@@ -269,8 +269,10 @@ pcf8575 = do
   constrain $ Any (map (\ gpio -> port gpio connected) gpios)
 
   constrain $ port vin (typeVal "current.min") :== Sum (
+    (Lit (FloatV 100e-6)) :  -- device operating current
     (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
   constrain $ port vin (typeVal "current.max") :== Sum (
+    (Lit (FloatV 200e-6)) :  -- device operating current
     (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
   setFieldsEq False (i2c : gpios) ["controlUid", "controlName"]
