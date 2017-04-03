@@ -7,6 +7,22 @@ import EDG
 import NewEncoding.Util
 import NewEncoding.CommonPorts
 
+usbHost :: (IsPort p) => p ()
+usbHost = do
+  powerSource
+  setKind "UsbHost"
+  setIdent "UsbHost"
+  return ()
+
+
+usbDevice :: (IsPort p) => p ()
+usbDevice = do
+  powerSink
+  setKind "usbDevice"
+  setIdent "usbDevice"
+  return ()
+
+
 spiBase :: (IsPort p) => p ()
 spiBase = do
   digitalBidirBase

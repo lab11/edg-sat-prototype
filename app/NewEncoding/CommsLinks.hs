@@ -9,6 +9,20 @@ import NewEncoding.Util
 import NewEncoding.CommonPorts
 import NewEncoding.CommsPorts
 
+-- Electrical Links
+usbLink :: Link ()
+usbLink = do
+  setIdent "UsbLink"
+  setSignature "UsbLink"
+
+  host <- addPort "host" usbHost
+  device <- addPort "device" usbDevice
+
+  ensureConnected [host, device]
+  setFieldsEq False [host, device] ["voltage", "current"]
+
+  return ()
+
 uartLink :: Link ()
 uartLink = do
   setIdent "UartLink"
