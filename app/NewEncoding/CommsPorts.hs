@@ -7,6 +7,29 @@ import EDG
 import NewEncoding.Util
 import NewEncoding.CommonPorts
 
+digitalCommsBase :: (IsPort p) => p ()
+digitalCommsBase = do
+  -- TODO: refactor with powerBase?
+  setType [
+    -- The concrete range of voltages expected to be seen at runtime.
+    "voltage" <:= (range (FloatC unknown) (FloatC unknown)),
+    -- The range of acceptable voltages this link is capable of handling
+    "limitVoltage" <:= (range (FloatC unknown) (FloatC unknown))
+    ]
+  constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
+  -- Digital signal level thresholds
+  setType [
+    -- The voltage the source uses for a 1
+      "1VoltageLevel" <:= FloatC unknown
+    -- The voltage the source uses for a 0
+    , "0VoltageLevel" <:= FloatC unknown
+    -- The voltage above which a signal will be interpretered as a 1
+    , "limit1VoltageLevel" <:= FloatC unknown
+    -- The voltage below which a signal will be interpretered as a 0
+    , "limit0VoltageLevel" <:= FloatC unknown
+    ]
+  return ()
+
 usbHost :: (IsPort p) => p ()
 usbHost = do
   powerSource
@@ -25,7 +48,7 @@ usbDevice = do
 
 spiBase :: (IsPort p) => p ()
 spiBase = do
-  digitalBidirBase
+  digitalCommsBase
   controllable
   setType [
     "frequency" <:= range (FloatC unknown) (FloatC unknown)
@@ -51,7 +74,8 @@ spiSlave = do
 
 uartBase :: (IsPort p) => p ()
 uartBase = do
-  digitalBidirBase
+  digitalCommsBase
+  controllable
   setType [
     "baud" <:= range (FloatC unknown) (FloatC unknown)
     ]
@@ -73,8 +97,7 @@ uartSlave = do
 
 i2cBase :: (IsPort p) => p ()
 i2cBase = do
-  powerSource
-  powerSink
+  digitalCommsBase
   controllable
   setType [
     "1VoltageLevel" <:= FloatC unknown,

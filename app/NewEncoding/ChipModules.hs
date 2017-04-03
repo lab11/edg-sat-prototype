@@ -30,7 +30,6 @@ tmp102 = do
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "current" <:= (range (FloatV 0.5e-6) (FloatV 85e-6)),
       "limitVoltage" <:= (range (FloatV 2.0) (FloatV 3.6))  -- TODO technically down to 1.4 for digital thresholds characterized for V+>2.0
       ]
     return ()
@@ -38,7 +37,6 @@ tmp102 = do
   i2c <- addPort "i2c" $ do
     i2cSlave
     setType [
-      "limitCurrent" <:= (range (FloatV 0) (FloatV 1e-6)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatV 3.6)),
       "0VoltageLevel" <:= FloatV 0.4,
       "frequency" <:= range (FloatV 1e3) (FloatV 3.4e6),
@@ -78,9 +76,7 @@ serialLcdBase16f88 = do
     uartSlave
     setType [
       "voltage" <:= (range (FloatV 0) (FloatV 0)),  -- no output
-      "current" <:= (range (FloatV 0) (FloatV 0)),
 
-      "limitCurrent" <:= (range (FloatV (-25e-3)) (FloatV 25e-3)),
       "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
       -- "0VoltageLevel" <:= FloatV 0.6,
       -- doesn't transmit, make it compatible with everything
@@ -169,8 +165,6 @@ sdcard = do
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
       "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
 
-      "current" <:= (range (FloatV 0) (FloatV 0)),
-      "limitCurrent" <:= (range (FloatV 0) (FloatV 0)),
       -- actual logic level thresholds are unknown, not part of the simplified spec
       "0VoltageLevel" <:= FloatV 0,
       "limit1VoltageLevel" <:= FloatV 0,
@@ -183,7 +177,6 @@ sdcard = do
     digitalSink
     setType [
       "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
-      "current" <:= (range (FloatV 0) (FloatV 0)),
       -- actual logic level thresholds are unknown, not part of the simplified spec
 
       "limit1VoltageLevel" <:= FloatV 0,
@@ -234,7 +227,6 @@ pcf8575 = do
   i2c <- addPort "i2c" $ do
     i2cSlave
     setType [
-      "limitCurrent" <:= (range (FloatV 0) (FloatV 0)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
       "0VoltageLevel" <:= FloatV 0.4,  -- guess based on specified Vol test conditions for SDA Iol
       "frequency" <:= range (FloatV 0) (FloatV 400e3),
@@ -278,3 +270,81 @@ pcf8575 = do
   setFieldsEq False (i2c : gpios) ["controlUid", "controlName"]
 
   return ()
+
+
+
+controlledFan :: Module ()
+controlledFan = do
+  setIdent "Controlled 12V fan"
+  setSignature "Controlled 12V fan"
+  setType []
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "controlledFan",
+      -- TODO: more properties
+      "apiData" <:= Record [
+        ]
+      ]
+    return ()
+
+  vin <- addPort "vin" $ do
+    digitalSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0.2)),  -- TODO non guesstimate currents
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 13.6)),  -- TODO non guesstimate ratings
+      "limit0VoltageLevel" <:= FloatV 3.0,
+      "limit1VoltageLevel" <:= FloatV 11.0
+      ]
+    return ()
+
+  ensureConnected [api, vin]
+
+  return ()
+
+-- TODO: get current rating, level stats from a actual MOSFET
+-- TODO: constraint to avoid inferring unnecessary amps
+digitalAmplifier :: Module ()
+digitalAmplifier = do
+  setIdent "digitalAmplifier"
+  setSignature "digitalAmplifier"
+  setType []
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 60))  -- Vds rating
+      ]
+    return ()
+
+  control <- addPort "control" $ do
+    digitalSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 0)),  -- no current draw into FET gate
+      "limit0VoltageLevel" <:= FloatV 1.0,
+      "limit1VoltageLevel" <:= FloatV 2.0,  -- logic level gate MOSFET
+      "apiType" <:= StringV "onOff",  -- only allow low frequency drive, for now
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  out <- addPort "out" $ do
+    digitalSource
+    setType [
+      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 10)),
+      "0VoltageLevel" <:= FloatV 0,
+      "apiType" <:= StringV "onOff",
+      "apiDir" <:= StringV "producer"
+      ]
+    return ()
+
+  ensureConnected [vin, control, out]
+
+  setFieldsEq False [control, out] ["controlUid", "controlName"]
+  setFieldsEq False [out, vin] ["voltage.max"]
+  setFieldsEq False [out, vin] ["current"]  -- ignoring gate leakage and pullup resistor for now
+
+  constrain $ port out (typeVal "1VoltageLevel") :== port vin (typeVal "voltage.min")
+
