@@ -1,4 +1,4 @@
-module NewEncoding.Simon where
+module NewEncoding.Blinky where
 
 import EDG
 import NewEncoding.Util
@@ -32,7 +32,7 @@ seed = do
       ]
     return ()
 
-  leds <- makePorts 4 "led" $ \ name -> do
+  leds <- makePorts 1 "led" $ \ name -> do
     apiConsumer
     setType [
       "controlName" <:= StringV name,
@@ -43,18 +43,7 @@ seed = do
       ]
     return ()
 
-  buttons <- makePorts 4 "button" $ \ name -> do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "button",
-      "apiData" <:= Record [
-        "bandwidth" <:= FloatV 500
-        ]
-      ]
-    return ()
-
-  let allPorts = buttons ++ leds
+  let allPorts = leds
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]

@@ -1,4 +1,4 @@
-module NewEncoding.Simon where
+module NewEncoding.Datalogger where
 
 import EDG
 import NewEncoding.Util
@@ -21,9 +21,6 @@ seed = do
     "controlUid" <:= UID
     ]
 
-  let makePorts i s m = forM @[] [1..i]
-        (\ id -> let name = s ++ (show id) in addPort name $ m name)
-
   usbHost <- addPort "usbHost" $ do
     usbHost
     setType[
@@ -32,29 +29,30 @@ seed = do
       ]
     return ()
 
-  leds <- makePorts 4 "led" $ \ name -> do
+  sensor <- addPort "sensor" $ do
     apiConsumer
     setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "led",
+      "controlName" <:= StringV "sensor",
+      "apiType" <:= StringV "temperatureSensor",
       "apiData" <:= Record [
-        "bandwidth" <:= FloatV 500
+        "tempRange" <:= range (FloatC (lessThan 0)) (FloatC (greaterThan 75)),
+        "tempResolution" <:= FloatC (lessThan 0.5)
         ]
       ]
     return ()
 
-  buttons <- makePorts 4 "button" $ \ name -> do
+  storage <- addPort "storage" $ do
     apiConsumer
     setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "button",
+      "controlName" <:= StringV "storage",
+      "apiType" <:= StringV "nvmemory",
       "apiData" <:= Record [
-        "bandwidth" <:= FloatV 500
+        "size" <:= IntC (greaterThan 1073741824)  -- 1 GiB
         ]
       ]
     return ()
 
-  let allPorts = buttons ++ leds
+  let allPorts = [sensor, storage]
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
