@@ -4,10 +4,14 @@ import EDG
 import NewEncoding.Util
 import NewEncoding.CommonPorts
 import NewEncoding.CommonLinks
-import NewEncoding.CommonModules
+
 import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
+
+import NewEncoding.CommonModules
 import NewEncoding.ChipModules
+
+import NewEncoding.SwAdapters
 
 import Control.Monad
 
@@ -33,6 +37,8 @@ fullLibrary = EDGLibrary{
     -- Interfaces
     ("pcf8575", 1, pcf8575),
     ("digitalAmplifier", 1, digitalAmplifier),
+
+    ("fat32", 1, fat32),
 
     -- Microcontrollers
     ("apm3v3", 1, apm3v3)
