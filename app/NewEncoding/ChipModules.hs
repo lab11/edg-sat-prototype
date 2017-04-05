@@ -240,7 +240,7 @@ pcf8575 = do
   constrain $ port i2c (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.5))
 
   -- Technically, this thing has 16 GPIOs, but is overkill and impacts performance
-  gpios <- forM @[] [1..4] $ \ gpioId ->
+  gpios <- forM @[] [1..8] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [

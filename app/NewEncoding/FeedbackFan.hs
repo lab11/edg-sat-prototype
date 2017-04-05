@@ -44,12 +44,11 @@ seed = do
     apiConsumer
     setType [
       "controlName" <:= StringV "sensor",
-      "apiType" <:= StringV "temperatureSensor",
-      "apiData" <:= Record [
-        "tempRange" <:= range (FloatC (lessThan 10)) (FloatC (greaterThan 40)), -- common human ranges
-        "tempResolution" <:= FloatC (lessThan 1)
-        ]
+      "apiType" <:= StringV "temperatureSensor"
       ]
+    constrain $ typeVal "apiData.tempRange.min" :<= Lit (FloatV 10)  -- common human ranges
+    constrain $ typeVal "apiData.tempRange.max" :>= Lit (FloatV 40)
+    constrain $ typeVal "apiData.tempResolution" :<= Lit (FloatV 1)
     return ()
 
   display <- addPort "display" $ do
