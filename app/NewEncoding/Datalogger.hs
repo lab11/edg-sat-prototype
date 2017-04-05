@@ -8,9 +8,38 @@ import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
+import NewEncoding.SwAdapters
 import NewEncoding.Design
 
 import Control.Monad
+
+minLibrary :: EDGLibrary
+minLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
+    ("sdcard", 1, sdcard),
+
+    ("fat32", 1, fat32),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3)
+    ],
+  links = [
+    ("apiLink", 3, apiLink),
+
+    ("powerLink", 1, powerLink 4),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
+
+    ("spiLink", 1, spiLink 2),
+    ("i2cLink", 1, i2cLink 2)
+    ]
+  }
 
 seed :: Module ()
 seed = do
@@ -33,23 +62,20 @@ seed = do
     apiConsumer
     setType [
       "controlName" <:= StringV "sensor",
-      "apiType" <:= StringV "temperatureSensor",
-      "apiData" <:= Record [
-        "tempRange" <:= range (FloatC (lessThan 0)) (FloatC (greaterThan 75)),
-        "tempResolution" <:= FloatC (lessThan 0.5)
-        ]
+      "apiType" <:= StringV "temperatureSensor"
       ]
+    constrain $ typeVal "apiData.tempRange.min" :<= Lit (FloatV 0)
+    constrain $ typeVal "apiData.tempRange.max" :>= Lit (FloatV 75)
+    constrain $ typeVal "apiData.tempResolution" :<= Lit (FloatV 0.5)
     return ()
 
   storage <- addPort "storage" $ do
     apiConsumer
     setType [
       "controlName" <:= StringV "storage",
-      "apiType" <:= StringV "fat32",
-      "apiData" <:= Record [
-        "size" <:= IntC (greaterThan 1073741824)  -- 1 GiB
-        ]
+      "apiType" <:= StringV "fat32"
       ]
+    constrain $ typeVal "apiData.size" :>= Lit (IntV 1073741824)  -- 1 GiB
     return ()
 
   let allPorts = [sensor, storage]

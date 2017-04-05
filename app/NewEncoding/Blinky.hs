@@ -36,11 +36,9 @@ seed = do
     apiConsumer
     setType [
       "controlName" <:= StringV name,
-      "apiType" <:= StringV "led",
-      "apiData" <:= Record [
-        "bandwidth" <:= FloatV 500
-        ]
+      "apiType" <:= StringV "led"
       ]
+    constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
   let allPorts = leds
