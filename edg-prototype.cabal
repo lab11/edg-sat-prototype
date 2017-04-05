@@ -36,6 +36,7 @@ executable edg-prototype
     NewEncoding.CommsPorts
     NewEncoding.CommsLinks
     NewEncoding.ChipModules
+    NewEncoding.SwAdapters
     NewEncoding.Design
     NewEncoding.Blinky
     NewEncoding.Simon

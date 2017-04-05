@@ -45,7 +45,7 @@ seed = do
     apiConsumer
     setType [
       "controlName" <:= StringV "storage",
-      "apiType" <:= StringV "nvmemory",
+      "apiType" <:= StringV "fat32",
       "apiData" <:= Record [
         "size" <:= IntC (greaterThan 1073741824)  -- 1 GiB
         ]
