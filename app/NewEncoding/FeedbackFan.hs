@@ -1,4 +1,4 @@
-module NewEncoding.Simon where
+module NewEncoding.FeedbackFan where
 
 import EDG
 import NewEncoding.Util
@@ -32,29 +32,43 @@ seed = do
       ]
     return ()
 
-  leds <- makePorts 4 "led" $ \ name -> do
+  pwr12v <- addPort "pwr12v" $ do
+    powerSource
+    setType[
+      "voltage" <:= range (FloatV 11.8) (FloatV 12.2),  -- really good supply!
+      "limitCurrent" <:= range (FloatV 0) (FloatV 3)  -- really beefy supply!
+      ]
+    return ()
+
+  sensor <- addPort "sensor" $ do
     apiConsumer
     setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "led",
+      "controlName" <:= StringV "sensor",
+      "apiType" <:= StringV "temperatureSensor",
       "apiData" <:= Record [
-        "bandwidth" <:= FloatV 500
+        "tempRange" <:= range (FloatC (lessThan 10)) (FloatC (greaterThan 40)), -- common human ranges
+        "tempResolution" <:= FloatC (lessThan 1)
         ]
       ]
     return ()
 
-  buttons <- makePorts 4 "button" $ \ name -> do
+  display <- addPort "display" $ do
     apiConsumer
     setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "button",
-      "apiData" <:= Record [
-        "bandwidth" <:= FloatV 500
-        ]
+      "controlName" <:= StringV "display",
+      "apiType" <:= StringV "characterLcd"
       ]
     return ()
 
-  let allPorts = buttons ++ leds
+  fan <- addPort "fan" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "fan",
+      "apiType" <:= StringV "controlledFan"
+      ]
+    return ()
+
+  let allPorts = [sensor, display, fan]
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]

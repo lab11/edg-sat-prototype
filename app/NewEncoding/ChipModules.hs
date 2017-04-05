@@ -273,10 +273,52 @@ pcf8575 = do
 
 
 
-controlledFan :: Module ()
-controlledFan = do
-  setIdent "Controlled 12V fan"
-  setSignature "Controlled 12V fan"
+pwmControlFan :: Module ()
+pwmControlFan = do
+  setIdent "PWM Signal 12V fan"
+  setSignature "PWM Signal 12V fan"
+  setType []
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "controlledFan",
+      -- TODO: more properties
+      "apiData" <:= Record [
+        ]
+      ]
+    return ()
+
+  -- spec from http://www.formfactors.org/developer/specs/4_wire_pwm_spec.pdf
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 1.5)),
+      "limitVoltage" <:= (range (FloatV 11.4) (FloatV 12.6))
+      ]
+    return ()
+
+
+  control <- addPort "control" $ do
+    -- open-drain input, pull-up within the fan
+    digitalSink
+    setType [
+      "current" <:= (range (FloatV 0) (FloatV 5e-3)),
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 5.25)),
+      "limit0VoltageLevel" <:= FloatV 0.8,
+      "limit1VoltageLevel" <:= FloatV 0  -- don't care for open-drain
+      ]
+    return ()
+
+  ensureConnected [api, vin, control]
+
+  return ()
+
+
+powerControlFan :: Module ()
+powerControlFan = do
+  setIdent "Power Controlled 12V fan"
+  setSignature "Power Controlled 12V fan"
   setType []
 
   api <- addPort "api" $ do
@@ -292,16 +334,17 @@ controlledFan = do
   vin <- addPort "vin" $ do
     digitalSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0.2)),  -- TODO non guesstimate currents
-      "limitVoltage" <:= (range (FloatV 0) (FloatV 13.6)),  -- TODO non guesstimate ratings
-      "limit0VoltageLevel" <:= FloatV 3.0,
-      "limit1VoltageLevel" <:= FloatV 11.0
+      "current" <:= (range (FloatV 0) (FloatV 1.5)),
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 12.6)),
+      "limit0VoltageLevel" <:= FloatV 3.0,  -- TODO non guesstimate ratings
+      "limit1VoltageLevel" <:= FloatV 11.4
       ]
     return ()
 
   ensureConnected [api, vin]
 
   return ()
+
 
 -- TODO: get current rating, level stats from a actual MOSFET
 -- TODO: constraint to avoid inferring unnecessary amps
