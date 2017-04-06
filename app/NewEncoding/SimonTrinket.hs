@@ -9,6 +9,7 @@ import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
 import NewEncoding.RedundantModules
+import NewEncoding.SwAdapters
 import NewEncoding.Design
 
 import Control.Monad
@@ -25,12 +26,13 @@ minLibrary = EDGLibrary{
 
     -- Interfaces
     ("pcf8575", 1, pcf8575),
+    ("litButton", 4, litButton),
 
     -- Microcontrollers
     ("trinket3v3", 1, arduinoTrinket3v3)
     ],
   links = [
-    ("apiLink", 8, apiLink),
+    ("apiLink", 12, apiLink),
 
     ("powerLink", 2, powerLink 6),
     ("usbLink", 1, usbLink),
@@ -62,28 +64,20 @@ seed = do
       ]
     return ()
 
-  leds <- makePorts 4 "led" $ \ name -> do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "led"
-      ]
-    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
-    return ()
-
   buttons <- makePorts 4 "button" $ \ name -> do
     apiConsumer
     setType [
       "controlName" <:= StringV name,
-      "apiType" <:= StringV "button"
+      "apiType" <:= StringV "litButton"
       ]
     -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
-  let allPorts = buttons ++ leds
+  let allPorts = buttons
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
+  setFieldsEq False buttons ["deviceData"]
 
   return ()
 
