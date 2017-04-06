@@ -22,6 +22,7 @@ powerSink = do
   setIdent "PowerSink"
 
   setType [
+    "linkDomain" <:= StringV "HW",
     -- The range of acceptable voltages this link is capable of handling
     "limitVoltage" <:= (range (FloatC unknown) (FloatC unknown))
     ]
@@ -38,6 +39,7 @@ powerSource = do
   setKind "PowerSource"
   setIdent "PowerSource"
   setType [
+    "linkDomain" <:= StringV "HW",
     -- The range of currents this source is capable of providing.
     "limitCurrent" <:= (range (FloatC unknown) (FloatC unknown))
     ]
@@ -62,6 +64,7 @@ digitalControlBase :: (IsPort p) => p ()
 digitalControlBase = do
   controllable
   setType [
+    "linkDomain" <:= StringV "HW,FW",
     -- The direction the api is flowing over the link in sw lang
     "apiDir" <:= StringC $ oneOf ["producer", "consumer"],
     -- Is this an On/Off type API for this digital line or a PWM signal?
@@ -71,11 +74,14 @@ digitalControlBase = do
 
 digitalSink :: (IsPort p) => p ()
 digitalSink = do
-  powerSink
+  powerBase
   digitalControlBase
   setKind "DigitalSink"
   setIdent "DigitalSink"
   setType [
+    -- The range of acceptable voltages this link is capable of handling
+    "limitVoltage" <:= (range (FloatC unknown) (FloatC unknown)),
+
     -- The voltage above which a signal will be interpretered as a 1
     "limit1VoltageLevel" <:= FloatC unknown,
     -- The voltage below which a signal will be interpretered as a 0
@@ -85,11 +91,14 @@ digitalSink = do
 
 digitalSource :: (IsPort p) => p ()
 digitalSource = do
-  powerSource
+  powerBase
   digitalControlBase
   setKind "DigitalSource"
   setIdent "DigitalSource"
   setType [
+    -- The range of currents this source is capable of providing.
+    "limitCurrent" <:= (range (FloatC unknown) (FloatC unknown)),
+
     -- The minimum guaranteed output voltage of a logic 1
     "1VoltageLevel" <:= FloatC unknown,
     -- The minimum guaranteed output voltage of a logic 0
@@ -99,9 +108,14 @@ digitalSource = do
 
 digitalBidirBase :: (IsPort p) => p ()
 digitalBidirBase = do
-  powerSource
-  powerSink
+  powerBase
   setType [
+    -- The range of acceptable voltages this link is capable of handling
+    "limitVoltage" <:= (range (FloatC unknown) (FloatC unknown)),
+    -- The range of currents this source is capable of providing.
+    "limitCurrent" <:= (range (FloatC unknown) (FloatC unknown)),
+
+
     -- The voltage the source uses for a 1
       "1VoltageLevel" <:= FloatC unknown
     -- The voltage the source uses for a 0
@@ -120,6 +134,7 @@ digitalBidir = do
   setKind "DigitalBidir"
   setIdent "DigitalBidir"
   setType [
+    "linkDomain" <:= StringV "HW,FW",
     "digitalDir" <:= StringC $ oneOf ["source", "sink"]
     ]
   return ()
@@ -128,8 +143,10 @@ apiBase :: (IsPort p) => p ()
 apiBase = do
   controllable
   setType [
+    "linkDomain" <:= StringV "FW",
     "apiType" <:= StringC unknown,
-    "apiData" <:= Record unknown
+    "apiData" <:= Record unknown,
+    "deviceData" <:= Record unknown
     ]
   return ()
 

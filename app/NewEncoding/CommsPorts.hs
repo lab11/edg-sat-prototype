@@ -11,6 +11,7 @@ digitalCommsBase :: (IsPort p) => p ()
 digitalCommsBase = do
   -- TODO: refactor with powerBase?
   setType [
+    "linkDomain" <:= StringV "HW,FW",
     -- The concrete range of voltages expected to be seen at runtime.
     "voltage" <:= (range (FloatC unknown) (FloatC unknown)),
     -- The range of acceptable voltages this link is capable of handling

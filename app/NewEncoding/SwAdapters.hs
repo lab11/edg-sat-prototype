@@ -42,6 +42,6 @@ fat32 = do
 
   ensureConnected [fat32Api, nvmApi]
 
-  setFieldsEq False [fat32Api, nvmApi] ["controlUid", "controlName", "apiData.size", "apiData.tech", "apiData.form"]
+  setFieldsEq False [fat32Api, nvmApi] ["controlUid", "controlName", "deviceData", "apiData.size", "apiData.tech", "apiData.form"]
 
   return ()

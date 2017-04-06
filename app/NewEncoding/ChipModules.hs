@@ -23,6 +23,9 @@ tmp102 = do
         "tempRange" <:= (range (FloatV (-25)) (FloatV 85)),
         "tempAccuracy" <:= FloatV 2,
         "tempResolution" <:= FloatV 0.0625
+        ],
+      "deviceData" <:= Record [
+        "device" <:= StringV "tmp102"
         ]
       ]
     return ()
@@ -108,6 +111,9 @@ serialLcd16x2_3v3 = do
   setIdent "Sparkfun Serial LCD 16x2 3.3v"
   setSignature "Sparkfun Serial LCD 16x2 3.3v"
 
+  constrain $ port api (typeVal "deviceData") :== Lit (Record [
+    "device" <:= StringV "SparkfunSerialLcd16x2_3v3"
+    ])
   constrain $ port api (typeVal "apiData") :== Lit (Record [
     "width" <:= IntV 16,
     "height" <:= IntV 2
@@ -123,6 +129,9 @@ serialLcd16x2_5v = do
   setIdent "Sparkfun Serial LCD 16x2 5v"
   setSignature "Sparkfun Serial LCD 16x2 5v"
 
+  constrain $ port api (typeVal "deviceData") :== Lit (Record [
+    "device" <:= StringV "SparkfunSerialLcd16x2_5v"
+    ])
   constrain $ port api (typeVal "apiData") :== Lit (Record [
     "width" <:= IntV 16,
     "height" <:= IntV 2
@@ -147,6 +156,9 @@ sdcard = do
         "size" <:= IntV 137438953472,  -- 128 GiB
         "tech" <:= StringV "flash",
         "form" <:= StringV "SDCard"
+        ],
+      "deviceData" <:= Record [
+        "device" <:= StringV "sdcard"
         ]
       ]
     return ()
@@ -288,6 +300,9 @@ pwmControlFan = do
       "apiType" <:= StringV "controlledFan",
       -- TODO: more properties
       "apiData" <:= Record [
+        ],
+      "deviceData" <:= Record [
+        "device" <:= StringV "pwmSignalFan"
         ]
       ]
     return ()
@@ -331,6 +346,9 @@ powerControlFan = do
       "apiType" <:= StringV "controlledFan",
       -- TODO: more properties
       "apiData" <:= Record [
+        ],
+      "deviceData" <:= Record [
+        "device" <:= StringV "voltageControlFan"
         ]
       ]
     return ()
