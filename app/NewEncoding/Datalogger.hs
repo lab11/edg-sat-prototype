@@ -9,6 +9,7 @@ import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
 import NewEncoding.SwAdapters
+import NewEncoding.RedundantModules
 import NewEncoding.Design
 
 import Control.Monad
@@ -21,9 +22,11 @@ minLibrary = EDGLibrary{
 
     -- More devices
     ("tmp102", 1, tmp102),
-    ("sdcard", 1, sdcard),
+    --("sdcard", 1, sdcard),
 
-    ("fat32", 1, fat32),
+    --("fat32", 1, fat32),
+
+    ("openLog", 1, openLog),
 
     -- Microcontrollers
     ("apm3v3", 1, apm3v3)
@@ -37,7 +40,8 @@ minLibrary = EDGLibrary{
     ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
 
     ("spiLink", 1, spiLink 2),
-    ("i2cLink", 1, i2cLink 2)
+    ("i2cLink", 1, i2cLink 2),
+    ("uartLink", 1, uartLink)
     ]
   }
 
@@ -93,4 +97,4 @@ seed = do
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
-run = makeSynthFunc fullLibrary [("Seed",seed)]
+run = makeSynthFunc minLibrary [("Seed",seed)]

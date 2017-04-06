@@ -66,6 +66,71 @@ domeButton = do
   constrain $ port button (typeVal "1VoltageLevel") :== port vin (typeVal "voltage.min")
 
 
+openLog :: Module ()
+openLog = do
+  setIdent "Sparkfun OpenLog"
+  setSignature "Sparkfun OpenLog"
+
+  setType [
+    "regVoltage" <:= range (FloatC unknown) (FloatC unknown)
+    ]
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "fat32",
+      "apiData" <:= Record [
+        "size" <:= IntV 68719476736,  -- 64 GiB
+        "tech" <:= StringV "flash",
+        "form" <:= StringV "SDCard"
+        ],
+      "deviceData" <:= Record [
+        "device" <:= StringV "openlog"
+        ]
+      ]
+    return ()
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "current" <:= range (FloatV 0) (FloatV 6e-3),
+      -- SD card requires at least 2.7v, while ATmega328 operates down to 1.8v
+      -- Top of range is as recommended by Sparkfun
+      "limitVoltage" <:= range (FloatV 2.865) (FloatV 5.5)
+      ]
+    return ()
+
+  constrain $ typeVal "regVoltage.min" :== If (port vin (typeVal "voltage.min") :>= Lit (FloatV 3.465))
+      (Lit (FloatV 3.3))
+      (port vin (typeVal "voltage.min") :- Lit (FloatV 0.165))
+  constrain $ typeVal "regVoltage.max" :== If (port vin (typeVal "voltage.max") :>= Lit (FloatV 3.465))
+      (Lit (FloatV 3.3))
+      (port vin (typeVal "voltage.max") :- Lit (FloatV 0.165))
+
+  uart <- addPort "uart" $ do
+    uartSlave
+    setType [
+      "voltage" <:= range (FloatV 0) (FloatC unknown),
+
+      "limitVoltage" <:= range (FloatV (-0.5)) (FloatC unknown),
+      "0VoltageLevel" <:= FloatV 0.6,
+      "1VoltageLevel" <:= FloatV 2.3,
+
+      "baud" <:= range (FloatV 0) (FloatV 115200)  -- "up to 115200bps"
+      ]
+    return ()
+
+  ensureConnected [api, vin, uart]
+
+  constrain $ port uart (typeVal "voltage.max") :== typeVal "regVoltage.max"
+  constrain $ port uart (typeVal "limitVoltage.max") :== typeVal "regVoltage.min" :+ Lit (FloatV 0.5)
+
+  constrain $ port uart (typeVal "limit0VoltageLevel") :== typeVal "regVoltage.min" :* Lit(FloatV 0.3)
+  constrain $ port uart (typeVal "limit1VoltageLevel") :== typeVal "regVoltage.max" :* Lit (FloatV 0.6)
+
+  setFieldsEq False [uart, api] ["controlUid", "controlName"]
+
+  return ()
 
 
 arduinoTrinket3v3 :: Module ()
