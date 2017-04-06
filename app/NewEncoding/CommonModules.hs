@@ -10,14 +10,17 @@ import NewEncoding.Util
 -- A button module
 button :: Module ()
 button = do
-  setIdent "button"
-  setSignature "button"
+  setIdent "tactileSwitch"
+  setSignature "tactileSwitch"
   setType []
 
   api <- addPort "api" $ do
     apiProducer
     setType [
-      "apiType" <:= StringV "button"
+      "apiType" <:= StringV "button",
+      "deviceData" <:= Record [
+        "device" <:= StringV "tactileSwitch"
+        ]
       ]
     return ()
 
@@ -53,14 +56,17 @@ button = do
 -- A LED Module
 led :: Module ()
 led = do
-  setIdent "led"
-  setSignature "led"
+  setIdent "5mmLed"
+  setSignature "5mmLed"
   -- setType []
 
   api <- addPort "api" $ do
     apiProducer
     setType [
-      "apiType" <:= StringV "led"
+      "apiType" <:= StringV "led",
+      "deviceData" <:= Record [
+        "device" <:= StringV "5mmLed"
+        ]
       ]
     return ()
 
