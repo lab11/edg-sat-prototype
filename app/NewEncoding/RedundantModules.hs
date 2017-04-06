@@ -28,6 +28,7 @@ arduinoTrinket3v3 = do
   p5vOut <- addPort "5vOut" $ do
     powerSource
     return ()
+  setFieldsEq False [usbIn, p5vOut] ["voltage.max"]
 
   -- MIC5225 regulator
   p3v3Out <- addPort "3v3Out" $ do

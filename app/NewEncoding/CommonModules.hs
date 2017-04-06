@@ -105,6 +105,7 @@ apm3v3 = do
   p5vOut <- addPort "5vOut" $ do
     powerSource
     return ()
+  setFieldsEq False [usbIn, p5vOut] ["voltage.max"]
 
   -- MIC5219 regulator
   p3v3Out <- addPort "3v3Out" $ do
@@ -121,7 +122,8 @@ apm3v3 = do
         "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
         "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
         "0VoltageLevel" <:= FloatV 0.5,
-        "1VoltageLevel" <:= FloatV 2.3
+        "1VoltageLevel" <:= FloatV 2.3,
+        "apiDir" <:= StringV "producer"
         ]
       return ()
 

@@ -32,13 +32,13 @@ minLibrary = EDGLibrary{
   links = [
     ("apiLink", 8, apiLink),
 
-    ("powerLink", 3, powerLink 6),
+    ("powerLink", 2, powerLink 6),
     ("usbLink", 1, usbLink),
 
-    ("digitalBidirSinkLink", 6, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 6, digitalBidirSourceLink),
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
 
-    ("i2cLink", 1, i2cLink 2)
+    ("i2cLink", 1, i2cLink 1)
     ]
   }
 
