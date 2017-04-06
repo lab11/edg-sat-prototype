@@ -166,16 +166,16 @@ sdcard = do
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 200e-6)),
-      "limitVoltage" <:= (range (FloatV 2.7) (FloatV 3.6))
+      "current" <:= range (FloatV 0) (FloatV 200e-6),
+      "limitVoltage" <:= range (FloatV 2.7) (FloatV 3.6)
       ]
     return ()
 
   spi <- addPort "spi" $ do
     spiSlave
     setType [
-      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
-      "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
+      "voltage" <:= range (FloatV 0) (FloatC unknown),
+      "limitVoltage" <:= range (FloatV (-0.3)) (FloatC unknown),
 
       -- actual logic level thresholds are unknown, not part of the simplified spec
       "0VoltageLevel" <:= FloatV 0,
@@ -188,7 +188,7 @@ sdcard = do
   cs <- addPort "cs" $ do
     digitalSink
     setType [
-      "limitVoltage" <:= (range (FloatV (-0.3)) (FloatC unknown)),
+      "limitVoltage" <:= range (FloatV (-0.3)) (FloatC unknown),
       -- actual logic level thresholds are unknown, not part of the simplified spec
 
       "limit1VoltageLevel" <:= FloatV 0,
