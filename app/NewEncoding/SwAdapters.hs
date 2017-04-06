@@ -45,3 +45,43 @@ fat32 = do
   setFieldsEq False [fat32Api, nvmApi] ["controlUid", "controlName", "deviceData", "apiData.size", "apiData.tech", "apiData.form"]
 
   return ()
+
+litButton :: Module ()
+litButton = do
+  setIdent "Lit Button"
+  setSignature "Lit Button"
+  setType []
+
+  litButtonApi <- addPort "litButton" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "litButton",
+      -- TODO: more temp sensor properties, scale resolution accuracy
+      "deviceData" <:= Record [
+        "led" <:= Record unknown,
+        "button" <:= Record unknown
+        ]
+      ]
+    return ()
+
+  buttonApi <- addPort "buttonApi" $ do
+    apiConsumer
+    setType [
+      "apiType" <:= StringV "button"
+      ]
+    return ()
+
+  ledApi <- addPort "led" $ do
+    apiConsumer
+    setType [
+      "apiType" <:= StringV "led"
+      ]
+    return ()
+
+  ensureConnected [litButtonApi, buttonApi, ledApi]
+
+  setFieldsEq False [litButtonApi, buttonApi, ledApi] ["controlUid", "controlName"]
+  constrain $ port litButtonApi (typeVal "deviceData.button") :== port buttonApi (typeVal "deviceData")
+  constrain $ port litButtonApi (typeVal "deviceData.led") :== port ledApi (typeVal "deviceData")
+
+  return ()
