@@ -87,6 +87,7 @@ digitalSink = do
     -- The voltage below which a signal will be interpretered as a 0
     "limit0VoltageLevel" <:= FloatC unknown
     ]
+  constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
   return ()
 
 digitalSource :: (IsPort p) => p ()
@@ -104,6 +105,7 @@ digitalSource = do
     -- The minimum guaranteed output voltage of a logic 0
     "0VoltageLevel" <:= FloatC unknown
     ]
+  constrain $ rSubset (typeVal "current") (typeVal "limitCurrent")
   return ()
 
 digitalBidirBase :: (IsPort p) => p ()
@@ -125,6 +127,8 @@ digitalBidirBase = do
     -- The voltage below which a signal will be interpretered as a 0
     , "limit0VoltageLevel" <:= FloatC unknown
     ]
+  constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
+  constrain $ rSubset (typeVal "current") (typeVal "limitCurrent")
   return ()
 
 digitalBidir :: (IsPort p) => p ()

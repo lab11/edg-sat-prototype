@@ -12,6 +12,7 @@ import qualified NewEncoding.Simon
 import qualified NewEncoding.Datalogger
 import qualified NewEncoding.FeedbackFan
 import qualified NewEncoding.SimonTrinket
+import qualified NewEncoding.AlternativeSimonTrinket
 
 optParser :: Parser (String, EDGSettings)
 optParser = (,)
@@ -39,4 +40,5 @@ main = do
     "new-datalogger" -> NewEncoding.Datalogger.run settings
     "new-feedbackfan" -> NewEncoding.FeedbackFan.run settings
     "new-simon-trinket" -> NewEncoding.SimonTrinket.run settings
+    "new-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.run settings
     _ -> putStrLn "No example chosen. See app/Main.hs for a list."

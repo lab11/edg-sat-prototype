@@ -8,6 +8,66 @@ import NewEncoding.CommonPorts
 import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
 
+domeButton :: Module ()
+domeButton = do
+  setIdent "domeButton"
+  setSignature "domeButton"
+  setType []
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "litButton",
+      "deviceData" <:= Record [
+        "device" <:= StringV "domeButton"
+        ]
+      ]
+    return ()
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      -- for when button closes and resistor shorts to ground
+      "current" <:= range (FloatV 0.001) (FloatV 0.002),
+      "limitVoltage" <:= range (FloatV 0) (FloatV 36)
+      ]
+    return ()
+
+  button <- addPort "button" $ do
+    digitalSource
+    setType [
+      "voltage" <:= range (FloatV 0) (FloatC unknown),
+      -- this resistor-switch topology doesn't allow current draw
+      "current" <:= range (FloatV 0) (FloatV 0),
+      "limitCurrent" <:= range (FloatV 0) (FloatV 0),
+      "0VoltageLevel" <:= FloatV 0,
+      "apiType" <:= StringV "onOff",
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  light <- addPort "light" $ do
+    digitalSink
+    setType [
+      "limitVoltage" <:= range (FloatV 0) (FloatV 13),
+      "limit0VoltageLevel" <:= FloatV 1.0,
+      "limit1VoltageLevel" <:= FloatV 11,  -- TODO: voltage drops by LED color
+      "current" <:= range (FloatV 0.01) (FloatV 0.02),
+      "apiType" <:= StringV "onOff",  -- TODO: allow PWM
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  ensureConnected [api, vin, button, light]
+
+  setFieldsEq False [api, button, light] ["controlUid", "controlName"]
+  setFieldsEq False [vin, button] ["voltage.max"]
+
+  constrain $ port button (typeVal "1VoltageLevel") :== port vin (typeVal "voltage.min")
+
+
+
+
 arduinoTrinket3v3 :: Module ()
 arduinoTrinket3v3 = do
   setIdent "Arduino Trinket 3.3v"

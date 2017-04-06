@@ -388,6 +388,7 @@ digitalAmplifier = do
     digitalSink
     setType [
       "current" <:= (range (FloatV 0) (FloatV 0)),  -- no current draw into FET gate
+      "limitVoltage" <:= (range (FloatV 0) (FloatV 20)),  -- Vgs rating
       "limit0VoltageLevel" <:= FloatV 1.0,
       "limit1VoltageLevel" <:= FloatV 2.0,  -- logic level gate MOSFET
       "apiType" <:= StringV "onOff",  -- only allow low frequency drive, for now
@@ -398,8 +399,8 @@ digitalAmplifier = do
   out <- addPort "out" $ do
     digitalSource
     setType [
-      "voltage" <:= (range (FloatV 0) (FloatC unknown)),
-      "limitCurrent" <:= (range (FloatV 0) (FloatV 10)),
+      "voltage" <:= range (FloatV 0) (FloatC unknown),
+      "limitCurrent" <:= range (FloatV 0) (FloatV 10),
       "0VoltageLevel" <:= FloatV 0,
       "apiType" <:= StringV "onOff",
       "apiDir" <:= StringV "producer"
@@ -413,4 +414,3 @@ digitalAmplifier = do
   setFieldsEq False [out, vin] ["current"]  -- ignoring gate leakage and pullup resistor for now
 
   constrain $ port out (typeVal "1VoltageLevel") :== port vin (typeVal "voltage.min")
-
