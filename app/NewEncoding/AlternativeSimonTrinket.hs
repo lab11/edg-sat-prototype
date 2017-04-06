@@ -1,4 +1,4 @@
-module NewEncoding.FeedbackFan where
+module NewEncoding.AlternativeSimonTrinket where
 
 import EDG
 import NewEncoding.Util
@@ -8,9 +8,41 @@ import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
+import NewEncoding.RedundantModules
+import NewEncoding.SwAdapters
 import NewEncoding.Design
 
 import Control.Monad
+
+minLibrary :: EDGLibrary
+minLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- Basic devices
+    ("domeButton", 4, domeButton),
+
+    -- Interfaces
+    ("pcf8575", 1, pcf8575),
+    ("digitalAmplifier", 4, digitalAmplifier),
+
+    -- Microcontrollers
+    ("trinket3v3", 1, arduinoTrinket3v3)
+    ],
+  links = [
+    ("apiLink", 4, apiLink),
+
+    ("powerLink", 2, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
+    ("digitalLink", 4, digitalLink),
+
+    ("i2cLink", 1, i2cLink 1)
+    ]
+  }
 
 seed :: Module ()
 seed = do
@@ -41,37 +73,20 @@ seed = do
     return ()
 
 
-  sensor <- addPort "sensor" $ do
+  buttons <- makePorts 1 "button" $ \ name -> do
     apiConsumer
     setType [
-      "controlName" <:= StringV "sensor",
-      "apiType" <:= StringV "temperatureSensor"
+      "controlName" <:= StringV name,
+      "apiType" <:= StringV "litButton"
       ]
-    constrain $ typeVal "apiData.tempRange.min" :<= Lit (FloatV 10)  -- common human ranges
-    constrain $ typeVal "apiData.tempRange.max" :>= Lit (FloatV 40)
-    constrain $ typeVal "apiData.tempResolution" :<= Lit (FloatV 1)
+    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
-  display <- addPort "display" $ do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV "display",
-      "apiType" <:= StringV "characterLcd"
-      ]
-    return ()
-
-  fan <- addPort "fan" $ do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV "fan",
-      "apiType" <:= StringV "controlledFan"
-      ]
-    return ()
-
-  let allPorts = [sensor, display, fan]
+  let allPorts = buttons
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
+  setFieldsEq False buttons ["deviceData"]
 
   return ()
 
@@ -83,4 +98,4 @@ seed = do
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
-run = makeSynthFunc fullLibrary [("Seed",seed)]
+run = makeSynthFunc minLibrary [("Seed",seed)]
