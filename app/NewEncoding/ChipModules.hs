@@ -230,11 +230,13 @@ pcf8575 = do
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
       "0VoltageLevel" <:= FloatV 0.4,  -- guess based on specified Vol test conditions for SDA Iol
       "frequency" <:= range (FloatV 0) (FloatV 400e3),
-      "id" <:= IntC $ oneOf[20, 21, 22, 23, 24, 25, 26, 27]
+      "id" <:= IntC $ oneOf[20, 21, 22, 23, 24, 25, 26, 27],
+      "controlName" <:= StringV "pcf8575"
       ]
     return ()
 
   ensureConnected [vin, i2c]
+
   constrain $ port i2c (typeVal "limit0VoltageLevel") :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.3))
   constrain $ port i2c (typeVal "limit1VoltageLevel") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.7))
   constrain $ port i2c (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.5))
@@ -248,7 +250,8 @@ pcf8575 = do
         "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
         "0VoltageLevel" <:= FloatV 0.5,
         "1VoltageLevel" <:= FloatV 2.3,
-        "apiType" <:= StringV "onOff"
+        "apiType" <:= StringV "onOff",
+        "apiDir" <:= StringV "producer"
         ]
       return ()
 
@@ -267,7 +270,7 @@ pcf8575 = do
     (Lit (FloatV 200e-6)) :  -- device operating current
     (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
-  setFieldsEq False (i2c : gpios) ["controlUid", "controlName"]
+  setFieldsEq False (i2c : gpios) ["controlUid"]
 
   return ()
 
@@ -306,7 +309,8 @@ pwmControlFan = do
       "current" <:= (range (FloatV 0) (FloatV 5e-3)),
       "limitVoltage" <:= (range (FloatV 0) (FloatV 5.25)),
       "limit0VoltageLevel" <:= FloatV 0.8,
-      "limit1VoltageLevel" <:= FloatV 0  -- don't care for open-drain
+      "limit1VoltageLevel" <:= FloatV 0,  -- don't care for open-drain
+      "apiDir" <:= StringV "consumer"
       ]
     return ()
 
@@ -337,7 +341,8 @@ powerControlFan = do
       "current" <:= (range (FloatV 0) (FloatV 1.5)),
       "limitVoltage" <:= (range (FloatV 0) (FloatV 12.6)),
       "limit0VoltageLevel" <:= FloatV 3.0,  -- TODO non guesstimate ratings
-      "limit1VoltageLevel" <:= FloatV 11.4
+      "limit1VoltageLevel" <:= FloatV 11.4,
+      "apiDir" <:= StringV "consumer"
       ]
     return ()
 
