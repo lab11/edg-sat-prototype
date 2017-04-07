@@ -91,6 +91,35 @@ led = do
 
   return ()
 
+l7805 :: Module ()
+l7805 = do
+  setIdent "L7805 regulator"
+  setSignature "L7805 regulator"
+  setType [
+    "powerDis" <:= FloatC unknown
+    ]
+
+  pwrIn <- addPort "pwrIn" $ do
+    powerSink
+    setType [
+      "limitVoltage" <:= (range (FloatV 7) (FloatV 35))  -- TODO: use worst case 2.5v?
+      ]
+    return ()
+
+  pwrOut <- addPort "pwrOut" $ do
+    powerSource
+    setType [
+      "limitCurrent" <:= (range (FloatV 0) (FloatV 1.2)),
+      "voltage" <:= (range (FloatV 4.8) (FloatV 5.2))
+      ]
+    return ()
+
+  ensureConnected [pwrIn, pwrOut]
+  constrain $ port pwrIn (typeVal "current.min") :== (port pwrOut (typeVal "current.min") :+ Lit (FloatV 6e-3))
+  constrain $ port pwrIn (typeVal "current.max") :== (port pwrOut (typeVal "current.max") :+ Lit (FloatV 6e-3))
+  constrain $ typeVal "powerDis" :==
+    (port pwrIn (typeVal "current.max") :* (port pwrIn (typeVal "voltage.max") :- Lit (FloatV 5)))
+
 apm3v3 :: Module ()
 apm3v3 = do
   setIdent "Arduino Pro Micro 3v3"

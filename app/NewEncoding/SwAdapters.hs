@@ -58,8 +58,8 @@ litButton = do
       "apiType" <:= StringV "litButton",
       -- TODO: more temp sensor properties, scale resolution accuracy
       "deviceData" <:= Record [
-        "led" <:= Record unknown,
-        "button" <:= Record unknown
+        "led" <:= StringC unknown,
+        "button" <:= StringC unknown
         ]
       ]
     return ()
@@ -81,7 +81,7 @@ litButton = do
   ensureConnected [litButtonApi, buttonApi, ledApi]
 
   setFieldsEq False [litButtonApi, buttonApi, ledApi] ["controlUid", "controlName"]
-  constrain $ port litButtonApi (typeVal "deviceData.button") :== port buttonApi (typeVal "deviceData")
-  constrain $ port litButtonApi (typeVal "deviceData.led") :== port ledApi (typeVal "deviceData")
+  constrain $ port litButtonApi (typeVal "deviceData.button") :== port buttonApi (typeVal "deviceData.device")
+  constrain $ port litButtonApi (typeVal "deviceData.led") :== port ledApi (typeVal "deviceData.device")
 
   return ()

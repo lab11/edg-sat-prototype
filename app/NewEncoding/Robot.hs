@@ -22,6 +22,7 @@ minLibrary = EDGLibrary{
 
     -- Interfaces
     ("tb6612fng", 1, tb6612fng),
+    ("l7805", 1, l7805),
 
     -- Microcontrollers
     ("apm3v3", 1, apm3v3)
@@ -29,13 +30,16 @@ minLibrary = EDGLibrary{
   links = [
     ("apiLink", 2, apiLink),
 
-    ("powerLink", 2, powerLink 6),
+    ("powerLink", 3, powerLink 6),
     ("usbLink", 1, usbLink),
 
     ("digitalBidirSinkLink", 6, digitalBidirSinkLink),
-    -- ("digitalBidirSourceLink", 3, digitalBidirSourceLink),
     ("motorLink", 2, motorLink),
     ("analogLink", 2, analogLink)
+
+--    ("digitalBidirSinkLink", 3, digitalBidirSinkLink),
+--    ("motorLink", 1, motorLink),
+--    ("analogLink", 1, analogLink)
     ]
   }
 
@@ -59,10 +63,11 @@ seed = do
       ]
     return ()
 
+  -- 2S lithium-ion / lithium-polymer battery
   power <- addPort "power" $ do
     powerSource
     setType[
-      "voltage" <:= range (FloatV 4.75) (FloatV 5.25),
+      "voltage" <:= range (FloatV 7.4) (FloatV 8.4),
       "limitCurrent" <:= range (FloatV 0) (FloatV 3)
       ]
     return ()
@@ -104,5 +109,5 @@ seed = do
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
-run = makeSynthFunc minLibrary [("Seed",seed)]
+run = makeSynthFunc fullLibrary [("Seed",seed)]
 

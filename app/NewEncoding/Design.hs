@@ -44,6 +44,8 @@ fullLibrary = EDGLibrary{
     ("digitalAmplifier", 1, digitalAmplifier),
     ("litButton", 4, litButton),
 
+    ("l7805", 1, l7805),
+
     ("fat32", 1, fat32),
 
     -- Microcontrollers

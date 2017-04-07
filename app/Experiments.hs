@@ -84,6 +84,7 @@ emptyLibrary = EDGLibrary{
 baseLib :: EDGLibrary
 baseLib = EDGLibrary {
   modules = [
+    ("l7805", 2, l7805),
     ("apm3v3", 1, apm3v3),
     ("trinket3v3", 1, arduinoTrinket3v3)
     ],
@@ -323,6 +324,16 @@ universalSeed i n = do
           ]
         return ()
 
+      -- 2S lithium-ion / lithium-polymer battery
+      power <- addPort "power" $ do
+        powerSource
+        setType[
+          "voltage" <:= range (FloatV 7.4) (FloatV 8.4),
+          "limitCurrent" <:= range (FloatV 0) (FloatV 3)
+          ]
+        return ()
+
+
       pwr12v <- addPort "pwr12v" $ do
         powerSource
         setType[
@@ -390,6 +401,7 @@ universalSeed i n = do
 
       ensureConnected allPorts
       setFieldsEq True allPorts ["controlUid"]
+      setFieldsEq False sensors ["deviceData"]
 
       return ()
 
