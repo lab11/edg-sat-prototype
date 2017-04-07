@@ -146,3 +146,6 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc fullModLibrary [("Seed",seed)]
+
+minRun :: EDGSettings -> IO ()
+minRun = makeSynthFunc minLibrary [("Seed",seed)]

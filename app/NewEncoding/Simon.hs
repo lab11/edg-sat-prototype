@@ -12,6 +12,27 @@ import NewEncoding.Design
 
 import Control.Monad
 
+minLibrary :: EDGLibrary
+minLibrary = EDGLibrary{
+  modules = [
+    -- Basic devices
+    ("button", 4, button),
+    ("led", 4, led),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3)
+    ],
+  links = [
+    ("apiLink", 12, apiLink),
+
+    ("powerLink", 1, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink)
+    ]
+  }
+
 seed :: Module ()
 seed = do
   setIdent "Control Logic"
@@ -58,3 +79,6 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc fullLibrary [("Seed",seed)]
+
+minRun :: EDGSettings -> IO ()
+minRun = makeSynthFunc minLibrary [("Seed",seed)]

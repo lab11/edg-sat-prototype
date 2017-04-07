@@ -12,6 +12,27 @@ import NewEncoding.Design
 
 import Control.Monad
 
+minLibrary :: EDGLibrary
+minLibrary = EDGLibrary{
+  modules = [
+    -- Basic devices
+    ("button", 1, button),
+    ("led", 1, led),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3)
+    ],
+  links = [
+    ("apiLink", 2, apiLink),
+
+    ("powerLink", 1, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 1, digitalBidirSourceLink)
+    ]
+  }
+
 seed :: Module ()
 seed = do
   setIdent "Control Logic"
@@ -32,16 +53,25 @@ seed = do
       ]
     return ()
 
-  leds <- makePorts 1 "led" $ \ name -> do
+  led <- addPort "led" $ do
     apiConsumer
     setType [
-      "controlName" <:= StringV name,
+      "controlName" <:= StringV "led",
       "apiType" <:= StringV "led"
       ]
     -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
-  let allPorts = leds
+  button <- addPort "button" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "button",
+      "apiType" <:= StringV "button"
+      ]
+    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
+    return ()
+
+  let allPorts = [led, button]
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
@@ -57,3 +87,6 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc fullLibrary [("Seed",seed)]
+
+minRun :: EDGSettings -> IO ()
+minRun = makeSynthFunc minLibrary [("Seed",seed)]
