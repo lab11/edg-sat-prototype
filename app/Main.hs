@@ -44,6 +44,7 @@ main = do
     "new-min-simon" -> NewEncoding.Simon.minRun settings
     "new-datalogger" -> NewEncoding.Datalogger.run settings
     "new-min-datalogger" -> NewEncoding.Datalogger.minRun settings
+    "new-min-ol-datalogger" -> NewEncoding.Datalogger.minOlRun settings
     "new-feedbackfan" -> NewEncoding.FeedbackFan.run settings
     "new-min-feedbackfan" -> NewEncoding.FeedbackFan.minRun settings
     "new-robot" -> NewEncoding.Robot.run settings
