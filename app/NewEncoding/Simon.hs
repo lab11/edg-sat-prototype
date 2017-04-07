@@ -54,6 +54,7 @@ seed = do
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
+  setFieldsEq False buttons ["deviceData"]
 
   return ()
 

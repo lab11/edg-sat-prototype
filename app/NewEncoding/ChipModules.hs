@@ -18,7 +18,6 @@ tmp102 = do
     apiProducer
     setType [
       "apiType" <:= StringV "temperatureSensor",
-      -- TODO: more temp sensor properties, scale resolution accuracy
       "apiData" <:= Record [
         "tempRange" <:= (range (FloatV (-25)) (FloatV 85)),
         "tempAccuracy" <:= FloatV 2,
@@ -33,7 +32,8 @@ tmp102 = do
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "limitVoltage" <:= (range (FloatV 2.0) (FloatV 3.6))  -- TODO technically down to 1.4 for digital thresholds characterized for V+>2.0
+      "limitVoltage" <:= range (FloatV 2.0) (FloatV 3.6),  -- TODO technically down to 1.4 for digital thresholds characterized for V+>2.0
+      "current" <:= range (FloatV 1e-6) (FloatV 10e-6)
       ]
     return ()
 
@@ -55,6 +55,134 @@ tmp102 = do
   setFieldsEq False [i2c, api] ["controlUid", "controlName"]
 
   return ()
+
+qre1113Analog :: Module ()
+qre1113Analog = do
+  setIdent "QRE1113 Analog Reflectance Sensor"
+  setSignature "QRE1113 Analog Reflectance Sensor"
+  setType []
+
+  api <- addPort "api" $ do
+    apiProducer
+    setType [
+      "apiType" <:= StringV "reflectanceSensor",
+      "apiData" <:= Record [
+        "requiredBits" <:= FloatC unknown
+        ],
+      "deviceData" <:= Record [
+        "device" <:= StringV "qre1113Analog"
+        ]
+      ]
+    return ()
+
+  vin <- addPort "vin" $ do
+    powerSink
+    setType [
+      "limitVoltage" <:= range (FloatV 1.8) (FloatV 5.5),  -- TODO guesstimate
+      "current" <:= range (FloatV 25e-3) (FloatV 25e-3)
+      ]
+    return ()
+
+  out <- addPort "out" $ do
+    analogSource
+    setType [
+      "voltage" <:= range (FloatV 0) (FloatC unknown),
+      "scale" <:= range (FloatV 0) (FloatC unknown),
+      "limitCurrent" <:= range (FloatV 0) (FloatV 0),
+      "limitBits" <:= FloatV (1/0),  -- no resolution limit on datasheet
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  ensureConnected [api, vin, out]
+
+  constrain $ port api (typeVal "apiData.requiredBits") :== port out (typeVal "requiredBits")
+  constrain $ port vin (typeVal "voltage.max") :== port out (typeVal "voltage.max")
+  constrain $ port vin (typeVal "voltage.min") :== port out (typeVal "scale.max")
+
+  setFieldsEq False [api, out] ["controlUid", "controlName"]
+
+  return ()
+
+
+tb6612fng :: Module ()
+tb6612fng = do
+  setIdent "TB6612FNG Motor Driver"
+  setSignature "TB6612FNG Motor Driver"
+  setType []
+
+  vmotor <- addPort "vmotor" $ do
+    powerSink
+    setType [
+      "limitVoltage" <:= range (FloatV 4.5) (FloatV 13.5),
+      "current" <:= range (FloatV 0) (FloatC unknown)
+      ]
+    return ()
+
+  vlogic <- addPort "vlogic" $ do
+    powerSink
+    setType [
+      "limitVoltage" <:= range (FloatV 2.7) (FloatV 5.5),
+      "current" <:= range (FloatV 1e-6) (FloatV 2.2e-3)
+      ]
+    return ()
+
+
+  outs <- forM @[] [1..2] $ \outId -> addPort ("out" ++ (show outId)) $ do
+    motorSource
+    setType [
+      "voltage" <:= range (FloatV 0) (FloatC unknown),
+      "limitCurrent" <:= range (FloatV 0) (FloatV 1.2)
+      ]
+    return ()
+
+  ctls <- forM @[] ["1a", "1b", "2a", "2b"] $ \ part -> addPort ("ctl" ++ part) $ do
+    digitalSink
+    setType [
+      "current" <:= range (FloatV 0) (FloatV 0),
+      "limitVoltage" <:= range (FloatV (-0.2)) (FloatC unknown),
+      "apiType" <:= StringV "onOff",
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  pwms <- forM @[] ["1", "2"] $ \ part -> addPort ("pwm" ++ part) $ do
+    digitalSink
+    setType [
+      "current" <:= range (FloatV 0) (FloatV 0),
+      "limitVoltage" <:= range (FloatV (-0.2)) (FloatC unknown),
+      "apiType" <:= StringV "pwm",
+      "apiDir" <:= StringV "consumer"
+      ]
+    return ()
+
+  ensureConnected [vmotor, vlogic]
+  constrain $ Any(map (\ outPort -> port outPort connected) outs)
+  constrain $ port (outs !! 0) connected :== port (ctls !! 0) connected
+  constrain $ port (outs !! 0) connected :== port (ctls !! 1) connected
+  constrain $ port (outs !! 0) connected :== port (pwms !! 0) connected
+  constrain $ port (outs !! 1) connected :== port (ctls !! 2) connected
+  constrain $ port (outs !! 1) connected :== port (ctls !! 3) connected
+  constrain $ port (outs !! 1) connected :== port (pwms !! 1) connected
+
+  forM @[] outs $ \ outPort -> do
+    constrain $ port vmotor (typeVal "voltage.max") :== port outPort (typeVal "voltage.max")
+    constrain $ port vmotor (typeVal "voltage.min") :== port outPort (typeVal "driveVoltage")
+
+  constrain $ port vmotor (typeVal "current.max") :== Sum(
+    map (\outPort -> port outPort (typeVal "current.max")) outs
+    )
+
+  forM @[] (ctls ++ pwms) $ \ ctlIn -> do
+    constrain $ port ctlIn (typeVal "limitVoltage.max") :== (port vlogic (typeVal "voltage.min") :+ Lit (FloatV 0.2))
+    constrain $ port ctlIn (typeVal "limit0VoltageLevel") :== (port vlogic (typeVal "voltage.min") :* Lit (FloatV 0.3))
+    constrain $ port ctlIn (typeVal "limit1VoltageLevel") :== (port vlogic (typeVal "voltage.max") :* Lit (FloatV 0.68))  -- TODO: FUDGED!
+
+  setFieldsEq False [outs !! 0, ctls !! 0, ctls !! 1, pwms !! 0] ["controlUid", "controlName"]
+  setFieldsEq False [outs !! 1, ctls !! 2, ctls !! 3, pwms !! 1] ["controlUid", "controlName"]
+
+  return ()
+
 
 -- Common properties fr Sparkfun Serial LCDs with a PIC16F88
 serialLcdBase16f88 :: Module (PortName,PortName)
@@ -188,6 +316,7 @@ sdcard = do
   cs <- addPort "cs" $ do
     digitalSink
     setType [
+      "current" <:= range (FloatV 0) (FloatV 0),
       "limitVoltage" <:= range (FloatV (-0.3)) (FloatC unknown),
       -- actual logic level thresholds are unknown, not part of the simplified spec
 

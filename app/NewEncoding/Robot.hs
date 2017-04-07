@@ -1,4 +1,4 @@
-module NewEncoding.AlternativeSimonTrinket where
+module NewEncoding.Robot where
 
 import EDG
 import NewEncoding.Util
@@ -17,30 +17,25 @@ import Control.Monad
 minLibrary :: EDGLibrary
 minLibrary = EDGLibrary{
   modules = [
-    -- Base links
-    ("i2cPower", 1, i2cPower),
-
     -- Basic devices
-    ("domeButton", 4, domeButton),
+    ("qre1113Analog", 2, qre1113Analog),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
-    ("digitalAmplifier", 4, digitalAmplifier),
+    ("tb6612fng", 1, tb6612fng),
 
     -- Microcontrollers
-    ("trinket3v3", 1, arduinoTrinket3v3)
+    ("apm3v3", 1, apm3v3)
     ],
   links = [
-    ("apiLink", 4, apiLink),
+    ("apiLink", 2, apiLink),
 
     ("powerLink", 2, powerLink 6),
     ("usbLink", 1, usbLink),
 
-    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
-    ("digitalLink", 4, digitalLink),
-
-    ("i2cLink", 1, i2cLink 1)
+    ("digitalBidirSinkLink", 6, digitalBidirSinkLink),
+    -- ("digitalBidirSourceLink", 3, digitalBidirSourceLink),
+    ("motorLink", 2, motorLink),
+    ("analogLink", 2, analogLink)
     ]
   }
 
@@ -64,29 +59,40 @@ seed = do
       ]
     return ()
 
-  pwr12v <- addPort "pwr12v" $ do
+  battery <- addPort "battery" $ do
     powerSource
     setType[
-      "voltage" <:= range (FloatV 11.8) (FloatV 12.2),  -- really good supply!
-      "limitCurrent" <:= range (FloatV 0) (FloatV 3)  -- really beefy supply!
+      "voltage" <:= range (FloatV 3.6) (FloatV 4.2),
+      "limitCurrent" <:= range (FloatV 0) (FloatV 3)
       ]
     return ()
 
 
-  buttons <- makePorts 4 "button" $ \ name -> do
+  sensors <- makePorts 2 "sensor" $ \ name -> do
     apiConsumer
     setType [
       "controlName" <:= StringV name,
-      "apiType" <:= StringV "litButton"
+      "apiType" <:= StringV "reflectanceSensor"
       ]
-    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
+    constrain $ typeVal "apiData.requiredBits" :== Lit(FloatV 8)
     return ()
 
-  let allPorts = buttons
+  motors <- makePorts 2 "motor" $ \ name -> do
+    motorSink
+    setType [
+      "limitVoltage" <:= range (FloatV 0) (FloatV 6),
+      "limitDriveVoltage" <:= FloatV 3,
+      "current" <:= range (FloatV 0) (FloatV 0.4),
+      "controlName" <:= StringV name
+      ]
+    return ()
+
+  let allPorts = sensors ++ motors
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
-  setFieldsEq False buttons ["deviceData"]
+
+  setFieldsEq False sensors ["deviceData"]
 
   return ()
 
@@ -99,3 +105,4 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc minLibrary [("Seed",seed)]
+
