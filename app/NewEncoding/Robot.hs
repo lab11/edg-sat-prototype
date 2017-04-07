@@ -59,10 +59,10 @@ seed = do
       ]
     return ()
 
-  battery <- addPort "battery" $ do
+  power <- addPort "power" $ do
     powerSource
     setType[
-      "voltage" <:= range (FloatV 3.6) (FloatV 4.2),
+      "voltage" <:= range (FloatV 4.75) (FloatV 5.25),
       "limitCurrent" <:= range (FloatV 0) (FloatV 3)
       ]
     return ()
