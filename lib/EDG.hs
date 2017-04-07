@@ -87,6 +87,7 @@ module EDG (
   , range           -- NOTE :: Range syntax sugar.
   , validRange
   , initRange
+  , rContained
   , rSubset
   , rSuperset
   , rNotDisjoint
@@ -357,6 +358,15 @@ initRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
 initRange = constrain . validRange
 
 -- | TODO
+rContained :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
+          => Exp m -> Exp m -> Exp m
+rContained a r
+  =   (rMin :<= rMax)
+  :&& (a :>= rMin) :&& (a :<= rMax)
+  where
+    rMin = GetField r "min"
+    rMax = GetField r "max"
+
 rSubset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
           => Exp m -> Exp m -> Exp m
 rSubset a b

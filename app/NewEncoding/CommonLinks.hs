@@ -188,6 +188,54 @@ digitalBidirSourceLink = do
 
   return ()
 
+analogLink :: Link ()
+analogLink = do
+  setIdent "AnalogLink"
+  setSignature "AnalogLink"
+
+  source <- addPort "source" analogSource
+  sink <- addPort "sink" analogSink
+
+  ensureConnected [source, sink]
+
+  setFieldsEq False [source, sink] [
+      "voltage"
+    , "current"
+    , "controlUid"
+    , "controlName"
+    , "requiredBits"
+    ]
+
+  constrain $ rSubset (port source (typeVal "scale")) (port sink (typeVal "limitScale"))
+
+  constrain $ matchedPairs
+    (port source $ typeVal "apiDir",port sink $ typeVal "apiDir")
+    (Lit $ StringV "producer", Lit $ StringV "consumer")
+
+  return ()
+
+
+motorLink :: Link ()
+motorLink = do
+  setIdent "MotorLink"
+  setSignature "MotorLink"
+
+  source <- addPort "source" motorSource
+  sink <- addPort "sink" motorSink
+
+  ensureConnected [source, sink]
+
+  setFieldsEq False [source, sink] [
+      "voltage"
+    , "current"
+    , "controlUid"
+    , "controlName"
+    ]
+
+  constrain $ port source (typeVal "driveVoltage") :>= port sink (typeVal "limitDriveVoltage")
+
+  return ()
+
 
 -- Seed Links
 apiLink :: Link ()

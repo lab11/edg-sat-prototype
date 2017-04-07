@@ -121,7 +121,7 @@ apm3v3 = do
       ]
     return ()
 
-  gpios <- forM @[] [1..4] $ \ gpioId ->
+  gpios <- forM @[] [1..7] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
@@ -137,6 +137,7 @@ apm3v3 = do
     newResource ("D" ++ (show id))
   analogPins <- forM @[] [0..3] $ \ id ->
     newResource ("A" ++ (show id))
+  let pwmPins = map (\ pin -> digitalPins !! pin) [3, 5, 6, 9, 10]
 
   constrain $ port usbIn (typeVal "current.min") :== Sum (
     (port p5vOut $ typeVal "current.min") :
@@ -162,9 +163,31 @@ apm3v3 = do
     constrain $ isSource :=> port gpio (typeVal "voltage.min") :== Lit (FloatV 0)
     constrain $ isSource :=> port gpio (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
 
-    constrainResources gpio (port gpio $ connected) [gpio :|= (digitalPins ++ analogPins)]
+    constrainResources (gpio ++ "dig") (port gpio connected :&& port gpio (typeVal "apiType") :== Lit (StringV "onOff"))
+      [gpio :|= (digitalPins ++ analogPins)]
+    constrainResources (gpio ++ "pwm") (port gpio connected :&& port gpio (typeVal "apiType") :== Lit (StringV "pwm"))
+      [gpio :|= (pwmPins)]
 
     constrainPortVoltageLevels gpio
+
+  analogs <- forM @[] [0..3] $ \ analogId ->
+    addPort ("analog" ++ (show analogId)) $ do
+      analogSink
+      setType [
+        "current" <:= range (FloatV 0) (FloatV 0),  -- a simplistic model...
+        "limitVoltage" <:= range (FloatV (-0.5)) (FloatC unknown),
+        "limitScale" <:= range (FloatV 0) (FloatC unknown),
+        "limitBits" <:= FloatV 10,
+        "apiDir" <:= StringV "producer"
+        ]
+      return ()
+
+  forM @[] analogs $ \ analog -> do
+    constrain $ port analog (typeVal "controlUid") :== uid
+    constrain $ port analog (typeVal "limitVoltage.max") :== (port p3v3Out (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+    constrain $ port analog (typeVal "limitScale.max") :== port p3v3Out (typeVal "voltage.max")
+
+    constrainResources analog (port analog $ connected) [analog :|= analogPins]
 
   i2c <- addPort "i2c" $ do
     i2cMaster

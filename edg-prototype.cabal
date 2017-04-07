@@ -43,6 +43,7 @@ executable edg-prototype
     NewEncoding.Simon
     NewEncoding.Datalogger
     NewEncoding.FeedbackFan
+    NewEncoding.Robot
     NewEncoding.SimonTrinket
     NewEncoding.AlternativeSimonTrinket
 

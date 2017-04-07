@@ -202,7 +202,10 @@ arduinoTrinket3v3 = do
     constrain $ isSource :=> port gpio (typeVal "voltage.min") :== Lit (FloatV 0)
     constrain $ isSource :=> port gpio (typeVal "voltage.max") :== port p3v3Out (typeVal "voltage.max")
 
-    constrainResources gpio (port gpio $ connected) [gpio :|= pins]
+    constrainResources (gpio ++ "dig") (port gpio connected :&& port gpio (typeVal "apiType") :== Lit (StringV "onOff"))
+      [gpio :|= (pins)]
+    constrainResources (gpio ++ "pwm") (port gpio connected :&& port gpio (typeVal "apiType") :== Lit (StringV "pwm"))
+      [gpio :|= [pins !! 0, pins !! 1]]
 
     constrainPortVoltageLevels gpio
 
@@ -226,5 +229,7 @@ arduinoTrinket3v3 = do
 
   -- device has no UART pins exposed
   -- device has a SPI interface, but insufficient pins for even a single CS
+
+  -- TODO: add ADC interfaces
 
   return ()
