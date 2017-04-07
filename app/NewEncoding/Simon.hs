@@ -32,25 +32,16 @@ seed = do
       ]
     return ()
 
-  leds <- makePorts 4 "led" $ \ name -> do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "led"
-      ]
-    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
-    return ()
-
   buttons <- makePorts 4 "button" $ \ name -> do
     apiConsumer
     setType [
       "controlName" <:= StringV name,
-      "apiType" <:= StringV "button"
+      "apiType" <:= StringV "litButton"
       ]
     -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
-  let allPorts = buttons ++ leds
+  let allPorts = buttons
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
