@@ -1,4 +1,4 @@
-module NewEncoding.Simon where
+module NewEncoding.FeedbackFan where
 
 import EDG
 import NewEncoding.Util
@@ -32,20 +32,46 @@ seed = do
       ]
     return ()
 
-  buttons <- makePorts 4 "button" $ \ name -> do
-    apiConsumer
-    setType [
-      "controlName" <:= StringV name,
-      "apiType" <:= StringV "litButton"
+  pwr12v <- addPort "pwr12v" $ do
+    powerSource
+    setType[
+      "voltage" <:= range (FloatV 11.8) (FloatV 12.2),  -- really good supply!
+      "limitCurrent" <:= range (FloatV 0) (FloatV 3)  -- really beefy supply!
       ]
-    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
-  let allPorts = buttons
+
+  sensor <- addPort "sensor" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "sensor",
+      "apiType" <:= StringV "temperatureSensor"
+      ]
+    constrain $ typeVal "apiData.tempRange.min" :<= Lit (FloatV 10)  -- common human ranges
+    constrain $ typeVal "apiData.tempRange.max" :>= Lit (FloatV 40)
+    constrain $ typeVal "apiData.tempResolution" :<= Lit (FloatV 1)
+    return ()
+
+  display <- addPort "display" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "display",
+      "apiType" <:= StringV "characterLcd"
+      ]
+    return ()
+
+  fan <- addPort "fan" $ do
+    apiConsumer
+    setType [
+      "controlName" <:= StringV "fan",
+      "apiType" <:= StringV "controlledFan"
+      ]
+    return ()
+
+  let allPorts = [sensor, display, fan]
 
   ensureConnected allPorts
   setFieldsEq True allPorts ["controlUid"]
-  setFieldsEq False buttons ["deviceData"]
 
   return ()
 

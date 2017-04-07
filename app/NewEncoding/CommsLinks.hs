@@ -9,6 +9,20 @@ import NewEncoding.Util
 import NewEncoding.CommonPorts
 import NewEncoding.CommsPorts
 
+-- Electrical Links
+usbLink :: Link ()
+usbLink = do
+  setIdent "UsbLink"
+  setSignature "UsbLink"
+
+  host <- addPort "host" usbHost
+  device <- addPort "device" usbDevice
+
+  ensureConnected [host, device]
+  setFieldsEq False [host, device] ["voltage", "current"]
+
+  return ()
+
 uartLink :: Link ()
 uartLink = do
   setIdent "UartLink"
@@ -16,16 +30,10 @@ uartLink = do
 
   master <- addPort "master" $ do
     uartMaster
-    setType [
-      "current" <:= (range (FloatV 0) (FloatV 0))
-      ]
     return()
 
   slave <- addPort "slave" $ do
     uartSlave
-    setType [
-      "current" <:= (range (FloatV 0) (FloatV 0))
-      ]
     return()
 
   ensureConnected [master, slave]
@@ -77,7 +85,7 @@ i2cLink numSlaves = do
   power <- addPort "power" $ do
     i2cPowerSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0)),
+      "current" <:= (range (FloatV 0) (FloatV 2e-3)),
       "limitVoltage" <:= (range (FloatV 0) (FloatV 36)) -- TODO: dummy constraint
       ]
     return()
@@ -85,7 +93,6 @@ i2cLink numSlaves = do
   master <- addPort "master" $ do
     i2cMaster
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0)),  -- TODO: make this nonzero?
       "controlName" <:= StringV "i2c"
       ]
     return()
@@ -93,9 +100,6 @@ i2cLink numSlaves = do
   slaves <- forM @[] [1..numSlaves] $ \ slaveId ->
     addPort ("slave" ++ (show slaveId)) $ do
       i2cSlave
-      setType [
-        "current" <:= (range (FloatV 0) (FloatV 0))
-        ]
       return()
 
   ensureConnected [power, master]
@@ -129,7 +133,6 @@ i2cPower = do  -- aka the two pull up resistors
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0)),  -- TODO i2c signal power draw
       "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
       ]
     return ()
@@ -137,7 +140,6 @@ i2cPower = do  -- aka the two pull up resistors
   vout <- addPort "vout" $ do
     i2cPowerSink
     setType [
-      "current" <:= (range (FloatV 0) (FloatV 0)),
       "limitVoltage" <:= (range (FloatV 0) (FloatV 36))
       ]
     return ()

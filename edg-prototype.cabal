@@ -36,7 +36,16 @@ executable edg-prototype
     NewEncoding.CommsPorts
     NewEncoding.CommsLinks
     NewEncoding.ChipModules
+    NewEncoding.RedundantModules
+    NewEncoding.SwAdapters
+    NewEncoding.Design
+    NewEncoding.Blinky
     NewEncoding.Simon
+    NewEncoding.Datalogger
+    NewEncoding.FeedbackFan
+    NewEncoding.Robot
+    NewEncoding.SimonTrinket
+    NewEncoding.AlternativeSimonTrinket
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
