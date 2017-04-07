@@ -50,6 +50,104 @@ powerSource = do
 
   return ()
 
+
+-- DC-driven motor ports
+motorSink :: (IsPort p) => p ()
+motorSink = do
+  powerBase
+  controllable
+  setKind "MotorSink"
+  setIdent "MotorSink"
+
+  setType [
+    "linkDomain" <:= StringV "HW,FW",
+    -- The range of acceptable voltages this link is capable of handling
+    "limitVoltage" <:= range (FloatC unknown) (FloatC unknown),
+    -- Minimum required driving (high) voltage
+    "limitDriveVoltage" <:= FloatC unknown
+    ]
+
+  -- Make sure that the voltages we see at runtime are a subset of the
+  -- voltages this link is capable of handling.
+  constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
+
+  return ()
+
+motorSource :: (IsPort p) => p ()
+motorSource = do
+  powerBase
+  controllable
+  setKind "MotorSource"
+  setIdent "MotorSource"
+  setType [
+    "linkDomain" <:= StringV "HW,FW",
+    -- The range of currents this source is capable of providing.
+    "limitCurrent" <:= range (FloatC unknown) (FloatC unknown),
+    -- Minimum driving (high) voltage
+    "driveVoltage" <:= FloatC unknown
+    ]
+
+  -- Make sure that the currents we see at runtime are a subset of the
+  -- currents this link is capable of handling.
+  constrain $ rSubset (typeVal "current") (typeVal "limitCurrent")
+
+  return ()
+
+
+analogControlBase :: (IsPort p) => p ()
+analogControlBase = do
+  controllable
+  setType [
+    "linkDomain" <:= StringV "HW,FW",
+    -- The direction the api is flowing over the link in sw lang
+    "apiDir" <:= StringC $ oneOf ["producer", "consumer"],
+    -- Bit resolution of the signal
+    "requiredBits" <:= FloatC unknown,
+    -- Effective bit resolution limit of the driver / DAC / sink / ADC
+    "limitBits" <:= FloatC unknown
+    ]
+  constrain $ (typeVal "requiredBits") :<= (typeVal "limitBits")
+  return ()
+
+analogSink :: (IsPort p) => p ()
+analogSink = do
+  powerBase
+  analogControlBase
+  setKind "AnalogSink"
+  setIdent "AnalogSink"
+
+  setType [
+    -- The range of acceptable voltages this link is capable of handling
+    "limitVoltage" <:= range (FloatC unknown) (FloatC unknown),
+    -- Linear range of the input
+    "limitScale" <:= range (FloatC unknown) (FloatC unknown)
+    ]
+
+  -- Make sure that the voltages we see at runtime are a subset of the
+  -- voltages this link is capable of handling.
+  constrain $ rSubset (typeVal "voltage") (typeVal "limitVoltage")
+
+  return ()
+
+analogSource :: (IsPort p) => p ()
+analogSource = do
+  powerBase
+  analogControlBase
+  setKind "AnalogSource"
+  setIdent "AnalogSource"
+  setType [
+    -- The range of currents this source is capable of providing.
+    "limitCurrent" <:= range (FloatC unknown) (FloatC unknown),
+    -- Useful signal voltage range
+    "scale" <:= range (FloatC unknown) (FloatC unknown)
+    ]
+
+  -- Make sure that the currents we see at runtime are a subset of the
+  -- currents this link is capable of handling.
+  constrain $ rSubset (typeVal "current") (typeVal "limitCurrent")
+
+  return ()
+
 controllable :: (IsPort p) => p ()
 controllable = do
   setType [
