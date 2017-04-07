@@ -112,4 +112,4 @@ run :: EDGSettings -> IO ()
 run = makeSynthFunc fullLibrary [("Seed",seed)]
 
 minRun :: EDGSettings -> IO ()
-minRun = makeSynthFunc fullLibrary [("Seed",seed)]
+minRun = makeSynthFunc minLibrary [("Seed",seed)]
