@@ -121,7 +121,7 @@ apm3v3 = do
       ]
     return ()
 
-  gpios <- forM @[] [1..10] $ \ gpioId ->
+  gpios <- forM @[] [1..8] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
