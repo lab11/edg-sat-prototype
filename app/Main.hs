@@ -15,6 +15,8 @@ import qualified NewEncoding.Robot
 import qualified NewEncoding.SimonTrinket
 import qualified NewEncoding.AlternativeSimonTrinket
 
+import qualified Experiments
+
 optParser :: Parser (String, EDGSettings)
 optParser = (,)
   <$> argument str (
@@ -43,4 +45,5 @@ main = do
     "new-robot" -> NewEncoding.Robot.run settings
     "new-simon-trinket" -> NewEncoding.SimonTrinket.run settings
     "new-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.run settings
+    "random" -> Experiments.run settings
     _ -> putStrLn "No example chosen. See app/Main.hs for a list."

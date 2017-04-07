@@ -116,7 +116,7 @@ import GHC.Generics
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Debug.Trace
-
+import Data.List
 import Data.Time
 import Control.Newtype.Util
 
@@ -124,6 +124,8 @@ import qualified Data.SBV as SBV
 import Data.Char (toLower)
 -- import qualified Data.SBV.Dynamic as SBV hiding (satWith)
 -- import qualified Data.SBV.Internals as SBV hiding (satWith)
+
+import System.Environment
 
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -832,6 +834,7 @@ data EDGSettings = EDGSettings {
   , graphvizFiles :: [(String,FilePath)]
   , smtLibFile :: Maybe FilePath
   , supressSMT :: Bool
+  , timingData :: [FilePath]
   }
 
 -- | TODO
@@ -843,6 +846,7 @@ defaultSettings = EDGSettings{
   , graphvizFiles = []
   , smtLibFile = Nothing
   , supressSMT = False
+  , timingData = []
   }
 
 parseSettings :: Parser EDGSettings
@@ -896,6 +900,13 @@ parseSettings = EDGSettings
         $  long "skip-smt"
         <> help ("Skip the SMT solving phase of the process, useful for "
           ++ "profiling.")
+      )
+  <*> (many . strOption
+        $  long "timing-data"
+        <> short 'c'
+        <> metavar "<FILE>"
+        <> help ("Write timing info to FILE. Mainy useful for "
+          ++ "experiments. Just appends to file. Can be used multiple times.")
       )
 
 parseGraphvizOption :: String -> (String,FilePath)
@@ -1048,7 +1059,28 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
           ++ "  cpu  : %0.3f sec\n"
           ++ "  wall : %0.3f sec\n" :: String)
           (s :: String)(cDiff :: Double)(wDiff :: Double)
+        sequence_ $ fmap (printTime cDiff wDiff) timingData
         return v
+
+        where
+
+          printTime :: Double -> Double -> FilePath -> IO ()
+          printTime cpu wall fp = do
+            progName <- getProgName
+            args <- getArgs
+            let cmd = concat . intersperse " " $ progName : args
+            time <- getCurrentTime
+            appendFile fp $
+              printf ("{\"cmd\":%s,\"time\":%s,\"phase\":%s,"
+                ++"\"wall\":%0.3f,\"cpu\":%0.3f}\n")
+                (show cmd :: String)
+                (show $ formatTime defaultTimeLocale
+                    rfc822DateFormat time :: String)
+                (show s :: String) (wall :: Double) (cpu :: Double)
+
+
+
+
 -- * Utility Functions
 
 -- | TODO
