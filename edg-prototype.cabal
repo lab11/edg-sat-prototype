@@ -46,6 +46,7 @@ executable edg-prototype
     NewEncoding.Robot
     NewEncoding.SimonTrinket
     NewEncoding.AlternativeSimonTrinket
+    Experiments
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
@@ -101,6 +102,10 @@ executable edg-prototype
     syb >= 0.6,
     -- Argument Handling
     optparse-applicative,
+    -- Random number gen
+    random,
+    -- Time
+    time,
     -- The library we are developing
     edg-prototype
 
