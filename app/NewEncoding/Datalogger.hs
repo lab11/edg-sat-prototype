@@ -97,4 +97,4 @@ seed = do
 --   not realizing there's no way to split the SW across them.
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
-run = makeSynthFunc minLibrary [("Seed",seed)]
+run = makeSynthFunc fullLibrary [("Seed",seed)]
