@@ -39,11 +39,18 @@ main = do
     "med-simon" -> Examples.Simon.medRun settings
     "big-simon" -> Examples.Simon.bigRun settings
     "new-blinky" -> NewEncoding.Blinky.run settings
+    "new-min-blinky" -> NewEncoding.Blinky.minRun settings
     "new-simon" -> NewEncoding.Simon.run settings
+    "new-min-simon" -> NewEncoding.Simon.minRun settings
     "new-datalogger" -> NewEncoding.Datalogger.run settings
+    "new-min-datalogger" -> NewEncoding.Datalogger.minRun settings
     "new-feedbackfan" -> NewEncoding.FeedbackFan.run settings
+    "new-min-feedbackfan" -> NewEncoding.FeedbackFan.minRun settings
     "new-robot" -> NewEncoding.Robot.run settings
+    "new-min-robot" -> NewEncoding.Robot.minRun settings
     "new-simon-trinket" -> NewEncoding.SimonTrinket.run settings
+    "new-min-simon-trinket" -> NewEncoding.SimonTrinket.minRun settings
     "new-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.run settings
+    "new-min-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.minRun settings
     "random" -> Experiments.run settings
     _ -> putStrLn "No example chosen. See app/Main.hs for a list."

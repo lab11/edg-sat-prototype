@@ -22,9 +22,32 @@ minLibrary = EDGLibrary{
 
     -- More devices
     ("tmp102", 1, tmp102),
-    --("sdcard", 1, sdcard),
+    ("sdcard", 1, sdcard),
 
-    --("fat32", 1, fat32),
+    ("fat32", 1, fat32),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3)
+    ],
+  links = [
+    ("apiLink", 3, apiLink),
+
+    ("powerLink", 1, powerLink 4),
+    ("usbLink", 1, usbLink),
+
+    ("spiLink", 1, spiLink 2),
+    ("i2cLink", 1, i2cLink 2)
+    ]
+  }
+
+minOlLibrary :: EDGLibrary
+minOlLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
 
     ("openLog", 1, openLog),
 
@@ -39,7 +62,6 @@ minLibrary = EDGLibrary{
 
     ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
 
-    ("spiLink", 1, spiLink 2),
     ("i2cLink", 1, i2cLink 2),
     ("uartLink", 1, uartLink)
     ]
@@ -98,3 +120,9 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc fullLibrary [("Seed",seed)]
+
+minRun :: EDGSettings -> IO ()
+minRun = makeSynthFunc minLibrary [("Seed",seed)]
+
+minOlRun :: EDGSettings -> IO ()
+minOlRun = makeSynthFunc minOlLibrary [("Seed",seed)]
