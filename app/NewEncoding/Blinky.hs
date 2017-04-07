@@ -38,7 +38,7 @@ seed = do
       "controlName" <:= StringV name,
       "apiType" <:= StringV "led"
       ]
-    constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
+    -- constrain $ typeVal "apiData.bandwidth" :>= Lit (FloatV 10)
     return ()
 
   let allPorts = leds

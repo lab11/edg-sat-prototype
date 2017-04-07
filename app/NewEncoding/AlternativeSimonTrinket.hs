@@ -69,7 +69,7 @@ fullModLibrary = EDGLibrary{
     -- Interfaces
     ("pcf8575", 1, pcf8575),
     ("tb6612fng", 1, tb6612fng),
-    ("digitalAmplifier", 1, digitalAmplifier),
+    ("digitalAmplifier", 4, digitalAmplifier),
 
     ("l7805", 1, l7805),
 
