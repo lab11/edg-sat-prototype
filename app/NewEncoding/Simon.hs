@@ -8,6 +8,7 @@ import NewEncoding.CommonModules
 import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
+import NewEncoding.SwAdapters
 import NewEncoding.Design
 
 import Control.Monad
@@ -18,6 +19,7 @@ minLibrary = EDGLibrary{
     -- Basic devices
     ("button", 4, button),
     ("led", 4, led),
+    ("litButton", 4, litButton),
 
     -- Microcontrollers
     ("apm3v3", 1, apm3v3)

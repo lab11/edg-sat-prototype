@@ -22,7 +22,7 @@ minLibrary = EDGLibrary{
     ("tmp102", 1, tmp102),
     ("lcd5v", 1, serialLcd16x2_5v),
 
-    ("powerControlFan", 1, pwmControlFan),
+    ("powerControlFan", 1, powerControlFan),
 
     -- Interfaces
     ("digitalAmplifier", 1, digitalAmplifier),
