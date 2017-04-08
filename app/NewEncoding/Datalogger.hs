@@ -67,6 +67,60 @@ minOlLibrary = EDGLibrary{
     ]
   }
 
+
+medLibrary :: EDGLibrary
+medLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- Basic devices
+    ("button", 2, button),
+    ("led", 2, led),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
+    ("sdcard", 1, sdcard),
+
+    ("fat32", 1, fat32),
+    ("openLog", 1, openLog),
+
+    ("lcd3v3", 1, serialLcd16x2_3v3),
+    ("domeButton", 2, domeButton),
+    ("qre1113Analog", 1, qre1113Analog),
+
+    ("powerControlFan", 1, pwmControlFan),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3),
+
+
+    -- Interfaces
+    ("pcf8575", 1, pcf8575),
+    ("litButton", 2, litButton),
+
+    ("l7805", 1, l7805)
+
+    ],
+  links = [
+    ("apiLink", 6, apiLink),
+
+    ("powerLink", 1, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
+
+    ("spiLink", 1, spiLink 2),
+    ("i2cLink", 1, i2cLink 2),
+
+    ("digitalBidirSourceLink", 3, digitalBidirSourceLink),
+
+    ("motorLink", 1, motorLink),
+    ("analogLink", 1, analogLink)
+    ]
+  }
+
+
 seed :: Module ()
 seed = do
   setIdent "Control Logic"
@@ -126,3 +180,6 @@ minRun = makeSynthFunc minLibrary [("Seed",seed)]
 
 minOlRun :: EDGSettings -> IO ()
 minOlRun = makeSynthFunc minOlLibrary [("Seed",seed)]
+
+medRun :: EDGSettings -> IO ()
+medRun = makeSynthFunc medLibrary [("Seed",seed)]
