@@ -44,6 +44,55 @@ minLibrary = EDGLibrary{
     ]
   }
 
+medLibrary :: EDGLibrary
+medLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- Basic devices
+    ("domeButton", 4, domeButton),
+    ("button", 2, button),
+    ("led", 2, led),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
+    ("lcd3v3", 1, serialLcd16x2_3v3),
+    ("qre1113Analog", 1, qre1113Analog),
+
+    ("powerControlFan", 1, powerControlFan),
+
+    -- Interfaces
+    ("pcf8575", 1, pcf8575),
+    ("digitalAmplifier", 4, digitalAmplifier),
+    ("tb6612fng", 1, tb6612fng),
+
+    ("l7805", 1, l7805),
+
+    -- Microcontrollers
+    ("trinket3v3", 1, arduinoTrinket3v3)
+    ],
+  links = [
+    ("apiLink", 8, apiLink),
+
+    ("powerLink", 3, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 5, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 5, digitalBidirSourceLink),
+    ("digitalLink", 4, digitalLink),
+
+    ("i2cLink", 1, i2cLink 1),
+
+    ("digitalLink", 2, digitalLink),
+
+    ("motorLink", 1, motorLink),
+    ("analogLink", 1, analogLink),
+
+    ("uartLink", 1, uartLink)
+    ]
+  }
+
 fullModLibrary :: EDGLibrary
 fullModLibrary = EDGLibrary{
   modules = [
@@ -155,3 +204,7 @@ run = makeSynthFunc fullModLibrary [("Seed",seed)]
 
 minRun :: EDGSettings -> IO ()
 minRun = makeSynthFunc minLibrary [("Seed",seed)]
+
+medRun :: EDGSettings -> IO ()
+medRun = makeSynthFunc medLibrary [("Seed",seed)]
+

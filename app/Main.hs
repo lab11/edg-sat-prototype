@@ -59,5 +59,6 @@ main = do
     "new-med-simon-trinket" -> NewEncoding.SimonTrinket.medRun settings
     "new-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.run settings
     "new-min-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.minRun settings
+    "new-med-alt-simon-trinket" -> NewEncoding.AlternativeSimonTrinket.medRun settings
     "random" -> Experiments.run settings
     _ -> putStrLn "No example chosen. See app/Main.hs for a list."
