@@ -37,7 +37,7 @@ minLibrary = EDGLibrary{
     ("usbLink", 1, usbLink),
 
     ("digitalLink", 1, digitalLink),
-    ("digitalBidirSourceLink", 1, digitalBidirSourceLink),
+    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
 
     ("uartLink", 1, uartLink),
     ("i2cLink", 1, i2cLink 2)
