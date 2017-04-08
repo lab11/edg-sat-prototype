@@ -89,7 +89,7 @@ medLibrary = EDGLibrary{
     ("domeButton", 2, domeButton),
     ("qre1113Analog", 1, qre1113Analog),
 
-    ("powerControlFan", 1, pwmControlFan),
+    ("powerControlFan", 1, powerControlFan),
 
     -- Microcontrollers
     ("apm3v3", 1, apm3v3),

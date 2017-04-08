@@ -35,8 +35,7 @@ fullLibrary = EDGLibrary{
     ("sdcard", 1, sdcard),
     ("qre1113Analog", 2, qre1113Analog),
 
-    ("pwmControlFan", 1, powerControlFan),
-    ("powerControlFan", 1, pwmControlFan),
+    ("powerControlFan", 1, powerControlFan),
 
     -- Interfaces
     ("pcf8575", 1, pcf8575),
@@ -58,7 +57,7 @@ fullLibrary = EDGLibrary{
     ("powerLink", 3, powerLink 6),
     ("usbLink", 1, usbLink),
 
-    ("digitalLink", 2, digitalLink),
+    ("digitalLink", 4, digitalLink),
     ("digitalBidirLink", 0, digitalBidirLink),
     ("digitalBidirSinkLink", 6, digitalBidirSinkLink),
     ("digitalBidirSourceLink", 6, digitalBidirSourceLink),
