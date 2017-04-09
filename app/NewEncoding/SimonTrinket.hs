@@ -44,6 +44,49 @@ minLibrary = EDGLibrary{
     ]
   }
 
+medLibrary :: EDGLibrary
+medLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- Basic devices
+    ("button", 4, button),
+    ("led", 4, led),
+
+    -- Interfaces
+    ("pcf8575", 1, pcf8575),
+    ("litButton", 4, litButton),
+    ("l7805", 1, l7805),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
+    ("lcd3v3", 1, serialLcd16x2_3v3),
+    ("domeButton", 2, domeButton),
+    ("qre1113Analog", 1, qre1113Analog),
+
+    ("powerControlFan", 1, pwmControlFan),
+
+    -- Microcontrollers
+    ("trinket3v3", 1, arduinoTrinket3v3)
+    ],
+  links = [
+    ("apiLink", 12, apiLink),
+
+    ("powerLink", 2, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
+
+    ("i2cLink", 1, i2cLink 2),
+
+    ("motorLink", 1, motorLink),
+    ("analogLink", 1, analogLink)
+
+    ]
+  }
+
 fullModLibrary :: EDGLibrary
 fullModLibrary = EDGLibrary{
   modules = [
@@ -63,8 +106,7 @@ fullModLibrary = EDGLibrary{
     ("sdcard", 1, sdcard),
     ("qre1113Analog", 2, qre1113Analog),
 
-    ("pwmControlFan", 1, powerControlFan),
-    ("powerControlFan", 1, pwmControlFan),
+    ("powerControlFan", 1, powerControlFan),
 
     -- Interfaces
     ("pcf8575", 1, pcf8575),
@@ -85,7 +127,7 @@ fullModLibrary = EDGLibrary{
     ("powerLink", 3, powerLink 6),
     ("usbLink", 1, usbLink),
 
-    ("digitalLink", 2, digitalLink),
+    ("digitalLink", 4, digitalLink),
     ("digitalBidirLink", 0, digitalBidirLink),
     ("digitalBidirSinkLink", 6, digitalBidirSinkLink),
     ("digitalBidirSourceLink", 6, digitalBidirSourceLink),
@@ -146,3 +188,9 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc fullModLibrary [("Seed",seed)]
+
+minRun :: EDGSettings -> IO ()
+minRun = makeSynthFunc minLibrary [("Seed",seed)]
+
+medRun :: EDGSettings -> IO ()
+medRun = makeSynthFunc medLibrary [("Seed",seed)]

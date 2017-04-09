@@ -9,8 +9,92 @@ import NewEncoding.CommsPorts
 import NewEncoding.CommsLinks
 import NewEncoding.ChipModules
 import NewEncoding.Design
+import NewEncoding.RedundantModules
+import NewEncoding.SwAdapters
 
 import Control.Monad
+
+minLibrary :: EDGLibrary
+minLibrary = EDGLibrary{
+  modules = [
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
+    ("lcd5v", 1, serialLcd16x2_5v),
+
+    ("powerControlFan", 1, powerControlFan),
+
+    -- Interfaces
+    ("digitalAmplifier", 1, digitalAmplifier),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3)
+    ],
+  links = [
+    ("apiLink", 3, apiLink),
+
+    ("powerLink", 3, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalLink", 1, digitalLink),
+    ("digitalBidirSinkLink", 1, digitalBidirSinkLink),
+
+    ("uartLink", 1, uartLink),
+    ("i2cLink", 1, i2cLink 2)
+    ]
+  }
+
+
+medLibrary :: EDGLibrary
+medLibrary = EDGLibrary{
+  modules = [
+    -- Basic devices
+    ("button", 2, button),
+    ("led", 2, led),
+
+    -- Base links
+    ("i2cPower", 1, i2cPower),
+
+    -- More devices
+    ("tmp102", 1, tmp102),
+    ("lcd5v", 1, serialLcd16x2_5v),
+
+    ("powerControlFan", 1, powerControlFan),
+    ("domeButton", 2, domeButton),
+    ("sdcard", 1, sdcard),
+    ("qre1113Analog", 1, qre1113Analog),
+
+    -- Interfaces
+    ("digitalAmplifier", 1, digitalAmplifier),
+    ("pcf8575", 1, pcf8575),
+    ("litButton", 2, litButton),
+
+    ("l7805", 1, l7805),
+
+    -- Microcontrollers
+    ("apm3v3", 1, apm3v3)
+    ],
+  links = [
+    ("apiLink", 6, apiLink),
+
+    ("powerLink", 3, powerLink 6),
+    ("usbLink", 1, usbLink),
+
+    ("digitalLink", 1, digitalLink),
+    ("digitalBidirSinkLink", 3, digitalBidirSinkLink),
+
+    ("uartLink", 1, uartLink),
+    ("digitalBidirSourceLink", 3, digitalBidirSourceLink),
+
+    ("motorLink", 1, motorLink),
+    ("analogLink", 1, analogLink),
+
+    ("i2cLink", 1, i2cLink 2)
+    ]
+  }
+
 
 seed :: Module ()
 seed = do
@@ -84,3 +168,9 @@ seed = do
 --   Fixing this is left as an exercise for the reader.
 run :: EDGSettings -> IO ()
 run = makeSynthFunc fullLibrary [("Seed",seed)]
+
+minRun :: EDGSettings -> IO ()
+minRun = makeSynthFunc minLibrary [("Seed",seed)]
+
+medRun :: EDGSettings -> IO ()
+medRun = makeSynthFunc medLibrary [("Seed",seed)]
