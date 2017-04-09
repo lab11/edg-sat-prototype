@@ -60,8 +60,6 @@ medLibrary = EDGLibrary{
     ("lcd3v3", 1, serialLcd16x2_3v3),
     ("qre1113Analog", 1, qre1113Analog),
 
-    ("powerControlFan", 1, powerControlFan),
-
     -- Interfaces
     ("pcf8575", 1, pcf8575),
     ("digitalAmplifier", 4, digitalAmplifier),
@@ -73,23 +71,20 @@ medLibrary = EDGLibrary{
     ("trinket3v3", 1, arduinoTrinket3v3)
     ],
   links = [
-    ("apiLink", 8, apiLink),
+    ("apiLink", 6, apiLink),
 
     ("powerLink", 3, powerLink 6),
     ("usbLink", 1, usbLink),
 
-    ("digitalBidirSinkLink", 5, digitalBidirSinkLink),
-    ("digitalBidirSourceLink", 5, digitalBidirSourceLink),
+    ("digitalBidirSinkLink", 4, digitalBidirSinkLink),
+    ("digitalBidirSourceLink", 4, digitalBidirSourceLink),
     ("digitalLink", 4, digitalLink),
 
     ("i2cLink", 1, i2cLink 1),
 
-    ("digitalLink", 2, digitalLink),
-
     ("motorLink", 1, motorLink),
-    ("analogLink", 1, analogLink),
+    ("analogLink", 1, analogLink)
 
-    ("uartLink", 1, uartLink)
     ]
   }
 
