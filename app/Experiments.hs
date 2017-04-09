@@ -20,6 +20,7 @@ import Control.Monad
 
 import Text.Printf
 
+import Data.Ratio
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -255,6 +256,20 @@ maxLibrary (EDGLibrary mods1 lnks1) (EDGLibrary mods2 lnks2)
     lnksOm = Map.unionWith (\ (c,m) (c',_) -> (max c c',m)) lnks1m lnks2m
     modsO = map (\ (a,(b,c)) -> (a,b,c)) . Map.assocs $ modsOm
     lnksO = map (\ (a,(b,c)) -> (a,b,c)) . Map.assocs $ lnksOm
+
+-- multLibrary :: Double -> EDGLibrary -> EDGLibrary
+-- multLibrary d (EDGLibrary mods lnks)
+--   = EDGLibrary modsO lnksO
+--   where
+--     modsO = map (\ (a,b,c) -> (a,mult b,c)) $ mods
+--     lnksO = map (\ (a,b,c) -> (a,mult b,c)) $ lnks
+--     mult i = floor $ (toRational d) * (i % 1)
+
+countParts :: EDGLibrary -> Int
+countParts (EDGLibrary mods lnks) = sum (modsO ++ lnksO)
+  where
+    modsO = map (\ (a,b,c) -> b) $ mods
+    lnksO = map (\ (a,b,c) -> b) $ lnks
 
 printLibMods :: EDGLibrary -> String
 printLibMods = show . map (\ (a,b,_) -> (a,b)) . modules
