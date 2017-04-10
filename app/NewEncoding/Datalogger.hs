@@ -332,7 +332,7 @@ run :: EDGSettings -> IO ()
 run = makeSynthFunc fullModLibrary [("Seed",seed)]
 
 olrun :: EDGSettings -> IO ()
-run = makeSynthFunc fullModOlLibrary [("Seed",seed)]
+olrun = makeSynthFunc fullModOlLibrary [("Seed",seed)]
 
 minRun :: EDGSettings -> IO ()
 minRun = makeSynthFunc minLibrary [("Seed",seed)]
