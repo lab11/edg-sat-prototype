@@ -120,7 +120,7 @@ medLibrary = EDGLibrary{
   }
 
 medOlLibrary :: EDGLibrary
-medLibrary = EDGLibrary{
+medOlLibrary = EDGLibrary{
   modules = [
     -- Base links
     ("i2cPower", 1, i2cPower),
@@ -171,7 +171,7 @@ medLibrary = EDGLibrary{
   }
 
 fullModLibrary :: EDGLibrary
-fullLibrary = EDGLibrary{
+fullModLibrary = EDGLibrary{
   modules = [
     -- Base links
     ("i2cPower", 1, i2cPower),
@@ -225,7 +225,7 @@ fullLibrary = EDGLibrary{
   }
 
 fullModOlLibrary :: EDGLibrary
-fullLibrary = EDGLibrary{
+fullModOlLibrary = EDGLibrary{
   modules = [
     -- Base links
     ("i2cPower", 1, i2cPower),
