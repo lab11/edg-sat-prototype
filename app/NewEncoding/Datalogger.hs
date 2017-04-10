@@ -344,4 +344,4 @@ medRun :: EDGSettings -> IO ()
 medRun = makeSynthFunc medLibrary [("Seed",seed)]
 
 medOlRun :: EDGSettings -> IO ()
-medOlRun = makeSynthFunc medOLLibrary [("Seed",seed)]
+medOlRun = makeSynthFunc medOlLibrary [("Seed",seed)]
