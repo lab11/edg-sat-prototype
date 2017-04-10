@@ -30,8 +30,7 @@ minLibrary = EDGLibrary{
   links = [
     ("apiLink", 2, apiLink),
 
-    ("powerLink", 3, powerLink 6),
-    ("usbLink", 1, usbLink),
+    ("powerLink", 2, powerLink 6),
 
     ("digitalBidirSinkLink", 6, digitalBidirSinkLink),
     ("motorLink", 2, motorLink),
@@ -103,14 +102,6 @@ seed = do
 
   let makePorts i s m = forM @[] [1..i]
         (\ id -> let name = s ++ (show id) in addPort name $ m name)
-
-  usbHost <- addPort "usbHost" $ do
-    usbHost
-    setType[
-      "voltage" <:= range (FloatV 4.5) (FloatV 5.5),
-      "limitCurrent" <:= range (FloatV 0) (FloatV 0.5)
-      ]
-    return ()
 
   -- 2S lithium-ion / lithium-polymer battery
   power <- addPort "power" $ do

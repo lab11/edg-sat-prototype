@@ -162,6 +162,15 @@ seed = do
       ]
     return ()
 
+  pwr12v <- addPort "pwr12v" $ do
+    powerSource
+    setType[
+      "voltage" <:= range (FloatV 11.8) (FloatV 12.2),  -- really good supply!
+      "limitCurrent" <:= range (FloatV 0) (FloatV 3)  -- really beefy supply!
+      ]
+    return ()
+
+
   buttons <- makePorts 4 "button" $ \ name -> do
     apiConsumer
     setType [

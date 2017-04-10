@@ -125,6 +125,8 @@ apm3v3 = do
   setIdent "Arduino Pro Micro 3v3"
   setSignature "Arduino Pro Micro 3v3"
   setType [
+    "intCurrentMin" <:= FloatC unknown,
+    "intCurrentMax" <:= FloatC unknown,
     "MHz" <:= FloatV 8.0  -- TODO: is this useful?
     ]
 
@@ -135,12 +137,34 @@ apm3v3 = do
       ]
     return ()
 
-  constrain $ port usbIn connected
+  rawIn <- addPort "rawIn" $ do
+    powerSink
+    setType [  -- up to 600mV dropout
+        "limitVoltage" <:= (range (FloatV 3.9) (FloatV 12))
+      ]
+    return ()
+
+  constrain $ (port usbIn connected) :|| (port rawIn connected)
+  constrain $ Not ((port usbIn connected) :&& (port rawIn connected))
+
+  constrain $ port usbIn connected :=>
+    (port usbIn (typeVal "current.min") :== typeVal "intCurrentMin")
+  constrain $ port usbIn connected :=>
+    (port usbIn (typeVal "current.max") :== typeVal "intCurrentMax")
+
+  constrain $ port rawIn connected :=>
+    (port rawIn (typeVal "current.min") :== typeVal "intCurrentMin")
+  constrain $ port rawIn connected :=>
+    (port rawIn (typeVal "current.max") :== typeVal "intCurrentMax")
+
+  constrain $ port rawIn (typeVal "current.max") :<= Lit (FloatV 0.5)  -- max regulator current rating
 
   p5vOut <- addPort "5vOut" $ do
     powerSource
     return ()
+
   setFieldsEq False [usbIn, p5vOut] ["voltage.max"]
+  constrain $ (port p5vOut connected) :=> (port usbIn connected)
 
   -- MIC5219 regulator
   p3v3Out <- addPort "3v3Out" $ do
@@ -168,11 +192,11 @@ apm3v3 = do
     newResource ("A" ++ (show id))
   let pwmPins = map (\ pin -> digitalPins !! pin) [3, 5, 6, 9, 10]
 
-  constrain $ port usbIn (typeVal "current.min") :== Sum (
+  constrain $ typeVal "intCurrentMin" :== Sum (
     (port p5vOut $ typeVal "current.min") :
     (port p3v3Out $ typeVal "current.min") :
     (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
-  constrain $ port usbIn (typeVal "current.max") :== Sum (
+  constrain $ typeVal "intCurrentMax" :== Sum (
     (port p5vOut $ typeVal "current.max") :
     (port p3v3Out $ typeVal "current.max") :
     (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
