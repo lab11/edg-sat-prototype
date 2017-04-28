@@ -113,8 +113,7 @@ openLog = do
       "voltage" <:= range (FloatV 0) (FloatC unknown),
 
       "limitVoltage" <:= range (FloatV (-0.5)) (FloatC unknown),
-      "0VoltageLevel" <:= FloatV 0.6,
-      "1VoltageLevel" <:= FloatV 2.3,
+      "0VoltageLevel" <:= FloatV 0,
 
       "baud" <:= range (FloatV 0) (FloatV 115200)  -- "up to 115200bps"
       ]
@@ -127,6 +126,8 @@ openLog = do
 
   constrain $ port uart (typeVal "limit0VoltageLevel") :== typeVal "regVoltage.min" :* Lit(FloatV 0.3)
   constrain $ port uart (typeVal "limit1VoltageLevel") :== typeVal "regVoltage.max" :* Lit (FloatV 0.6)
+
+  constrain $ port uart (typeVal "1VoltageLevel") :== typeVal "regVoltage.min"
 
   setFieldsEq False [uart, api] ["controlUid", "controlName"]
 
@@ -194,8 +195,7 @@ arduinoTrinket3v3 = do
       setType [
         "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
         "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-        "0VoltageLevel" <:= FloatV 0.5,
-        "1VoltageLevel" <:= FloatV 2.5
+        "0VoltageLevel" <:= FloatV 0
         ]
       return ()
 
@@ -218,6 +218,9 @@ arduinoTrinket3v3 = do
             :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.3))
           constrain $ port setPort (typeVal "limit1VoltageLevel")
             :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.6))
+          constrain $ port setPort (typeVal "1VoltageLevel")
+            :== port p3v3Out (typeVal "voltage.min")
+
 
   forM_ @[] gpios $ \ gpio -> do
     let isSource = port gpio (typeVal "digitalDir") :== Lit (StringV "source")

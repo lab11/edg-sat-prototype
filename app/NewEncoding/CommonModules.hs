@@ -180,8 +180,7 @@ apm3v3 = do
       setType [
         "limitCurrent" <:= (range (FloatV (-0.04)) (FloatV 0.04)),
         "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-        "0VoltageLevel" <:= FloatV 0.5,
-        "1VoltageLevel" <:= FloatV 2.3,
+        "0VoltageLevel" <:= FloatV 0,
         "apiDir" <:= StringV "producer"
         ]
       return ()
@@ -208,6 +207,8 @@ apm3v3 = do
             :== (port p3v3Out (typeVal "voltage.min") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.1))
           constrain $ port setPort (typeVal "limit1VoltageLevel")
             :== (port p3v3Out (typeVal "voltage.max") :* Lit (FloatV 0.2) :+ Lit (FloatV 0.9))
+          constrain $ port setPort (typeVal "1VoltageLevel")
+            :== port p3v3Out (typeVal "voltage.min")
 
   forM_ @[] gpios $ \ gpio -> do
     let isSource = port gpio (typeVal "digitalDir") :== Lit (StringV "source")
@@ -246,7 +247,7 @@ apm3v3 = do
     i2cMaster
     setType [
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-      "0VoltageLevel" <:= FloatV 0.5,
+      "0VoltageLevel" <:= FloatV 0,
       "frequency" <:= range (FloatV 0) (FloatV 400e3)
       ]
     return ()
@@ -265,8 +266,7 @@ apm3v3 = do
     setType [
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-      "0VoltageLevel" <:= FloatV 0.5,
-      "1VoltageLevel" <:= FloatV 2.3,
+      "0VoltageLevel" <:= FloatV 0,
       "baud" <:= range (FloatV 0) (FloatV 1e6)
       ]
     return ()
@@ -287,8 +287,7 @@ apm3v3 = do
     setType [
       "voltage" <:= (range (FloatV 0) (FloatC unknown)),
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-      "0VoltageLevel" <:= FloatV 0.5,
-      "1VoltageLevel" <:= FloatV 2.3,
+      "0VoltageLevel" <:= FloatV 0,
       "frequency" <:= range (FloatV 0) (FloatV 4e6)  -- max of fOsc/2
       ]
     return ()

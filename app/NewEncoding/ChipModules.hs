@@ -41,7 +41,7 @@ tmp102 = do
     i2cSlave
     setType [
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatV 3.6)),
-      "0VoltageLevel" <:= FloatV 0.4,
+      "0VoltageLevel" <:= FloatV 0.0,
       "frequency" <:= range (FloatV 1e3) (FloatV 3.4e6),
       "id" <:= IntC $ oneOf[72, 73, 74, 75]
       ]
@@ -220,8 +220,6 @@ serialLcdBase16f88 = do
 
   constrain $ port uart (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.3))
 
-  -- constrain $ port "uart" (typeVal "1VoltageLevel") :== (port vin (typeVal "voltage.min") :- Lit (FloatV 0.7))
-  -- doesn't transmit, make it compatible with everything
   constrain $ port uart (typeVal "1VoltageLevel") :== port vin (typeVal "voltage.min")
 
   -- datasheet isn't clear about the RX input type, assuming TTL
@@ -369,7 +367,7 @@ pcf8575 = do
     i2cSlave
     setType [
       "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-      "0VoltageLevel" <:= FloatV 0.4,  -- guess based on specified Vol test conditions for SDA Iol
+      "0VoltageLevel" <:= FloatV 0,  -- guess based on specified Vol test conditions for SDA Iol
       "frequency" <:= range (FloatV 0) (FloatV 400e3),
       "id" <:= IntC $ oneOf[20, 21, 22, 23, 24, 25, 26, 27],
       "controlName" <:= StringV "pcf8575"
@@ -389,17 +387,18 @@ pcf8575 = do
       setType [
         "limitCurrent" <:= (range (FloatV (-1e-3)) (FloatV 25e-3)),
         "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
-        "0VoltageLevel" <:= FloatV 0.5,
-        "1VoltageLevel" <:= FloatV 2.3,
+        "0VoltageLevel" <:= FloatV 0,
         "apiType" <:= StringV "onOff",
         "apiDir" <:= StringV "producer"
         ]
+
       return ()
 
   forM_ @[] gpios $ \ gpio -> do
     let isSource = port gpio (typeVal "digitalDir") :== Lit (StringV "source")
     constrain $ isSource :=> port gpio (typeVal "voltage.min") :== Lit (FloatV 0)
     constrain $ isSource :=> port gpio (typeVal "voltage.max") :== port vin (typeVal "voltage.max")
+    constrain $ port gpio (typeVal "1VoltageLevel") :== port vin (typeVal "voltage.min")
     constrainPortVoltageLimits gpio
 
   constrain $ Any (map (\ gpio -> port gpio connected) gpios)
