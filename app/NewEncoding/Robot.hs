@@ -107,8 +107,8 @@ seed = do
   power <- addPort "power" $ do
     powerSource
     setType[
-      "voltage" <:= range (FloatV 7.4) (FloatV 8.4),
-      "limitCurrent" <:= range (FloatV 0) (FloatV 3)
+      "voltage" <:= range (FloatV 3.2) (FloatV 4.2),
+      "limitCurrent" <:= range (FloatV 0) (FloatV 5)  -- 1Ah LiPo @ 5C
       ]
     return ()
 
@@ -127,7 +127,7 @@ seed = do
     setType [
       "limitVoltage" <:= range (FloatV 0) (FloatV 6),
       "limitDriveVoltage" <:= FloatV 3,
-      "current" <:= range (FloatV 0) (FloatV 0.4),
+      "current" <:= range (FloatV 0) (FloatV 1.5),
       "controlName" <:= StringV name
       ]
     return ()

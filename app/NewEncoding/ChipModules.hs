@@ -114,7 +114,7 @@ tb6612fng = do
   vmotor <- addPort "vmotor" $ do
     powerSink
     setType [
-      "limitVoltage" <:= range (FloatV 4.5) (FloatV 13.5),
+      "limitVoltage" <:= range (FloatV 2.5) (FloatV 13.5),
       "current" <:= range (FloatV 0) (FloatC unknown)
       ]
     return ()
