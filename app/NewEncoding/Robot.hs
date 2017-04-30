@@ -22,7 +22,6 @@ minLibrary = EDGLibrary{
 
     -- Interfaces
     ("tb6612fng", 1, tb6612fng),
-    ("l7805", 1, l7805),
 
     -- Microcontrollers
     ("apm3v3", 1, apm3v3)
@@ -107,7 +106,7 @@ seed = do
   power <- addPort "power" $ do
     powerSource
     setType[
-      "voltage" <:= range (FloatV 3.2) (FloatV 4.2),
+      "voltage" <:= range (FloatV 3.6) (FloatV 4.2),
       "limitCurrent" <:= range (FloatV 0) (FloatV 5)  -- 1Ah LiPo @ 5C
       ]
     return ()
@@ -127,7 +126,7 @@ seed = do
     setType [
       "limitVoltage" <:= range (FloatV 0) (FloatV 6),
       "limitDriveVoltage" <:= FloatV 3,
-      "current" <:= range (FloatV 0) (FloatV 1.5),
+      "current" <:= range (FloatV 0) (FloatV 0.4),
       "controlName" <:= StringV name
       ]
     return ()

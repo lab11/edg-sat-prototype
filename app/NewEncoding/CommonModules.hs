@@ -140,12 +140,15 @@ apm3v3 = do
   rawIn <- addPort "rawIn" $ do
     powerSink
     setType [  -- up to 600mV dropout
-        "limitVoltage" <:= (range (FloatV 3.9) (FloatV 12))
+        "limitVoltage" <:= (range (FloatC unknown) (FloatV 12))
       ]
     return ()
 
   constrain $ (port usbIn connected) :|| (port rawIn connected)
   constrain $ Not ((port usbIn connected) :&& (port rawIn connected))
+
+  constrain $ typeVal "intCurrentMin" :<= typeVal "intCurrentMax"
+  constrain $ typeVal "intCurrentMin" :>= Lit (FloatV 0)
 
   constrain $ port usbIn connected :=>
     (port usbIn (typeVal "current.min") :== typeVal "intCurrentMin")
@@ -158,6 +161,9 @@ apm3v3 = do
     (port rawIn (typeVal "current.max") :== typeVal "intCurrentMax")
 
   constrain $ port rawIn (typeVal "current.max") :<= Lit (FloatV 0.5)  -- max regulator current rating
+  -- Dropout calculated using linearization from two worst-case points: 300mV @ 150mA and 500mV @ 500mA
+  constrain $ port rawIn (typeVal "limitVoltage.min")
+    :== Lit (FloatV 3.514) :+ (Lit (FloatV 0.571) :* (port rawIn (typeVal "current.max")))
 
   p5vOut <- addPort "5vOut" $ do
     powerSource
