@@ -166,7 +166,9 @@ medOlLibrary = EDGLibrary{
     ("digitalBidirSourceLink", 3, digitalBidirSourceLink),
 
     ("motorLink", 1, motorLink),
-    ("analogLink", 1, analogLink)
+    ("analogLink", 1, analogLink),
+
+    ("uartLink", 1, uartLink)
     ]
   }
 
