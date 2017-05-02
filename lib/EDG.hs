@@ -109,7 +109,6 @@ import Control.Exception
 import System.CPUTime
 import System.Exit
 import Control.Monad
-import Control.Exception (evaluate)
 import Control.DeepSeq
 import GHC.Generics
 
@@ -195,15 +194,15 @@ import qualified EDG.EDGMonad as E (
   , connectionVars
   , extract
   )
-import qualified Data.SBV as SBV (
-    satWith
-  , allSatWith
-  , defaultSMTCfg
-  , SMTConfig(..)
-  , AllSatResult(..)
-  , SMTResult(..)
-  , SatResult(..)
-  )
+-- import qualified Data.SBV as SBV (
+--     satWith
+--   , allSatWith
+--   , defaultSMTCfg
+--   , SMTConfig(..)
+--   , AllSatResult(..)
+--   , SMTResult(..)
+--   , SatResult(..)
+--   )
 import qualified Data.IORef as IO (
     IORef
   , newIORef
@@ -333,11 +332,11 @@ pattern StringC a = A.Abstract(E.Constrained (E.String a))
 
 -- | TODO
 pattern UID :: AmbigVal
-pattern UID = A.Abstract(E.Constrained (E.UID (E.UCBottom)))
+pattern UID = A.Abstract(E.Constrained (E.UID E.UCBottom))
 
 -- | Allocate a new unique UID
 pattern NewUID :: AmbigVal
-pattern NewUID = A.Abstract(E.Constrained (E.UID (E.UCNew)))
+pattern NewUID = A.Abstract(E.Constrained (E.UID E.UCNew))
 
 -- | TODO
 pattern Record :: E.RecCons -> AmbigVal
@@ -352,9 +351,9 @@ range min max = Record ["min" <:= min, "max" <:= max]
 -- | TODO
 validRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
           => Exp m -> Exp m
-validRange v = (GetField v "max") :>= (GetField v "min")
+validRange v = GetField v "max" :>= GetField v "min"
 
--- | Initialize a range, adding neccesary constraints.
+-- | Initialize a range, adding neccesary constraints. -> 
 initRange :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
           => Exp m -> m ()
 initRange = constrain . validRange
@@ -372,14 +371,14 @@ rContained a r
 rSubset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
           => Exp m -> Exp m -> Exp m
 rSubset a b
-  =   (aMin :<= aMax)
-  :&& (bMin :<= aMin) :&& (aMin :<= bMax)
-  :&& (bMin :<= aMax) :&& (aMax :<= bMax)
+  =   (aMi :<= aMa)
+  :&& (bMi :<= aMi) :&& (aMi :<= bMa)
+  :&& (bMi :<= aMa) :&& (aMa :<= bMa)
   where
-    aMin = GetField a "min"
-    aMax = GetField a "max"
-    bMin = GetField b "min"
-    bMax = GetField b "max"
+    aMi = GetField a "min"
+    aMa = GetField a "max"
+    bMi = GetField b "min"
+    bMa = GetField b "max"
 
 -- | TODO
 rSuperset :: (Monad m, Constrainable m, Exp m ~ E.Exp (PExp m))
@@ -438,7 +437,7 @@ lessThanEq = E.lessThanEq
 (+/-) :: forall a. (E.LTConstraint a, E.GTConstraint a
           , Num (A.PredDom a), GHC.Exts.IsList a, GHC.Exts.Item a ~ a)
           => A.PredDom a -> A.PredDom a -> a
-a +/- b = [(greaterThanEq $ a - b :: a),(lessThanEq $ a + b :: a)]
+a +/- b = [greaterThanEq $ a - b :: a,lessThanEq $ a + b :: a]
 
 -- | TODO
 between :: forall a. (E.LTConstraint a, E.GTConstraint a
@@ -799,8 +798,8 @@ instance IsBlock Module where
   resourceUsed = E.evResourceUsed
   port :: String -> Exp ModulePort -> Exp Module
   port s (Val d) = E.evPortVal s d
-  port s e = (error $ "One cannot refer to port `" ++ s
-    ++ "` with a resource of type `" ++ show e ++ "`" :: Exp Module)
+  port s e = error $ "One cannot refer to port `" ++ s
+    ++ "` with a resource of type `" ++ show e ++ "`" :: Exp Module
 
 instance IsBlock Link where
   type Resource Link = E.Resource E.Link
@@ -821,20 +820,20 @@ instance IsBlock Link where
   resourceUsed = E.evResourceUsed
   port :: String -> Exp LinkPort -> Exp Link
   port s (Val d) = E.evPortVal s d
-  port s e = (error $ "One cannot refer to port `" ++ s
-    ++ "` with a resource of type `" ++ show e ++ "`" :: Exp Link)
+  port s e = error $ "One cannot refer to port `" ++ s
+    ++ "` with a resource of type `" ++ show e ++ "`" :: Exp Link
 
 -- * Building a Device Generation Problem
 
 -- | TODO
 data EDGSettings = EDGSettings {
-    verboseSBV :: Bool
-  , printOutput :: Bool
-  , outputFile :: Maybe FilePath
-  , graphvizFiles :: [(String,FilePath)]
-  , smtLibFile :: Maybe FilePath
-  , supressSMT :: Bool
-  , timingData :: [FilePath]
+    verboseSBV                   :: Bool
+  , printOutput                  :: Bool
+  , outputFile                   :: Maybe FilePath
+  , graphvizFiles                :: [(String,FilePath)]
+  , smtLibFile                   :: Maybe FilePath
+  , supressSMT                   :: Bool
+  , timingData                   :: [FilePath]
   }
 
 -- | TODO
@@ -851,26 +850,23 @@ defaultSettings = EDGSettings{
 
 parseSettings :: Parser EDGSettings
 parseSettings = EDGSettings
-  <$> (switch
-          $  long "verboseSMT"
+  <$> switch
+          (  long "verboseSMT"
           <> short 'V'
           <> help "Print the full input problem sent to the SMT solver"
-          <> showDefault
-      )
-  <*> (switch
-        $  long "stdout"
+          <> showDefault)
+  <*> switch
+        (  long "stdout"
         <> short 't'
         <> help "Print the output to STDOUT"
-        <> showDefault
-      )
-  <*> (optional . strOption
-        $  long "output"
+        <> showDefault)
+  <*> optional . strOption
+        (  long "output"
         <> short 'o'
         <> metavar "<FILE>"
-        <> help "Write the output to FILE"
-      )
-  <*> (many . fmap parseGraphvizOption . strOption
-        $  long "graph-output"
+        <> help "Write the output to FILE")
+  <*> many . fmap parseGraphvizOption . strOption
+        (  long "graph-output"
         <> short 'g'
         <> metavar "<FILE or TYPE=FILE>"
         <> help ("Write the graph to FILE. Many supported filetypes "
@@ -887,32 +883,28 @@ parseSettings = EDGSettings
           ++ "\n 3) OLD, the old clustered output mode, which shows ports in"
           ++ " both the link and module."
           ++ "\n 4) DEFAULT, Option chosen if no type is specified, currently"
-          ++ " 'simple'.")
-      )
-  <*> (optional . strOption
-        $  long "smt-lib-output"
+          ++ " 'simple'."))
+  <*> optional . strOption
+        (  long "smt-lib-output"
         <> short 's'
         <> metavar "<FILE>"
         <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
-          ++ "debugging and seeing how large things are.")
-      )
-  <*> (switch
-        $  long "skip-smt"
+          ++ "debugging and seeing how large things are."))
+  <*> switch
+        (  long "skip-smt"
         <> help ("Skip the SMT solving phase of the process, useful for "
-          ++ "profiling.")
-      )
-  <*> (many . strOption
-        $  long "timing-data"
+          ++ "profiling."))
+  <*> many . strOption
+        (  long "timing-data"
         <> short 'c'
         <> metavar "<FILE>"
         <> help ("Write timing info to FILE. Mainy useful for "
-          ++ "experiments. Just appends to file. Can be used multiple times.")
-      )
+          ++ "experiments. Just appends to file. Can be used multiple times."))
 
 parseGraphvizOption :: String -> (String,FilePath)
 parseGraphvizOption s
-  | (x:y:[]) <- splitString = (x,y)
-  | not $ elem '=' s = ("default",s)
+  | [x,y] <- splitString = (x,y)
+  | '=' `notElem` s = ("default",s)
   | otherwise = error $ "Cannot use filenames with an '=' symbol."
     ++ show splitString
   where
@@ -959,7 +951,7 @@ wrapModel :: SBV.Modelable a => a -> ModelableWrapper a
 wrapModel a = MW{
     model = a
   , dict = dc
-  , modVal = (\ s -> SBV.fromCW <$> Map.lookup s dc)
+  , modVal = \ s -> SBV.fromCW <$> Map.lookup s dc
   }
   where
     dc = SBV.getModelDictionary a
@@ -976,7 +968,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
       evaluate . (\ (a,b,c) -> (a,force b,c)) $ E.runEDGMonad (Just ss) edgm
     when supressSMT exitSuccess
     solution :: SBV.SatResult <- time "Sat Solving" $ (evaluate . force) =<<
-      (SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM)
+      SBV.satWith SBV.defaultSMTCfg{SBV.verbose = verboseSBV} symbM
     case solution of
       SBV.SatResult (SBV.Satisfiable _ _) -> do
         (decodeState,decodeResult',sbvState) <- time "Decoding SAT Output" $ do
@@ -988,9 +980,9 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             return (decodeState, decodeResult',sbvState)
         case decodeResult' of
           Left s -> do
-            putStrLn $ "Resulting solution was : "
-            E.pPrint $ solution
-            putStrLn $ "\n\n"
+            putStrLn "Resulting solution was : "
+            E.pPrint solution
+            putStrLn "\n\n"
             putStrLn $ "Decode of solution failed with : " ++ s
             return ()
           Right decodeResult -> time "Building Output Files" $ do
@@ -998,9 +990,9 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
             when printOutput $ E.pPrint decodeResult
             -- Generate and print smtlib file
             sequence_ $ time "generating/writing smt-lib file"
-              <$> (flip fmap smtLibFile $ \ f -> do
+              <$> fmap (\ f -> do
                 s <- SBV.compileToSMTLib SBV.SMTLib2 True symbM
-                writeFile f s)
+                writeFile f s) smtLibFile
             -- TODO :: Write output to file
             time "writing output data file" $ sequence_ $
               flip T.writeFile (T.pShowNoColor decodeResult) <$> outputFile
@@ -1009,7 +1001,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
                   outputGraphOld     = E.genGraphOld decodeResult
                   outputGraphVerbose = E.genGraphVerbose decodeResult
                   outputGraphDefault = outputGraphSimple
-              flip mapM_ graphvizFiles $ \ (graphType, filename) -> do
+              forM_ graphvizFiles $ \ (graphType, filename) ->
                 case map toLower graphType of
                   "simple" -> E.writeGraph outputGraphSimple filename
                   "old" -> E.writeGraph outputGraphOld filename
@@ -1024,19 +1016,19 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
 
   where
     edgm = do
-      let ls = concat . map makeDups $ links
-          ms = concat . map makeDups $ modules
+      let ls = concatMap makeDups links
+          ms = concatMap makeDups modules
       trace "adding links" $ mapM_ (uncurry E.addLink) ls
       trace "adding modules" $ mapM_ (uncurry E.addModule) ms
       seedRefs <- trace "adding seeds " $
-        flip mapM seeds $ \(seedName,seedModule) -> do
+        forM seeds $ \(seedName,seedModule) -> do
           seed <- E.addModule seedName seedModule
           E.assertModuleUsed seed
           return seed
       -- NOTE :: Any changes must happen before this point otherwise
       --         you'll break the optional constraints thing.
-      trace "adding connections" $ E.createAllOptionalConnections
-      trace "cleaning up first pass" $ E.finishUpConstraints
+      trace "adding connections" E.createAllOptionalConnections
+      trace "cleaning up first pass" E.finishUpConstraints
       return (head seedRefs)
 
     makeDups :: (String,Int,b) -> [(String,b)]
@@ -1053,12 +1045,12 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
         cEnd   <- getCPUTime
         wEnd <- getCurrentTime
         putStrLn $ "Finished : " ++ s
-        let cDiff = (fromIntegral (cEnd - cStart)) / (10^12)
-            wDiff = (fromRational . toRational $ diffUTCTime wEnd wStart)-- / (10^12)
+        let cDiff = fromIntegral (cEnd - cStart) / (10^12)
+            wDiff = fromRational . toRational $ diffUTCTime wEnd wStart-- / (10^12)
         printf ("Computation time (%s):\n"
           ++ "  cpu  : %0.3f sec\n"
           ++ "  wall : %0.3f sec\n" :: String)
-          (s :: String)(cDiff :: Double)(wDiff :: Double)
+          (s :: String) (cDiff :: Double) (wDiff :: Double)
         sequence_ $ fmap (printTime cDiff wDiff) timingData
         return v
 
@@ -1068,7 +1060,7 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
           printTime cpu wall fp = do
             progName <- getProgName
             args <- getArgs
-            let cmd = concat . intersperse " " $ progName : args
+            let cmd = unwords $ progName : args
             time <- getCurrentTime
             appendFile fp $
               printf ("{\"cmd\":%s,\"time\":%s,\"phase\":%s,"
@@ -1077,9 +1069,6 @@ synthesizeWithSettings EDGSettings{..} EDGLibrary{..} seeds =
                 (show $ formatTime defaultTimeLocale
                     rfc822DateFormat time :: String)
                 (show s :: String) (wall :: Double) (cpu :: Double)
-
-
-
 
 -- * Utility Functions
 
