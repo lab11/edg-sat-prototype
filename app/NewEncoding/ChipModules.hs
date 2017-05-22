@@ -342,51 +342,51 @@ sdcard = do
 
   return ()
 
-pcf8575 :: Module ()
-pcf8575 = do
-  setIdent "PCF8575 I2C Expander"
-  setSignature "PCF8575 I2C Expander"
+mcp23008 :: Module ()
+mcp23008 = do
+  setIdent "MCP23008 I2C Expander"
+  setSignature "MCP23008 I2C Expander"
   setType []
 
   vin <- addPort "vin" $ do
     powerSink
     setType [
-      "limitVoltage" <:= (range (FloatV 2.5) (FloatV 5.5))
+      "limitVoltage" <:= (range (FloatV 1.8) (FloatV 5.5))
       ]
     return ()
 
   let constrainPortVoltageLimits setPort = do
-          constrain $ port setPort (typeVal "limitVoltage.max"  )
-            :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+          constrain $ port setPort (typeVal "limitVoltage.max")
+            :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.6))
           constrain $ port setPort (typeVal "limit0VoltageLevel")
-            :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.3))
+            :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.2))
           constrain $ port setPort (typeVal "limit1VoltageLevel")
-            :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.7))
+            :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.8))
 
   i2c <- addPort "i2c" $ do
     i2cSlave
     setType [
-      "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+      "limitVoltage" <:= (range (FloatV (-0.6)) (FloatC unknown)),
       "0VoltageLevel" <:= FloatV 0,  -- guess based on specified Vol test conditions for SDA Iol
       "frequency" <:= range (FloatV 0) (FloatV 400e3),
-      "id" <:= IntC $ oneOf[20, 21, 22, 23, 24, 25, 26, 27],
-      "controlName" <:= StringV "pcf8575"
+      "id" <:= IntC $ oneOf[32, 33, 34, 35, 36, 37, 38, 39],
+      "controlName" <:= StringV "mcp23008"
       ]
     return ()
 
   ensureConnected [vin, i2c]
 
-  constrain $ port i2c (typeVal "limit0VoltageLevel") :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.3))
-  constrain $ port i2c (typeVal "limit1VoltageLevel") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.7))
-  constrain $ port i2c (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.5))
+  constrain $ port i2c (typeVal "limit0VoltageLevel") :== (port vin (typeVal "voltage.min") :* Lit (FloatV 0.2))
+  constrain $ port i2c (typeVal "limit1VoltageLevel") :== (port vin (typeVal "voltage.max") :* Lit (FloatV 0.8))
+  constrain $ port i2c (typeVal "limitVoltage.max") :== (port vin (typeVal "voltage.min") :+ Lit (FloatV 0.6))
 
   -- Technically, this thing has 16 GPIOs, but is overkill and impacts performance
   gpios <- forM @[] [1..8] $ \ gpioId ->
     addPort ("gpio" ++ (show gpioId)) $ do
       digitalBidir
       setType [
-        "limitCurrent" <:= (range (FloatV (-1e-3)) (FloatV 25e-3)),
-        "limitVoltage" <:= (range (FloatV (-0.5)) (FloatC unknown)),
+        "limitCurrent" <:= (range (FloatV (-25e-3)) (FloatV 25e-3)),
+        "limitVoltage" <:= (range (FloatV (-0.6)) (FloatC unknown)),
         "0VoltageLevel" <:= FloatV 0,
         "apiType" <:= StringV "onOff",
         "apiDir" <:= StringV "producer"
@@ -404,10 +404,10 @@ pcf8575 = do
   constrain $ Any (map (\ gpio -> port gpio connected) gpios)
 
   constrain $ port vin (typeVal "current.min") :== Sum (
-    (Lit (FloatV 100e-6)) :  -- device operating current
+    (Lit (FloatV 1e-6)) :  -- device standby current
     (map (\ gpio -> port gpio (typeVal "current.min")) gpios))
   constrain $ port vin (typeVal "current.max") :== Sum (
-    (Lit (FloatV 200e-6)) :  -- device operating current
+    (Lit (FloatV 1e-3)) :  -- operating current
     (map (\ gpio -> port gpio (typeVal "current.max")) gpios))
 
   setFieldsEq False (i2c : gpios) ["controlUid"]

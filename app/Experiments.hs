@@ -52,7 +52,7 @@ fullLibrary = EDGLibrary{
     ("qre1113Analog", 2, qre1113Analog),
     ("pwmControlFan", 1, powerControlFan),
     ("powerControlFan", 1, pwmControlFan),
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng),
     ("digitalAmplifier", 1, digitalAmplifier),
     ("litButton", 4, litButton),
@@ -113,7 +113,7 @@ buttonMin = EDGLibrary {
     ("led", 1, led),
     -- Interfaces
     ("domeButton", 1, domeButton),
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("litButton", 1, litButton)
     ],
   links = [
@@ -145,7 +145,7 @@ fanMin = EDGLibrary{
   modules = [
     ("pwmControlFan", 1, powerControlFan),
     ("powerControlFan", 1, pwmControlFan),
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng),
     ("digitalAmplifier", 1, digitalAmplifier)
     ],
@@ -169,7 +169,7 @@ sensorMin = EDGLibrary{
     ("i2cPower", 1, i2cPower),
     ("tmp102", 1, tmp102),
     ("qre1113Analog", 2, qre1113Analog),
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng),
     ("digitalAmplifier", 1, digitalAmplifier)
     ],
@@ -213,7 +213,7 @@ storageMin = EDGLibrary{
 displayMin :: EDGLibrary
 displayMin = EDGLibrary{
   modules = [
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng)
     ],
   links = [

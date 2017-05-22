@@ -24,7 +24,7 @@ minLibrary = EDGLibrary{
     ("domeButton", 4, domeButton),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("digitalAmplifier", 4, digitalAmplifier),
 
     -- Microcontrollers
@@ -61,7 +61,7 @@ medLibrary = EDGLibrary{
     ("qre1113Analog", 1, qre1113Analog),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("digitalAmplifier", 4, digitalAmplifier),
     ("tb6612fng", 1, tb6612fng),
 
@@ -110,7 +110,7 @@ fullModLibrary = EDGLibrary{
     ("powerControlFan", 1, powerControlFan),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng),
     ("digitalAmplifier", 4, digitalAmplifier),
 

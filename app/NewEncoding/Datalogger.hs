@@ -95,7 +95,7 @@ medLibrary = EDGLibrary{
 
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("litButton", 2, litButton),
 
     ("l7805", 1, l7805)
@@ -146,7 +146,7 @@ medOlLibrary = EDGLibrary{
 
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("litButton", 2, litButton),
 
     ("l7805", 1, l7805)
@@ -193,7 +193,7 @@ fullModLibrary = EDGLibrary{
     ("powerControlFan", 1, powerControlFan),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng),
     ("digitalAmplifier", 4, digitalAmplifier),
     ("litButton", 4, litButton),
@@ -248,7 +248,7 @@ fullModOlLibrary = EDGLibrary{
     ("powerControlFan", 1, powerControlFan),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("tb6612fng", 1, tb6612fng),
     ("digitalAmplifier", 4, digitalAmplifier),
     ("litButton", 4, litButton),

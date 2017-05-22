@@ -65,7 +65,7 @@ medLibrary = EDGLibrary{
     ("powerControlFan", 1, pwmControlFan),
 
     -- Interfaces
-    ("pcf8575", 1, pcf8575),
+    ("mcp23008", 1, mcp23008),
     ("litButton", 2, litButton),
 
     ("l7805", 1, l7805)
