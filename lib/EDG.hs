@@ -860,12 +860,12 @@ parseSettings = EDGSettings
         <> short 't'
         <> help "Print the output to STDOUT"
         <> showDefault)
-  <*> optional . strOption
+  <*> optional ( strOption
         (  long "output"
         <> short 'o'
         <> metavar "<FILE>"
-        <> help "Write the output to FILE")
-  <*> many . fmap parseGraphvizOption . strOption
+        <> help "Write the output to FILE"))
+  <*> many  (parseGraphvizOption <$> strOption
         (  long "graph-output"
         <> short 'g'
         <> metavar "<FILE or TYPE=FILE>"
@@ -883,23 +883,23 @@ parseSettings = EDGSettings
           ++ "\n 3) OLD, the old clustered output mode, which shows ports in"
           ++ " both the link and module."
           ++ "\n 4) DEFAULT, Option chosen if no type is specified, currently"
-          ++ " 'simple'."))
-  <*> optional . strOption
+          ++ " 'simple'.")))
+  <*> optional ( strOption
         (  long "smt-lib-output"
         <> short 's'
         <> metavar "<FILE>"
         <> help ("Write the raw SMT-LIB output to FILE. Mainy useful for "
-          ++ "debugging and seeing how large things are."))
+          ++ "debugging and seeing how large things are.")))
   <*> switch
         (  long "skip-smt"
         <> help ("Skip the SMT solving phase of the process, useful for "
           ++ "profiling."))
-  <*> many . strOption
+  <*> many ( strOption
         (  long "timing-data"
         <> short 'c'
         <> metavar "<FILE>"
         <> help ("Write timing info to FILE. Mainy useful for "
-          ++ "experiments. Just appends to file. Can be used multiple times."))
+          ++ "experiments. Just appends to file. Can be used multiple times.")))
 
 parseGraphvizOption :: String -> (String,FilePath)
 parseGraphvizOption s
