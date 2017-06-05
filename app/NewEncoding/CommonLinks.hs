@@ -253,6 +253,7 @@ apiLink = do
     , "controlName"
     , "apiType"
     , "apiData"
+    , "deviceData"
     ]
 
   return ()
