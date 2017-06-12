@@ -6,7 +6,7 @@ existing constraint solvers like Z3.
 
 ## Papers and Additional Material ##
 
-### Symposium for Computational Fabrication 2017 ###
+### Symposium on Computational Fabrication 2017 ###
 
 Our full appendix for the SCF 2017 paper, including code and details of experiments, can be found [here](https://github.com/lab11/edg-sat-prototype/blob/master/appendix/scf2017.md).
 
