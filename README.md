@@ -4,7 +4,7 @@ This is the prototype repository for Embedded Design Generation, a methodology
 that automates much of the embedded design process through judicious use of
 existing constraint solvers like Z3.
 
-## Papers and additional material ##
+## Papers and Additional Material ##
 
 ### Symposium for Computational Fabrication 2017 ###
 
